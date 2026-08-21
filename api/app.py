@@ -17,8 +17,8 @@ app = Flask(__name__)
 # CORS restrito as origens de CORS_ORIGINS (vazio = nenhuma origem cross-origin).
 CORS(app, origins=CORS_ORIGINS)
 
-# Rotas liberadas sem API key mesmo com auth ligada (health check).
-_ROTAS_PUBLICAS = {'saude'}
+# Rotas liberadas sem API key mesmo com auth ligada (health check + o painel HTML).
+_ROTAS_PUBLICAS = {'saude', 'painel', 'static'}
 
 
 @app.before_request
@@ -52,6 +52,12 @@ def _erro(message: str, exc, status: int):
     # (evita expor schema/mensagens internas do Supabase). Ver SEGURANCA.md.
     app.logger.warning('%s: %s', message, exc)
     return jsonify({'erro': message}), status
+
+
+@app.get('/')
+def painel():
+    # Dashboard HTML (static/index.html) para o gestor. Os dados vem dos endpoints JSON.
+    return app.send_static_file('index.html')
 
 
 @app.get('/saude')

@@ -1,3 +1,11 @@
+-- ==========================================================================
+-- ATENCAO: para um projeto NOVO/limpo, NAO use este arquivo. Use
+-- sql/preparar_supabase.sql (ele cria as tabelas + view + indices + este RLS,
+-- tudo de uma vez). Este arquivo aqui NAO cria tabelas e assume que ja existem
+-- as tabelas de negocio (cliente/sinistros/equipamentos/riscos) - rodar num
+-- projeto vazio vai dar erro. Use-o so num projeto que ja tem o schema completo.
+-- ==========================================================================
+
 -- SOMPO - Politicas de acesso das tabelas gravadas pelo ESP32
 -- Rodar no SQL Editor do painel do Supabase.
 --

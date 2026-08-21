@@ -16,6 +16,27 @@ Caminhos:
 
 ---
 
+## 0.b Preparar o Supabase (uma vez, quando tiver acesso ao banco)
+
+O banco começa **vazio e sem tabelas**. Antes de qualquer passo que use o banco (3 em diante):
+
+1. Crie/entre no projeto em [supabase.com](https://supabase.com).
+2. Abra o **SQL Editor** e rode o script **`sql/preparar_supabase.sql`** (na pasta do firmware).
+   Ele cria as tabelas `telemetria` e `eventos`, a view `resumo_diario`, os índices e o RLS.
+   É idempotente — pode rodar de novo sem quebrar.
+3. Em **Settings → API**, copie e cole:
+   - **Project URL** → `SUPABASE_URL_CFG` no `segredos.h` **e** `SUPABASE_URL` no `.env`.
+   - **anon / publishable key** → `SUPABASE_CHAVE_CFG` no `segredos.h` (é a que vai no ESP32).
+   - **service_role / secret key** → `SUPABASE_SECRET_KEY` no `.env` (fica só na API).
+
+Feito isso, **todo o resto funciona sem tocar em código** — o schema já bate com o que o ESP32
+grava e a API lê. (Confira a conexão com `scripts/testar_supabase.py`, passo 2.)
+
+> Num projeto novo/limpo, use **só** o `preparar_supabase.sql`. O `politicas_rls.sql` antigo assume
+> tabelas de negócio (cliente/sinistros/etc.) que talvez você não tenha, e daria erro num projeto vazio.
+
+---
+
 ## 1. API offline — testa o código sem internet nem hardware (~2 min)
 
 ```powershell

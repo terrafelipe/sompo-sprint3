@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SOMPO · Painel de Risco</title>
+<style>
+  :root{
+    --bg:#0f172a; --bg2:#1e293b; --card:#1e293b; --line:#334155;
+    --txt:#e2e8f0; --muted:#94a3b8; --brand:#38bdf8;
+    --verde:#22c55e; --amarelo:#f59e0b; --vermelho:#ef4444;
+    --shadow:0 4px 20px rgba(0,0,0,.25);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+       background:linear-gradient(160deg,#0f172a,#0b1220);color:var(--txt);min-height:100vh}
+  header{position:sticky;top:0;z-index:10;background:rgba(15,23,42,.9);backdrop-filter:blur(8px);
+         border-bottom:1px solid var(--line);padding:14px 20px;display:flex;flex-wrap:wrap;
+         align-items:center;gap:14px}
+  header h1{margin:0;font-size:18px;letter-spacing:.5px}
+  header h1 span{color:var(--brand)}
+  header .sub{color:var(--muted);font-size:12px;margin-top:2px}
+  .grow{flex:1}
+  .pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;
+        padding:5px 10px;border-radius:999px;border:1px solid var(--line);background:var(--bg2)}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+  .dot.ok{background:var(--verde)} .dot.bad{background:var(--vermelho)}
+  input,button{font:inherit;color:var(--txt);background:var(--bg2);border:1px solid var(--line);
+        border-radius:8px;padding:7px 10px}
+  button{cursor:pointer;font-weight:600}
+  button:hover{border-color:var(--brand)}
+  main{max-width:1100px;margin:0 auto;padding:20px;display:grid;gap:16px;
+       grid-template-columns:1fr 1fr}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;
+        box-shadow:var(--shadow)}
+  .card h2{margin:0 0 14px;font-size:14px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted)}
+  .full{grid-column:1/-1}
+  /* Risco */
+  .riscos{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .eixo .top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+  .eixo .nome{font-weight:600}
+  .eixo .score{font-size:26px;font-weight:800}
+  .bar{height:10px;border-radius:999px;background:#0b1220;overflow:hidden;border:1px solid var(--line)}
+  .bar>span{display:block;height:100%;transition:width .5s}
+  .classif{display:inline-block;margin-top:8px;font-size:11px;font-weight:700;padding:3px 9px;
+        border-radius:999px}
+  .just{color:var(--muted);font-size:13px;line-height:1.5;margin-top:10px}
+  .BAIXO{color:var(--verde)} .MEDIO{color:var(--amarelo)} .ALTO{color:var(--vermelho)}
+  .b-BAIXO{background:rgba(34,197,94,.15);color:var(--verde)}
+  .b-MEDIO{background:rgba(245,158,11,.15);color:var(--amarelo)}
+  .b-ALTO{background:rgba(239,68,68,.15);color:var(--vermelho)}
+  .origem{font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;border:1px solid var(--line)}
+  .o-llm{background:rgba(34,197,94,.15);color:var(--verde);border-color:transparent}
+  .o-prompt_apenas{background:rgba(148,163,184,.15);color:var(--muted)}
+  .o-fallback{background:rgba(245,158,11,.15);color:var(--amarelo);border-color:transparent}
+  ul.recs{margin:12px 0 0;padding-left:18px;color:var(--txt);font-size:13px;line-height:1.6}
+  .lim{margin-top:12px;font-size:12px;color:var(--muted);border-top:1px dashed var(--line);padding-top:10px}
+  /* Telemetria */
+  .kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+  .kpi{background:#0b1220;border:1px solid var(--line);border-radius:10px;padding:12px}
+  .kpi .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+  .kpi .v{font-size:20px;font-weight:700;margin-top:3px}
+  /* Eventos */
+  .ev{display:flex;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)}
+  .ev:last-child{border-bottom:0}
+  .sev{min-width:26px;height:26px;border-radius:7px;display:grid;place-items:center;font-weight:800;font-size:12px}
+  .ev .tipo{font-weight:600;font-size:13px}
+  .ev .quando{color:var(--muted);font-size:11px}
+  .vazio{color:var(--muted);font-size:13px;font-style:italic;padding:8px 0}
+  .foot{max-width:1100px;margin:0 auto;padding:0 20px 30px;color:var(--muted);font-size:11px}
+  @media(max-width:720px){main{grid-template-columns:1fr}.riscos{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>SOMPO <span>· Painel de Risco</span></h1>
+    <div class="sub">Monitor de furto e incêndio · máquinas agrícolas</div>
+  </div>
+  <div class="grow"></div>
+  <span class="pill"><span id="saudeDot" class="dot"></span><span id="saudeTxt">verificando…</span></span>
+  <input id="dispositivo" value="SOMPO-ESP32" size="14" title="ID do dispositivo">
+  <button id="btnAtualizar">Atualizar</button>
+</header>
+
+<main>
+  <section class="card full">
+    <h2>Análise de risco <span id="origemBadge"></span></h2>
+    <div class="riscos">
+      <div class="eixo">
+        <div class="top"><span class="nome">🔓 Furto</span><span id="scoreFurto" class="score">–</span></div>
+        <div class="bar"><span id="barFurto" style="width:0%"></span></div>
+        <div><span id="classifFurto" class="classif b-BAIXO">–</span></div>
+        <div id="justFurto" class="just"></div>
+      </div>
+      <div class="eixo">
+        <div class="top"><span class="nome">🔥 Incêndio</span><span id="scoreIncendio" class="score">–</span></div>
+        <div class="bar"><span id="barIncendio" style="width:0%"></span></div>
+        <div><span id="classifIncendio" class="classif b-BAIXO">–</span></div>
+        <div id="justIncendio" class="just"></div>
+      </div>
+    </div>
+    <ul id="recs" class="recs"></ul>
+    <div id="lim" class="lim"></div>
+  </section>
+
+  <section class="card">
+    <h2>Telemetria atual</h2>
+    <div id="kpis" class="kpis"></div>
+  </section>
+
+  <section class="card">
+    <h2>Eventos recentes (7 dias)</h2>
+    <div id="eventos"></div>
+  </section>
+</main>
+
+<div class="foot">
+  Atualizado às <span id="ultima">–</span> · auto-refresh 10s ·
+  <span id="fonteBanco"></span>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let dispositivo = 'SOMPO-ESP32';
+
+const corRisco = c => c === 'ALTO' ? 'var(--vermelho)' : c === 'MEDIO' ? 'var(--amarelo)' : 'var(--verde)';
+const sevCor = s => s >= 4 ? 'var(--vermelho)' : s >= 3 ? 'var(--amarelo)' : 'var(--brand)';
+const fmtHora = iso => {
+  if(!iso) return '';
+  const d = new Date(iso);
+  return isNaN(d) ? String(iso) : d.toLocaleString('pt-BR');
+};
+
+async function getJSON(path){
+  const r = await fetch(path, {headers:{'Accept':'application/json'}});
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  return r.json();
+}
+
+async function carregarSaude(){
+  try{
+    const s = await getJSON('/saude');
+    const ok = s.banco === 'ok';
+    $('saudeDot').className = 'dot ' + (ok ? 'ok' : 'bad');
+    $('saudeTxt').textContent = ok ? 'API e banco OK' : 'Banco indisponível';
+    $('fonteBanco').textContent = ok ? 'Supabase conectado' : 'Supabase indisponível';
+  }catch(e){
+    $('saudeDot').className = 'dot bad';
+    $('saudeTxt').textContent = 'API offline';
+  }
+}
+
+async function carregarRisco(){
+  try{
+    const d = await getJSON(`/relatorio/risco?dispositivo=${encodeURIComponent(dispositivo)}&dias=7`);
+    const sf = d.score_furto ?? 0, si = d.score_incendio ?? 0;
+    const cf = d.classificacao_furto || 'BAIXO', ci = d.classificacao_incendio || 'BAIXO';
+    $('scoreFurto').textContent = sf; $('scoreIncendio').textContent = si;
+    $('barFurto').style.width = sf+'%'; $('barFurto').style.background = corRisco(cf);
+    $('barIncendio').style.width = si+'%'; $('barIncendio').style.background = corRisco(ci);
+    $('classifFurto').textContent = cf; $('classifFurto').className = 'classif b-'+cf;
+    $('classifIncendio').textContent = ci; $('classifIncendio').className = 'classif b-'+ci;
+    $('justFurto').textContent = d.justificativa_furto || '';
+    $('justIncendio').textContent = d.justificativa_incendio || '';
+    const recs = d.recomendacoes || [];
+    $('recs').innerHTML = recs.map(r=>`<li>${r}</li>`).join('');
+    $('lim').textContent = d.limitacoes ? ('Limitações: ' + d.limitacoes) : '';
+    const org = d.origem_da_analise || '';
+    const rotulo = {llm:'IA · Gemini', prompt_apenas:'sem IA · prompt', fallback:'fallback · template'}[org] || org;
+    $('origemBadge').innerHTML = org ? `<span class="origem o-${org}">${rotulo}</span>` : '';
+  }catch(e){
+    $('justFurto').textContent = 'Relatório indisponível ('+e.message+')';
+  }
+}
+
+async function carregarTelemetria(){
+  try{
+    const d = await getJSON(`/telemetria?dispositivo=${encodeURIComponent(dispositivo)}&limite=10`);
+    const t = (d.dados && d.dados[0]) || null;
+    if(!t){ $('kpis').innerHTML = '<div class="vazio">Sem telemetria ainda — aguardando o ESP32.</div>'; return; }
+    const bool = v => v ? 'Sim' : 'Não';
+    const kpi = (k,v) => `<div class="kpi"><div class="k">${k}</div><div class="v">${v}</div></div>`;
+    $('kpis').innerHTML =
+      kpi('Nível de risco', t.nivel_risco ?? '–') +
+      kpi('Motor', bool(t.motor_ligado)) +
+      kpi('Temp. escape', (t.temp_escape ?? '–')+' °C') +
+      kpi('Umidade', (t.umidade_ar ?? '–')+' %') +
+      kpi('Vibração', (t.vibracao ?? '–')+' g') +
+      kpi('Em movimento', bool(t.em_movimento));
+  }catch(e){
+    $('kpis').innerHTML = '<div class="vazio">Telemetria indisponível.</div>';
+  }
+}
+
+async function carregarEventos(){
+  try{
+    const d = await getJSON(`/eventos?dispositivo=${encodeURIComponent(dispositivo)}&dias=7`);
+    const evs = d.dados || [];
+    if(!evs.length){ $('eventos').innerHTML = '<div class="vazio">Nenhum evento no período.</div>'; return; }
+    $('eventos').innerHTML = evs.slice(0,12).map(e=>{
+      const s = e.severidade ?? 0;
+      return `<div class="ev">
+        <div class="sev" style="background:${sevCor(s)}22;color:${sevCor(s)}">${s}</div>
+        <div style="flex:1"><div class="tipo">${e.tipo||'evento'}</div>
+        <div class="quando">${fmtHora(e.criado_em)}</div></div></div>`;
+    }).join('');
+  }catch(e){
+    $('eventos').innerHTML = '<div class="vazio">Eventos indisponíveis.</div>';
+  }
+}
+
+async function carregarTudo(){
+  dispositivo = $('dispositivo').value.trim() || 'SOMPO-ESP32';
+  await Promise.all([carregarSaude(), carregarRisco(), carregarTelemetria(), carregarEventos()]);
+  $('ultima').textContent = new Date().toLocaleTimeString('pt-BR');
+}
+
+$('btnAtualizar').addEventListener('click', carregarTudo);
+$('dispositivo').addEventListener('change', carregarTudo);
+carregarTudo();
+setInterval(carregarTudo, 10000);
+</script>
+</body>
+</html>
