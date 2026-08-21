@@ -47,8 +47,11 @@ def _parse_int(value: str, default: int, minimum: int | None = None, maximum: in
     return numero
 
 
-def _erro(message: str, detail: str, status: int):
-    return jsonify({'erro': message, 'detalhe': detail}), status
+def _erro(message: str, exc, status: int):
+    # O detalhe do erro fica SO no log do servidor - nao vaza para o cliente
+    # (evita expor schema/mensagens internas do Supabase). Ver SEGURANCA.md.
+    app.logger.warning('%s: %s', message, exc)
+    return jsonify({'erro': message}), status
 
 
 @app.get('/saude')
@@ -59,7 +62,9 @@ def saude():
         consultar_tabela('telemetria', limite=1)
         return jsonify({'api': 'ok', 'banco': 'ok'}), 200
     except Exception as exc:
-        return jsonify({'api': 'ok', 'banco': 'falha', 'detalhe': str(exc)}), 502
+        # Motivo da falha so no log do servidor, nao na resposta.
+        app.logger.warning('saude: banco indisponivel: %s', exc)
+        return jsonify({'api': 'ok', 'banco': 'falha'}), 502
 
 
 @app.get('/telemetria')
@@ -71,7 +76,7 @@ def telemetria():
         dados = consultar_telemetria(dispositivo, limite=limite)
         return jsonify({'total': len(dados), 'dados': dados}), 200
     except Exception as exc:
-        return _erro('falha_na_consulta', str(exc), 502)
+        return _erro('falha_na_consulta', exc, 502)
 
 
 @app.get('/eventos')
@@ -83,7 +88,7 @@ def eventos():
         dados = consultar_eventos(dispositivo, dias=dias)
         return jsonify({'total': len(dados), 'dados': dados}), 200
     except Exception as exc:
-        return _erro('falha_na_consulta', str(exc), 502)
+        return _erro('falha_na_consulta', exc, 502)
 
 
 @app.get('/resumo')
@@ -95,7 +100,7 @@ def resumo():
         dados = consultar_resumo(dispositivo, dias=dias)
         return jsonify({'total': len(dados), 'dados': dados}), 200
     except Exception as exc:
-        return _erro('falha_na_consulta', str(exc), 502)
+        return _erro('falha_na_consulta', exc, 502)
 
 
 @app.get('/scores')
@@ -107,7 +112,7 @@ def scores():
         eventos = consultar_eventos(dispositivo, dias=dias)
         return jsonify(calcular_scores(dispositivo, dias, eventos)), 200
     except Exception as exc:
-        return _erro('falha_na_consulta', str(exc), 502)
+        return _erro('falha_na_consulta', exc, 502)
 
 
 @app.get('/relatorio/bruto')
@@ -121,7 +126,7 @@ def relatorio_bruto():
         relatorio = montar_relatorio_bruto(dispositivo, dias, resumo_por_dia, eventos)
         return jsonify(relatorio), 200
     except Exception as exc:
-        return _erro('falha_na_geracao_do_relatorio', str(exc), 502)
+        return _erro('falha_na_geracao_do_relatorio', exc, 502)
 
 
 @app.get('/relatorio/risco')
@@ -135,7 +140,7 @@ def relatorio_risco():
         resultado = montar_relatorio_risco(dispositivo, dias, resumo_por_dia, eventos)
         return jsonify(resultado), 200
     except Exception as exc:
-        return _erro('falha_na_geracao_do_relatorio', str(exc), 502)
+        return _erro('falha_na_geracao_do_relatorio', exc, 502)
 
 
 if __name__ == '__main__':
