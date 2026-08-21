@@ -48,14 +48,15 @@ padrão.
 > novo sem quebrar). A `secret key` da API ignora RLS, então a API continua lendo
 > tudo sem precisar mudar uma linha.
 
-### 1. Aplicar o RLS (Row Level Security) — o mais importante
-Sem isso, a *publishable key* gravada no ESP32 (extraível da flash) funciona como
+### 1. Criar as tabelas e aplicar o RLS — o mais importante
+Sem o RLS, a *publishable key* gravada no ESP32 (extraível da flash) funciona como
 chave de administrador: pode **apagar a trilha de evidência** e **ler dados de
 clientes**. O RLS a limita a apenas INSERT.
 
 1. Abrir o **SQL Editor** no painel do Supabase.
-2. Colar e rodar o conteúdo de `sensor-sompo/sql/politicas_rls.sql`.
-3. Conferir com as duas queries que estão comentadas no fim do arquivo:
+2. Colar e rodar o conteúdo de `sensor-sompo/sql/preparar_supabase.sql` — cria as
+   tabelas + a view + os índices + o RLS de uma vez (idempotente, não apaga dados).
+3. Conferir com as duas queries comentadas no fim do arquivo:
    devem mostrar `rowsecurity = true` e apenas as políticas de INSERT.
 
 ### 2. Rotacionar as chaves antes de produção

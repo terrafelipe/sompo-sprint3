@@ -7,9 +7,10 @@
 -- O schema abaixo bate EXATAMENTE com o que o firmware envia (enviarTelemetria /
 -- dispararEvento em src/app.ino) e com o que a API consulta (api/supabase_client.py).
 --
--- Obs.: este arquivo substitui, para um projeto novo/limpo, o politicas_rls.sql
--- (que assume tambem tabelas de negocio - cliente/sinistros/etc - que voce pode
--- nao ter). Aqui so mexemos nas tres coisas do sensor.
+-- Este e o UNICO script necessario. Ele cria as tabelas do sensor + view +
+-- indices + RLS, e ainda protege as tabelas de negocio (cliente/sinistros/etc)
+-- SE elas existirem. Funciona tanto num projeto novo (so sensor) quanto num que
+-- ja tem o schema de negocio - o que nao existe e simplesmente ignorado.
 
 -- ==========================================================================
 -- 1. Tabelas
@@ -89,7 +90,27 @@ create policy "anon insere eventos" on public.eventos
 revoke update, delete on public.eventos from anon, authenticated;
 
 -- ==========================================================================
--- 5. Conferencia (opcional) - deve mostrar rowsecurity = true nas duas tabelas
+-- 5. Tabelas de negocio (cliente/sinistros/etc.) - protege SE existirem
+-- ==========================================================================
+-- Se este projeto tambem tiver as tabelas de negocio da Sompo, ligamos RLS nelas
+-- para a chave do ESP32 nao conseguir ler dados de cliente (sem policy = anon
+-- perde acesso; a secret key da API ignora RLS e continua lendo tudo).
+-- Se elas NAO existirem (projeto so do sensor), sao ignoradas SEM erro.
+do $$
+declare t text;
+begin
+  foreach t in array array['cliente','equipamentos','sinistros','riscos'] loop
+    if to_regclass('public.' || t) is not null then
+      execute format('alter table public.%I enable row level security', t);
+      raise notice 'RLS ligado na tabela de negocio: %', t;
+    else
+      raise notice 'tabela % nao existe - ignorada (ok num projeto so do sensor)', t;
+    end if;
+  end loop;
+end $$;
+
+-- ==========================================================================
+-- 6. Conferencia (opcional) - deve mostrar rowsecurity = true nas duas tabelas
 -- ==========================================================================
 -- select tablename, rowsecurity from pg_tables
 --   where schemaname = 'public' and tablename in ('telemetria','eventos');

@@ -4,7 +4,7 @@
 // A chave que entra aqui e a PUBLISHABLE (sb_publishable_...), nunca a SECRET.
 // A secret pertence exclusivamente a API Flask - ver README da api/.
 // Mesmo a publishable e extraivel da flash do ESP32: quem a protege sao as
-// politicas de RLS (sql/politicas_rls.sql), que a limitam a INSERT.
+// politicas de RLS (sql/preparar_supabase.sql), que a limitam a INSERT.
 
 #ifndef SEGREDOS_H
 #define SEGREDOS_H

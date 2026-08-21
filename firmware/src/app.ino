@@ -41,7 +41,7 @@
 //     tem valor; melhor mandar a leitura de agora do que a fila de 10 min atras.
 //
 // Credenciais ficam em segredos.h (fora do Git). A chave gravada aqui e a
-// PUBLISHABLE, e quem a limita a INSERT sao as politicas em sql/politicas_rls.sql.
+// PUBLISHABLE, e quem a limita a INSERT sao as politicas em sql/preparar_supabase.sql.
 //
 // Convencoes: portugues sem acento, loop nao-bloqueante por millis(), falha de
 // sensor mantem o ultimo valor valido, histerese no alarme.

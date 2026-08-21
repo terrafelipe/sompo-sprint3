@@ -32,8 +32,9 @@ O banco começa **vazio e sem tabelas**. Antes de qualquer passo que use o banco
 Feito isso, **todo o resto funciona sem tocar em código** — o schema já bate com o que o ESP32
 grava e a API lê. (Confira a conexão com `scripts/testar_supabase.py`, passo 2.)
 
-> Num projeto novo/limpo, use **só** o `preparar_supabase.sql`. O `politicas_rls.sql` antigo assume
-> tabelas de negócio (cliente/sinistros/etc.) que talvez você não tenha, e daria erro num projeto vazio.
+> O `preparar_supabase.sql` é o **único** script — cria as tabelas do sensor e, se o projeto também
+> tiver as tabelas de negócio (cliente/sinistros/etc.), protege essas também. Roda em qualquer caso,
+> sem erro (o que não existe é ignorado).
 
 ---
 
@@ -233,6 +234,6 @@ curl.exe "http://localhost:5000/relatorio/risco?dias=7"
 - **pytest falha:** me manda a saída do erro.
 - **testar_supabase 401/403:** problema de chave ou RLS — ver `SEGURANCA.md`.
 - **ESP32 não conecta no Wokwi:** confira `segredos.h`; no hardware real, use o hotspot.
-- **`[REDE] falha` no Serial do ESP32:** RLS bloqueando o INSERT — aplicar `sql/politicas_rls.sql`.
+- **`[REDE] falha` no Serial do ESP32:** RLS bloqueando o INSERT — rodar `sql/preparar_supabase.sql`.
 - **quer o relatório com IA de verdade:** preencher `LLM_API_KEY` no `.env` (sem ela a origem fica
   `prompt_apenas`, que é o esperado agora).
