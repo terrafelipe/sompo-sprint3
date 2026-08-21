@@ -1,6 +1,8 @@
 # Rede de segurança do monorepo (reforço aos .gitignore de cada subprojeto).
 # NUNCA versionar segredos:
 **/.env
+**/.env.*
+!**/.env.example
 **/segredos.h
 
 # Python
@@ -20,3 +22,8 @@
 # Editores
 .vscode/
 .idea/
+
+# Lixo do sistema operacional
+**/.DS_Store
+**/Thumbs.db
+**/desktop.ini
