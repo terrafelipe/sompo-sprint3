@@ -1,0 +1,22 @@
+# Rede de segurança do monorepo (reforço aos .gitignore de cada subprojeto).
+# NUNCA versionar segredos:
+**/.env
+**/segredos.h
+
+# Python
+**/venv/
+**/.venv/
+**/__pycache__/
+**/*.pyc
+**/.pytest_cache/
+
+# PlatformIO / build do firmware
+**/.pio/
+**/compile_commands.json
+
+# Artefatos gerados
+**/plano_b/
+
+# Editores
+.vscode/
+.idea/
