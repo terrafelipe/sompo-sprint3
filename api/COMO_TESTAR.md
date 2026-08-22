@@ -32,35 +32,23 @@ Copy-Item .env.example .env                                # cria o seu .env a p
 
 > 🔑 **Sobre o `.env`:** ele guarda os segredos (chaves do Supabase, da IA) e é **gitignorado** —
 > por isso **não** vem junto quando alguém clona o repo. Cada pessoa/máquina cria o seu **uma vez**
-> a partir do `.env.example` e preenche as chaves (passo 0.b). Depois fica salvo; não precisa recriar
+> a partir do `.env.example` e preenche as chaves. Depois fica salvo; não precisa recriar
 > a cada execução. O que vai pro repositório é só o `.env.example` (o molde, sem valores).
 
-Depois de criar o `.env`, abra-o e preencha as variáveis conforme o passo 0.b abaixo.
+**Preencher as chaves no `.env`** (do painel do Supabase → **Settings → API**):
 
----
+| No painel | Onde colar | Observação |
+|---|---|---|
+| **Project URL** (`https://<ref>.supabase.co`) | `SUPABASE_URL` no `.env` | ⚠️ Use a **Project URL** de Settings → API, **não** o link do navegador (`.../dashboard/project/...`) — senão dá **404**. |
+| **service_role / secret key** | `SUPABASE_SECRET_KEY` no `.env` | Fica **só** na API. Nunca no firmware nem no repo. |
+| **anon / publishable key** | `SUPABASE_CHAVE_CFG` no `segredos.h` do firmware | É a que vai no ESP32 (ver passo 4). |
 
-## 0.b Preparar o Supabase (uma vez, quando tiver acesso ao banco)
+As demais variáveis (`LLM_API_KEY`, `SOMPO_API_KEY`, `CORS_ORIGINS`) podem ficar **vazias** — é o
+modo demo (ver passos 8 e `SEGURANCA.md`).
 
-Antes de qualquer passo que use o banco (3 em diante):
-
-1. Crie/entre no projeto em [supabase.com](https://supabase.com).
-2. **Só se o banco estiver vazio/sem tabelas:** abra o **SQL Editor** e rode o script
-   **`sql/preparar_supabase.sql`** (na pasta do firmware). Ele cria as tabelas `telemetria` e
-   `eventos`, a view `resumo_diario`, os índices e o RLS. É idempotente — pode rodar de novo sem quebrar.
-   > ⚠️ **Se o projeto já veio com as tabelas prontas (`telemetria`, `eventos`, `resumo_diario`,
-   > e as de negócio como `cliente`/`sinistros`), NÃO precisa rodar o script** — pule direto para o
-   > item 3. Confira com: `select table_name from information_schema.tables where table_schema='public';`
-3. Em **Settings → API**, copie e cole:
-   - **Project URL** → `SUPABASE_URL_CFG` no `segredos.h` **e** `SUPABASE_URL` no `.env`.
-   - **anon / publishable key** → `SUPABASE_CHAVE_CFG` no `segredos.h` (é a que vai no ESP32).
-   - **service_role / secret key** → `SUPABASE_SECRET_KEY` no `.env` (fica só na API).
-
-Feito isso, **todo o resto funciona sem tocar em código** — o schema já bate com o que o ESP32
-grava e a API lê. (Confira a conexão com `scripts/testar_supabase.py`, passo 2.)
-
-> O `preparar_supabase.sql` é o **único** script — cria as tabelas do sensor e, se o projeto também
-> tiver as tabelas de negócio (cliente/sinistros/etc.), protege essas também. Roda em qualquer caso,
-> sem erro (o que não existe é ignorado).
+> **Banco vazio?** Se as tabelas (`telemetria`, `eventos`, `resumo_diario`) ainda não existem, abra
+> o **SQL Editor** do Supabase e rode `firmware/sql/preparar_supabase.sql` uma vez (cria tabelas +
+> view + índices + RLS; é idempotente, não apaga dados). Se o projeto já veio com elas, pule.
 
 ---
 
@@ -121,6 +109,20 @@ Para parar a API: `Ctrl+C` no terminal dela.
 ---
 
 ## 4. Firmware no Wokwi — manda dado real ao Supabase (~5 min)
+
+> ⚠️ **Antes de compilar, crie o `segredos.h`** (equivale ao `.env`, é gitignorado e **não** vem
+> no clone). Copie o modelo e preencha:
+> ```powershell
+> cd "C:\Users\USUARIO\Downloads\sompo-sprint3\firmware\src"
+> Copy-Item segredos.exemplo.h segredos.h
+> ```
+> No `segredos.h`: cole a **Project URL** em `SUPABASE_URL_CFG` e a **publishable key**
+> (`sb_publishable_...`) em `SUPABASE_CHAVE_CFG`. ⚠️ **Nunca** a service_role/secret aqui — no ESP32
+> vai só a publishable (o RLS a limita a INSERT). Sem esse arquivo, `pio run` falha com
+> `fatal error: segredos.h: No such file or directory`.
+
+> 💡 **PlatformIO não acha o projeto?** O `platformio.ini` fica em `firmware/`, não na raiz. Abra a
+> pasta `firmware/` no VS Code (File → Open Folder), ou rode `pio run` de dentro dela pelo terminal.
 
 1. Confira `firmware\src\segredos.h`. Para o **Wokwi**, já funciona com
    `WIFI_SSID_CFG "Wokwi-GUEST"` e senha vazia. (Para hardware real, use o hotspot do celular.)

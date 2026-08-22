@@ -1,0 +1,14 @@
+{
+  "folders": [
+    { "name": "api", "path": "api" },
+    { "name": "firmware", "path": "firmware" },
+    { "name": "sompo-sprint3 (raiz)", "path": "." }
+  ],
+  "settings": {
+    "files.exclude": {
+      "**/__pycache__": true,
+      "**/.pytest_cache": true,
+      "**/.pio": true
+    }
+  }
+}
