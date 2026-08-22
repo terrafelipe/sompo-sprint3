@@ -120,6 +120,10 @@ curl.exe "http://localhost:5000/relatorio/risco?dias=7"
 ```
 Com o banco vazio, os scores vêm **0** e `origem_da_analise` é `prompt_apenas` — normal.
 
+**Painel visual (recomendado):** abra **`http://localhost:5000/`** no navegador — mostra os scores,
+telemetria, eventos e o relatório de risco montados. O botão **📄 Baixar Word** gera o relatório de
+risco como documento `.docx` (abre no Word/Google Docs), com os horários já em **Brasília**.
+
 Para parar a API: `Ctrl+C` no terminal dela.
 
 ---
@@ -288,8 +292,11 @@ deprecia. Se der erro de modelo, veja os disponíveis para sua chave com o ListM
 
 **4. Gerar o relatório:**
 ```powershell
-curl.exe "http://localhost:5000/relatorio/risco?dias=7"
+curl.exe "http://localhost:5000/relatorio/risco?dias=7"        # JSON
+curl.exe "http://localhost:5000/relatorio/risco.docx?dias=7" -o relatorio.docx   # documento Word
 ```
+O `.docx` é o mesmo relatório em formato Word (também no botão **📄 Baixar Word** do painel), com os
+horários em Brasília — mais fácil de ler/apresentar que o JSON.
 
 **Como saber se funcionou** → campo `origem_da_analise`:
 | Valor | Significado |

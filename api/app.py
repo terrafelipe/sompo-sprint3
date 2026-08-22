@@ -5,9 +5,10 @@ import os
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Tuple
 
-from flask import Flask, jsonify, request
+from flask import Flask, Response, jsonify, request
 from flask_cors import CORS
 
+import documento
 from config import CORS_ORIGINS, FLASK_DEBUG, FLASK_HOST, FLASK_PORT, SOMPO_API_KEY, SUPABASE_URL
 from relatorios import montar_relatorio_bruto, montar_relatorio_risco
 from scores import calcular_scores
@@ -147,6 +148,29 @@ def relatorio_risco():
         return jsonify(resultado), 200
     except Exception as exc:
         return _erro('falha_na_geracao_do_relatorio', exc, 502)
+
+
+@app.get('/relatorio/risco.docx')
+def relatorio_risco_docx():
+    # Mesmo conteúdo do /relatorio/risco, mas como documento Word (.docx) para download.
+    dispositivo = request.args.get('dispositivo', 'SOMPO-ESP32')
+    dias = _parse_int(request.args.get('dias', '7'), 7, minimum=1)
+
+    try:
+        resumo_por_dia = consultar_resumo(dispositivo, dias=dias)
+        eventos = consultar_eventos(dispositivo, dias=dias)
+        relatorio = montar_relatorio_risco(dispositivo, dias, resumo_por_dia, eventos)
+        conteudo = documento.montar_docx(relatorio, eventos)
+
+        carimbo = datetime.now(documento.FUSO_BRASILIA).strftime('%Y%m%d_%H%M')
+        nome = f'relatorio_risco_{dispositivo}_{carimbo}.docx'
+        return Response(
+            conteudo,
+            mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            headers={'Content-Disposition': f'attachment; filename="{nome}"'},
+        )
+    except Exception as exc:
+        return _erro('falha_na_geracao_do_documento', exc, 502)
 
 
 if __name__ == '__main__':

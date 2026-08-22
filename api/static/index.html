@@ -81,6 +81,7 @@
   <span class="pill"><span id="saudeDot" class="dot"></span><span id="saudeTxt">verificando…</span></span>
   <input id="dispositivo" value="SOMPO-ESP32" size="14" title="ID do dispositivo">
   <button id="btnAtualizar">Atualizar</button>
+  <button id="btnBaixar" title="Baixar o relatório de risco em Word (.docx)">📄 Baixar Word</button>
 </header>
 
 <main>
@@ -217,6 +218,10 @@ async function carregarTudo(){
 }
 
 $('btnAtualizar').addEventListener('click', carregarTudo);
+$('btnBaixar').addEventListener('click', () => {
+  const dev = $('dispositivo').value.trim() || 'SOMPO-ESP32';
+  window.location = `/relatorio/risco.docx?dispositivo=${encodeURIComponent(dev)}&dias=7`;
+});
 $('dispositivo').addEventListener('change', carregarTudo);
 carregarTudo();
 setInterval(carregarTudo, 10000);
