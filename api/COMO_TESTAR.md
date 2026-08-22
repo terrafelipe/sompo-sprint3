@@ -1,8 +1,12 @@
 # Como testar tudo, do zero
 
-Duas coisas para testar: a **API (Python/Flask)** e o **firmware (ESP32/Wokwi)**.
-O roteiro vai do mais simples (sem hardware, sem internet) ao completo (ponta a ponta).
-Comandos em **PowerShell** (Windows).
+Duas coisas para testar: a **API (Python/Flask)** e o **firmware do ESP32** (no simulador **Wokwi**
+ou na **placa física**). O roteiro vai do mais simples (sem hardware, sem internet) ao completo
+(ponta a ponta). Comandos em **PowerShell** (Windows).
+
+> 🎯 **Só quer a placa física funcionando (ex.: apresentação)?** O mínimo é: **passo 0** (setup) →
+> **passo 4b** (gravar no ESP32 físico) → conferir no painel do Supabase. Os passos 1–3 são para
+> validar a API, e o 4/6/8 são complementares.
 
 Caminhos:
 - API: `C:\Users\USUARIO\Downloads\sompo-sprint3\api`
@@ -18,9 +22,12 @@ Caminhos:
 
 **Requisitos necessários:**
 - **Python** instalado (`python --version` deve responder). Usado pela API.
-- **PlatformIO** (extensão no VS Code) — só para o firmware (ESP32/Wokwi).
+- **PlatformIO** (extensão no VS Code) — para o firmware (ESP32/Wokwi ou físico).
 - Acesso a um projeto no **Supabase** (para os passos 3 em diante). Sem ele, dá para
   fazer o passo 1 (testes offline) mesmo assim.
+- **Só para o ESP32 físico** (passo 4b): a **placa ESP32**, um **cabo USB de dados**
+  (não serve cabo só de carga) e o **driver USB-serial** da placa (**CP2102** ou **CH340**).
+  Sem o driver o Windows não cria a porta COM e o upload não acha a placa.
 
 **Atalho (recomendado):** rode o script de setup na **raiz** do projeto — ele cria o venv, instala
 as dependências e gera o `.env` e o `segredos.h` a partir dos exemplos (não sobrescreve se já
@@ -117,7 +124,11 @@ Para parar a API: `Ctrl+C` no terminal dela.
 
 ---
 
-## 4. Firmware no Wokwi — manda dado real ao Supabase (~5 min)
+## 4. Firmware no Wokwi (simulador — opcional) — manda dado real ao Supabase (~5 min)
+
+> 🎯 **Vai apresentar com a placa física?** Pule direto para o **passo 4b**. O Wokwi (este passo) é
+> útil para testar sem hardware, mas o simulador falha o TLS com frequência (erro `(-80)`), então
+> **não** conte com ele para a demo — o ESP32 físico é o caminho confiável.
 
 > ⚠️ **Antes de compilar, crie o `segredos.h`** (equivale ao `.env`, é gitignorado e **não** vem
 > no clone). Copie o modelo e preencha:
@@ -150,9 +161,16 @@ Para parar a API: `Ctrl+C` no terminal dela.
 
 ---
 
-## 4b. Hardware real: conectar no hotspot do celular
+## 4b. ESP32 físico (o caminho da apresentação) — hotspot do celular
 
-O Wokwi usa `"Wokwi-GUEST"`. Para a demo com o **ESP32 físico**, use o hotspot do celular.
+Este é o caminho para mostrar a **placa de verdade**. É mais confiável que o Wokwi (o simulador
+falha o TLS com frequência — o erro `(-80)`; ver "Se algo falhar"). O ESP32 físico usa a internet
+real do **hotspot do celular**.
+
+> ✅ **Grave uma vez, roda sozinho.** Depois do upload, o programa fica salvo na **flash** da placa.
+> Na apresentação **não precisa de PC, nem PlatformIO, nem compilar de novo** — basta ligar o ESP32
+> em qualquer energia USB (carregador, powerbank ou a USB do notebook) com o hotspot ligado, que ele
+> envia sozinho. **Grave e teste em casa antes de segunda**, não na hora.
 
 **1. No celular, ligar o hotspot em 2.4 GHz** ⚠️ (o ESP32 NÃO enxerga 5 GHz)
 - **Android:** Config → Ponto de acesso → **Banda do AP → 2.4 GHz**.
@@ -160,22 +178,38 @@ O Wokwi usa `"Wokwi-GUEST"`. Para a demo com o **ESP32 físico**, use o hotspot 
 - SSID e senha **simples, sem acento nem caractere especial**.
 - Deixe os **dados móveis ligados** — é por eles que o ESP32 alcança o Supabase.
 
-**2. Editar `firmware\src\segredos.h`** (troque só estas duas linhas):
+**2. Editar `firmware\src\segredos.h`** (troque só estas duas linhas para o seu hotspot):
 ```c
 #define WIFI_SSID_CFG        "NomeDoSeuHotspot"
 #define WIFI_PASSWORD_CFG    "suasenha123"
 ```
+(A `SUPABASE_URL_CFG` e a `SUPABASE_CHAVE_CFG` você já preencheu no passo 4.)
 
-**3. Gravar no ESP32 físico (via USB) e ver o log:**
+**3. Ligar a placa no PC** por um **cabo USB de dados** (não só de carga). Isso já basta para gravar.
+
+**4. Compilar e gravar — um comando só** (o `-t upload` **compila e grava** de uma vez):
 ```powershell
 cd "C:\Users\USUARIO\Downloads\sompo-sprint3\firmware"
 pio run -t upload
+```
+No VS Code, o mesmo botão é o **→ (Upload)** na barra azul de baixo. Ao terminar, a placa reinicia
+e já começa a rodar o programa.
+
+**5. (Opcional) Ver o log** para confirmar que conectou e está enviando:
+```powershell
 pio device monitor
 ```
 **Esperado:** `[SISTEMA] Wi-Fi conectado, IP ...` e, a cada 10s, o envio de telemetria.
+Para **sair** do monitor: `Ctrl+C`.
+
+> ⚠️ **Uma porta COM de cada vez:** enquanto o monitor estiver aberto, ele "segura" a porta. Se for
+> gravar de novo (`pio run -t upload`) e der erro de porta ocupada, feche o monitor com `Ctrl+C` antes.
+
+**Confirmar ponta a ponta:** no painel do Supabase → Table Editor → `telemetria`, deve entrar uma
+linha nova a cada ~10s.
 
 > Opcional, já que agora há internet real: `#define VALIDAR_CERTIFICADO 1` no `app.ino` liga a
-> validação de certificado. `0` funciona igual e é mais simples para a demo.
+> validação de certificado TLS (produção). `0` funciona igual e é mais simples para a demo.
 
 ---
 
@@ -190,9 +224,11 @@ pio device monitor
 
 ---
 
-## 6. Disparar eventos na banca (Wokwi)
+## 6. Disparar eventos na banca (Wokwi ou placa física)
 
-| Evento | Como disparar no Wokwi |
+Os estímulos abaixo valem tanto no simulador quanto nos sensores reais da placa.
+
+| Evento | Como disparar (Wokwi ou sensor real) |
 |---|---|
 | `operador_nao_autorizado` (roubo) | Gire o **potenciômetro** (pino 34) para cima **sem** apertar o botão do crachá (pino 27). |
 | `furto_movimento` | Com o pot **para baixo** (máquina desligada), mude a distância do **HC-SR04** (> 8 cm). |
@@ -279,8 +315,17 @@ curl.exe "http://localhost:5000/relatorio/risco?dias=7"
 - **`No module named pytest`:** o venv não tem as dependências. Rode
   `.\venv\Scripts\python.exe -m pip install -r requirements.txt` (de dentro de `api/`).
 - **pytest falha:** me manda a saída do erro.
+- **testar_supabase 404:** a `SUPABASE_URL` está errada — use a **Project URL** (`https://<ref>.supabase.co`)
+  de Settings → API, **não** o link do painel (`.../dashboard/project/...`).
 - **testar_supabase 401/403:** problema de chave ou RLS — ver `SEGURANCA.md`.
-- **ESP32 não conecta no Wokwi:** confira `segredos.h`; no hardware real, use o hotspot.
-- **`[REDE] falha` no Serial do ESP32:** RLS bloqueando o INSERT — rodar `sql/preparar_supabase.sql`.
+- **`(-80)` / `start_ssl_client` / `connection refused` no Serial (Wokwi):** é o **TLS do simulador**
+  falhando, **não** o seu código. Reinicie o simulador e tente de novo; se insistir, use o **ESP32
+  físico** (passo 4b), que é confiável.
+- **`[REDE] falha ... HTTP 401/403` no Serial (físico):** aí sim é **RLS/chave** — confira a
+  publishable key no `segredos.h` e rode `firmware/sql/preparar_supabase.sql` (aplica o RLS de INSERT).
+- **ESP32 físico não conecta no Wi-Fi:** o hotspot precisa estar em **2.4 GHz** (não 5 GHz), com SSID/senha
+  simples; deixe os dados móveis ligados.
+- **`pio run -t upload` não acha a placa / erro de porta:** cabo USB de **dados** (não só carga),
+  driver **CP2102/CH340** instalado, e feche o `pio device monitor` antes de gravar (uma porta COM por vez).
 - **quer o relatório com IA de verdade:** preencher `LLM_API_KEY` no `.env` (sem ela a origem fica
   `prompt_apenas`, que é o esperado agora).
