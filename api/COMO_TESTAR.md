@@ -199,6 +199,16 @@ pio run -t upload
 No VS Code, o mesmo botão é o **→ (Upload)** na barra azul de baixo. Ao terminar, a placa reinicia
 e já começa a rodar o programa.
 
+> ⚠️ **`pio` não é reconhecido?** O CLI vem com a extensão do PlatformIO, mas não fica no PATH do
+> PowerShell comum. Duas saídas: (a) use o **terminal do PlatformIO** no VS Code (ícone do alienígena
+> → *PIO Home* → *Miscellaneous → New Terminal*), onde `pio` já funciona; ou (b) adicione ao PATH de
+> vez (uma vez), depois reabra o terminal:
+> ```powershell
+> [Environment]::SetEnvironmentVariable("Path",
+>   [Environment]::GetEnvironmentVariable("Path","User") + ";$env:USERPROFILE\.platformio\penv\Scripts",
+>   "User")
+> ```
+
 **5. (Opcional) Ver o log** para confirmar que conectou e está enviando:
 ```powershell
 pio device monitor
@@ -332,6 +342,9 @@ horários em Brasília — mais fácil de ler/apresentar que o JSON.
   publishable key no `segredos.h` e rode `firmware/sql/preparar_supabase.sql` (aplica o RLS de INSERT).
 - **ESP32 físico não conecta no Wi-Fi:** o hotspot precisa estar em **2.4 GHz** (não 5 GHz), com SSID/senha
   simples; deixe os dados móveis ligados.
+- **`pio` não é reconhecido (fora do PATH):** o CLI existe (vem com a extensão), só não está no PATH.
+  Use o **terminal do PlatformIO** no VS Code, ou adicione `%USERPROFILE%\.platformio\penv\Scripts`
+  ao PATH (ver nota no passo 4b) e reabra o terminal.
 - **`pio run -t upload` não acha a placa / erro de porta:** cabo USB de **dados** (não só carga),
   driver **CP2102/CH340** instalado, e feche o `pio device monitor` antes de gravar (uma porta COM por vez).
 - **quer o relatório com IA de verdade:** preencher `LLM_API_KEY` no `.env` (sem ela a origem fica
