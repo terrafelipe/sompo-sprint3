@@ -22,7 +22,16 @@ Caminhos:
 - Acesso a um projeto no **Supabase** (para os passos 3 em diante). Sem ele, dá para
   fazer o passo 1 (testes offline) mesmo assim.
 
-**Setup da API (uma vez, faça sempre que clonar o repo do zero):**
+**Atalho (recomendado):** rode o script de setup na **raiz** do projeto — ele cria o venv, instala
+as dependências e gera o `.env` e o `segredos.h` a partir dos exemplos (não sobrescreve se já
+existirem), e no fim lista só o que falta você preencher:
+```powershell
+cd "C:\Users\USUARIO\Downloads\sompo-sprint3"
+.\setup.ps1
+```
+> Se o PowerShell bloquear o script: `Set-ExecutionPolicy -Scope Process RemoteSigned` e rode de novo.
+
+**Ou manualmente (uma vez, faça sempre que clonar o repo do zero):**
 ```powershell
 cd "C:\Users\USUARIO\Downloads\sompo-sprint3\api"
 python -m venv venv                                        # cria o ambiente virtual em api\venv
