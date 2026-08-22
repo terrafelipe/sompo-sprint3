@@ -5,8 +5,8 @@ O roteiro vai do mais simples (sem hardware, sem internet) ao completo (ponta a 
 Comandos em **PowerShell** (Windows).
 
 Caminhos:
-- API: `C:\Users\USUARIO\Downloads\api\api`
-- Firmware: `C:\Users\USUARIO\OneDrive - Fiap-Faculdade de Informática e Administração Paulista\FIAP\AICSS\Sompo\sensor-sompo`
+- API: `C:\Users\USUARIO\Downloads\sompo-sprint3\api`
+- Firmware: `C:\Users\USUARIO\Downloads\sompo-sprint3\firmware`
 
 ---
 
@@ -18,12 +18,15 @@ Caminhos:
 
 ## 0.b Preparar o Supabase (uma vez, quando tiver acesso ao banco)
 
-O banco começa **vazio e sem tabelas**. Antes de qualquer passo que use o banco (3 em diante):
+Antes de qualquer passo que use o banco (3 em diante):
 
 1. Crie/entre no projeto em [supabase.com](https://supabase.com).
-2. Abra o **SQL Editor** e rode o script **`sql/preparar_supabase.sql`** (na pasta do firmware).
-   Ele cria as tabelas `telemetria` e `eventos`, a view `resumo_diario`, os índices e o RLS.
-   É idempotente — pode rodar de novo sem quebrar.
+2. **Só se o banco estiver vazio/sem tabelas:** abra o **SQL Editor** e rode o script
+   **`sql/preparar_supabase.sql`** (na pasta do firmware). Ele cria as tabelas `telemetria` e
+   `eventos`, a view `resumo_diario`, os índices e o RLS. É idempotente — pode rodar de novo sem quebrar.
+   > ⚠️ **Se o projeto já veio com as tabelas prontas (`telemetria`, `eventos`, `resumo_diario`,
+   > e as de negócio como `cliente`/`sinistros`), NÃO precisa rodar o script** — pule direto para o
+   > item 3. Confira com: `select table_name from information_schema.tables where table_schema='public';`
 3. Em **Settings → API**, copie e cole:
    - **Project URL** → `SUPABASE_URL_CFG` no `segredos.h` **e** `SUPABASE_URL` no `.env`.
    - **anon / publishable key** → `SUPABASE_CHAVE_CFG` no `segredos.h` (é a que vai no ESP32).
@@ -41,7 +44,7 @@ grava e a API lê. (Confira a conexão com `scripts/testar_supabase.py`, passo 2
 ## 1. API offline — testa o código sem internet nem hardware (~2 min)
 
 ```powershell
-cd "C:\Users\USUARIO\Downloads\api\api"
+cd "C:\Users\USUARIO\Downloads\sompo-sprint3\api"
 python -m venv venv
 .\venv\Scripts\python.exe -m pip install -r requirements.txt
 .\venv\Scripts\python.exe -m pytest
@@ -74,7 +77,7 @@ Num terminal (deixe rodando):
 
 Em **outro** terminal:
 ```powershell
-cd "C:\Users\USUARIO\Downloads\api\api"
+cd "C:\Users\USUARIO\Downloads\sompo-sprint3\api"
 .\venv\Scripts\python.exe scripts\testar_api.py
 ```
 **Esperado:** as 6 rotas com **PASSOU**.
@@ -92,17 +95,17 @@ Para parar a API: `Ctrl+C` no terminal dela.
 
 ## 4. Firmware no Wokwi — manda dado real ao Supabase (~5 min)
 
-1. Confira `sensor-sompo\src\segredos.h`. Para o **Wokwi**, já funciona com
+1. Confira `firmware\src\segredos.h`. Para o **Wokwi**, já funciona com
    `WIFI_SSID_CFG "Wokwi-GUEST"` e senha vazia. (Para hardware real, use o hotspot do celular.)
 2. Compile:
    ```powershell
-   cd "C:\Users\USUARIO\OneDrive - Fiap-Faculdade de Informática e Administração Paulista\FIAP\AICSS\Sompo\sensor-sompo"
+   cd "C:\Users\USUARIO\Downloads\sompo-sprint3\firmware"
    pio run
    ```
 3. No VS Code: `F1` → **"Wokwi: Start Simulator"** (usa `wokwi.toml` + `diagram.json` + o firmware compilado).
-4. No Serial Monitor você deve ver `[SISTEMA] Wi-Fi conectado` e, a cada 5s, o envio de telemetria.
+4. No Serial Monitor você deve ver `[SISTEMA] Wi-Fi conectado` e, a cada 10s, o envio de telemetria.
 
-**Esperado:** uma linha nova na tabela `telemetria` do painel do Supabase a cada 5s.
+**Esperado:** uma linha nova na tabela `telemetria` do painel do Supabase a cada 10s.
 
 > Se aparecer `[REDE] falha no envio` no Serial: provavelmente o RLS está bloqueando o INSERT
 > da publishable key. Ver `SEGURANCA.md` (passo 1 — aplicar o RLS).
@@ -119,7 +122,7 @@ O Wokwi usa `"Wokwi-GUEST"`. Para a demo com o **ESP32 físico**, use o hotspot 
 - SSID e senha **simples, sem acento nem caractere especial**.
 - Deixe os **dados móveis ligados** — é por eles que o ESP32 alcança o Supabase.
 
-**2. Editar `sensor-sompo\src\segredos.h`** (troque só estas duas linhas):
+**2. Editar `firmware\src\segredos.h`** (troque só estas duas linhas):
 ```c
 #define WIFI_SSID_CFG        "NomeDoSeuHotspot"
 #define WIFI_PASSWORD_CFG    "suasenha123"
@@ -127,11 +130,11 @@ O Wokwi usa `"Wokwi-GUEST"`. Para a demo com o **ESP32 físico**, use o hotspot 
 
 **3. Gravar no ESP32 físico (via USB) e ver o log:**
 ```powershell
-cd "C:\Users\USUARIO\OneDrive - Fiap-Faculdade de Informática e Administração Paulista\FIAP\AICSS\Sompo\sensor-sompo"
+cd "C:\Users\USUARIO\Downloads\sompo-sprint3\firmware"
 pio run -t upload
 pio device monitor
 ```
-**Esperado:** `[SISTEMA] Wi-Fi conectado, IP ...` e, a cada 5s, o envio de telemetria.
+**Esperado:** `[SISTEMA] Wi-Fi conectado, IP ...` e, a cada 10s, o envio de telemetria.
 
 > Opcional, já que agora há internet real: `#define VALIDAR_CERTIFICADO 1` no `app.ino` liga a
 > validação de certificado. `0` funciona igual e é mais simples para a demo.
@@ -140,7 +143,7 @@ pio device monitor
 
 ## 5. Ver o dado ponta a ponta
 
-- **Painel do Supabase** → Table Editor → `telemetria`: linhas entrando a cada 5s.
+- **Painel do Supabase** → Table Editor → `telemetria`: linhas entrando a cada 10s.
 - Com a API no ar, os endpoints agora devolvem dado real:
   ```powershell
   curl.exe "http://localhost:5000/telemetria?limite=5"
