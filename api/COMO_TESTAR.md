@@ -8,11 +8,34 @@ Caminhos:
 - API: `C:\Users\USUARIO\Downloads\sompo-sprint3\api`
 - Firmware: `C:\Users\USUARIO\Downloads\sompo-sprint3\firmware`
 
+> ⚠️ **Todos os comandos da API rodam de dentro de `api/`**, e o venv fica em `api\venv`.
+> Por isso cada bloco abaixo começa com o `cd` — assim dá para copiar e colar em qualquer
+> terminal novo, sem depender do bloco anterior. Se você já está na pasta certa, pode pular o `cd`.
+
 ---
 
-## 0. Pré-requisitos (uma vez)
-- Python instalado (`python --version` deve responder).
-- PlatformIO (extensão no VS Code) para o firmware.
+## 0. Pré-requisitos e setup inicial (uma vez por máquina)
+
+**Requisitos necessários:**
+- **Python** instalado (`python --version` deve responder). Usado pela API.
+- **PlatformIO** (extensão no VS Code) — só para o firmware (ESP32/Wokwi).
+- Acesso a um projeto no **Supabase** (para os passos 3 em diante). Sem ele, dá para
+  fazer o passo 1 (testes offline) mesmo assim.
+
+**Setup da API (uma vez, faça sempre que clonar o repo do zero):**
+```powershell
+cd "C:\Users\USUARIO\Downloads\sompo-sprint3\api"
+python -m venv venv                                        # cria o ambiente virtual em api\venv
+.\venv\Scripts\python.exe -m pip install -r requirements.txt  # instala as dependências
+Copy-Item .env.example .env                                # cria o seu .env a partir do molde
+```
+
+> 🔑 **Sobre o `.env`:** ele guarda os segredos (chaves do Supabase, da IA) e é **gitignorado** —
+> por isso **não** vem junto quando alguém clona o repo. Cada pessoa/máquina cria o seu **uma vez**
+> a partir do `.env.example` e preenche as chaves (passo 0.b). Depois fica salvo; não precisa recriar
+> a cada execução. O que vai pro repositório é só o `.env.example` (o molde, sem valores).
+
+Depois de criar o `.env`, abra-o e preencha as variáveis conforme o passo 0.b abaixo.
 
 ---
 
@@ -43,15 +66,17 @@ grava e a API lê. (Confira a conexão com `scripts/testar_supabase.py`, passo 2
 
 ## 1. API offline — testa o código sem internet nem hardware (~2 min)
 
+Com o setup da seção 0 já feito (venv criado e dependências instaladas), basta rodar os testes:
 ```powershell
 cd "C:\Users\USUARIO\Downloads\sompo-sprint3\api"
-python -m venv venv
-.\venv\Scripts\python.exe -m pip install -r requirements.txt
 .\venv\Scripts\python.exe -m pytest
 ```
 
+> Ainda não fez o setup? Rode antes (uma vez):
+> `python -m venv venv` e depois `.\venv\Scripts\python.exe -m pip install -r requirements.txt`.
+
 **Esperado:** `14 passed`. Cobre `scores.py`, as rotas e os 3 cenários do relatório de risco
-(com IA / sem chave / provedor fora) — tudo mockado, sem rede.
+(com IA / sem chave / provedor fora) — tudo mockado, sem rede. Não precisa de `.env` nem internet.
 
 > Dica: para ativar o venv e não digitar o caminho toda vez: `.\venv\Scripts\Activate.ps1`.
 > Se o PowerShell bloquear, rode antes: `Set-ExecutionPolicy -Scope Process RemoteSigned`.
@@ -61,6 +86,7 @@ python -m venv venv
 ## 2. Conexão com o Supabase (~1 min)
 
 ```powershell
+cd "C:\Users\USUARIO\Downloads\sompo-sprint3\api"
 .\venv\Scripts\python.exe scripts\testar_supabase.py
 ```
 
@@ -72,6 +98,7 @@ python -m venv venv
 
 Num terminal (deixe rodando):
 ```powershell
+cd "C:\Users\USUARIO\Downloads\sompo-sprint3\api"
 .\venv\Scripts\python.exe app.py
 ```
 
@@ -173,6 +200,7 @@ curl.exe "http://localhost:5000/scores?dias=7"
 ## 7. Plano B — salvar os JSONs para a apresentação
 
 ```powershell
+cd "C:\Users\USUARIO\Downloads\sompo-sprint3\api"
 .\venv\Scripts\python.exe scripts\salvar_plano_b.py
 ```
 Salva um JSON de cada endpoint em `api\plano_b\`. Rode isso perto da apresentação, com dado real
@@ -234,6 +262,11 @@ curl.exe "http://localhost:5000/relatorio/risco?dias=7"
 ---
 
 ## Se algo falhar
+- **`No such file or directory` / `can't open file ...scripts\...` ou `Could not open requirements file`:**
+  você está na pasta errada. Rode `cd "C:\Users\USUARIO\Downloads\sompo-sprint3\api"` antes — todos
+  os comandos da API rodam de dentro de `api/`, e o venv fica em `api\venv`.
+- **`No module named pytest`:** o venv não tem as dependências. Rode
+  `.\venv\Scripts\python.exe -m pip install -r requirements.txt` (de dentro de `api/`).
 - **pytest falha:** me manda a saída do erro.
 - **testar_supabase 401/403:** problema de chave ou RLS — ver `SEGURANCA.md`.
 - **ESP32 não conecta no Wokwi:** confira `segredos.h`; no hardware real, use o hotspot.
