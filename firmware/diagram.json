@@ -63,7 +63,6 @@
       "attrs": {}
     },
     { "type": "wokwi-dht22", "id": "dht1", "top": -162.9, "left": 138.6, "attrs": {} },
-    { "type": "wokwi-mpu6050", "id": "imu1", "top": 263.02, "left": -55.28, "attrs": {} },
     {
       "type": "wokwi-pushbutton-6mm",
       "id": "btn1",
@@ -113,10 +112,6 @@
     [ "dht1:GND", "esp:GND.2", "black", [ "v115.2", "h-9.6" ] ],
     [ "dht1:VCC", "esp:3V3", "red", [ "v28.8", "h-172.8" ] ],
     [ "dht1:SDA", "esp:32", "green", [ "v19.2", "h-201.5", "v105.6", "h0", "v9.6" ] ],
-    [ "imu1:VCC", "esp:5V", "red", [ "v-28.8", "h-38.32" ] ],
-    [ "imu1:GND", "esp:GND.1", "black", [ "v-38.4", "h-47.92", "v-76.8" ] ],
-    [ "imu1:SCL", "esp:14", "green", [ "v-48", "h-57.52", "v-86.4" ] ],
-    [ "imu1:SDA", "esp:13", "cyan", [ "v-57.6", "h-38.32", "v-48" ] ],
     [ "btn2:1.r", "esp:27", "purple", [ "v0" ] ],
     [ "btn2:2.r", "esp:GND.1", "black", [ "h0.8", "v19.6", "h48", "v-9.6" ] ],
     [ "btn1:1.r", "esp:25", "purple", [ "v0", "h48.8", "v9.6" ] ],

@@ -67,6 +67,7 @@
 #define MODO_SIMULACAO    1   // 1 = mapeia DHT p/ faixa de escape real
 #define TELEMETRIA_SERIAL 0   // 1 = imprime tambem o JSON completo (p/ relatorio)
 #define VALIDAR_CERTIFICADO 0 // 1 = valida o cert TLS do Supabase (producao); 0 = setInsecure (Wokwi/demo)
+#define TEM_MPU           0   // 0 = sem MPU-6050 fisico (sem deteccao de vibracao); 1 = com o sensor ligado
 #define DISPOSITIVO_ID "SOMPO-ESP32"
 
 // Pinos (conforme diagram.json)
@@ -466,11 +467,15 @@ void calcularNivelRisco() {
   if (!maquinaLigada) {
     // Vigilancia: maquina parada
     if (emMovimento)                      sev = max(sev, 4);                 // reboque
+#if TEM_MPU
     if (vibracaoConfirmada)               sev = max(sev, 4);                 // adulteracao
+#endif
     if (capoAberto)                       sev = max(sev, suspeitoAgora ? 4 : 2);
     if (tanqueAberto)                     sev = max(sev, suspeitoAgora ? 4 : 3);
+#if TEM_MPU
     // Vigilancia cega: sem acelerometro nao ha como flagrar adulteracao.
     if (!mpuOk)                           sev = max(sev, suspeitoAgora ? 4 : 2);
+#endif
   } else {
     // Maquina ligada sem autorizacao = roubo em andamento
     if (!operadorAutorizado)              sev = max(sev, suspeitoAgora ? 4 : 3);
@@ -697,6 +702,7 @@ void verificarEventos() {
       dispararEvento("FURTO", msg, "furto_movimento", 4, det);
     }
 
+#if TEM_MPU
     // furto_adulteracao (vibracao com a maquina parada): continuo, trava de 5 s.
     if (vibracaoConfirmada && agora - ultimaAdulteracao >= TRAVA_EVENTO) {
       ultimaAdulteracao = agora;
@@ -705,6 +711,7 @@ void verificarEventos() {
       dispararEvento("FURTO", "vibracao com a maquina desligada - possivel adulteracao",
                      "furto_adulteracao", 4, det);
     }
+#endif
 
     // furto_capo (borda): aviso brando, ou alerta forte em horario suspeito.
     if (capoAberto && !capoAbertoAnterior) {
@@ -849,7 +856,7 @@ void tratarRaiz() {
     tempEscape, umidadeAr,
     chamaDetectada ? "sim" : "nao",
     vibracao, baseVibracao, (float)LIMIAR_VIBRACAO,
-    mpuOk ? "ok" : "SEM RESPOSTA", tempModulo,
+    mpuOk ? "ok" : (TEM_MPU ? "SEM RESPOSTA" : "nao instalado"), tempModulo,
     distanciaCm, distanciaReferencia,
     emMovimento ? "SIM" : "nao", deltaCm, (float)LIMIAR_DESLOCAMENTO,
     capoAberto ? "sim" : "nao", tanqueAberto ? "sim" : "nao",
@@ -875,10 +882,14 @@ void setup() {
   // do watchdog: um envio demorado deixa de derrubar o dispositivo.
   disableCore0WDT();
 
+#if TEM_MPU
   // I2C em pinos nao-padrao para o MPU-6050 (ver diagram.json).
   Wire.begin(PIN_MPU_SDA, PIN_MPU_SCL);
   mpu.initialize();
   mpuOk = mpu.testConnection();
+#else
+  mpuOk = false;   // sem sensor fisico: vibracao desativada de proposito (TEM_MPU=0)
+#endif
 
   dht.begin();
   ultrasonic.attach(PIN_TRIG, PIN_ECHO);
@@ -897,7 +908,11 @@ void setup() {
   maquinaAnterior = maquinaLigada;
 
   Serial.println("[SISTEMA] SOMPO iniciado");
+#if TEM_MPU
   Serial.println(mpuOk ? "[SISTEMA] MPU6050 ok" : "[SISTEMA] MPU6050 nao encontrado!");
+#else
+  Serial.println("[SISTEMA] MPU6050 desativado (TEM_MPU=0) - sem deteccao de vibracao");
+#endif
   Serial.println(maquinaLigada ? "[SISTEMA] maquina ligada"
                                : "[SISTEMA] maquina desligada - em vigilancia");
 
@@ -939,11 +954,13 @@ void loop() {
     lerDht();
   }
 
+#if TEM_MPU
   // Presenca do MPU no barramento: perder o sensor e evento, nao silencio.
   if (agora - ultimaSaudeMpu >= INTERVALO_SAUDE_MPU) {
     ultimaSaudeMpu = agora;
     verificarSaudeMpu();
   }
+#endif
 
   // Ciclo principal a cada 100 ms.
   if (agora - ultimaLeitura >= INTERVALO_LEITURA) {
@@ -951,7 +968,9 @@ void loop() {
     suspeitoAgora = horarioSuspeito();
     lerIgnicao();
     lerDistancia();
+#if TEM_MPU
     lerVibracao();
+#endif
     lerChama();
     lerBotoes();
     calcularNivelRisco();
