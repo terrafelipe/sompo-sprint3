@@ -1,0 +1,21 @@
+# Nunca copiar segredos nem lixo para dentro da imagem.
+.env
+.env.*
+!.env.example
+
+venv/
+.venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+
+# Nao precisa em producao (os guias ficam em docs/, fora deste contexto de build).
+tests/
+scripts/
+README.md
+
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

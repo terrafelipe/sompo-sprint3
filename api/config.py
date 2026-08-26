@@ -19,10 +19,14 @@ FLASK_HOST = _get_env('FLASK_HOST', '127.0.0.1')
 FLASK_PORT = int(_get_env('FLASK_PORT', '5000'))
 FLASK_DEBUG = _get_env('FLASK_DEBUG', 'false').lower() in {'1', 'true', 'yes', 'y'}
 
-# Seguranca da API (ver SEGURANCA.md)
+# Seguranca da API (ver docs/SEGURANCA.md)
 # SOMPO_API_KEY vazia = autenticacao desligada (modo demo). Definida = toda rota
 # (menos /saude) exige o header 'X-API-Key' com esse valor.
 SOMPO_API_KEY = _get_env('SOMPO_API_KEY')
+# Login do painel publico (HTTP Basic Auth). PAINEL_SENHA vazia = login desligado
+# (demo local aberta). Definida = TODO o site (painel + endpoints) exige usuario/senha.
+PAINEL_USUARIO = _get_env('PAINEL_USUARIO', 'sompo')
+PAINEL_SENHA = _get_env('PAINEL_SENHA')
 # CORS_ORIGINS: lista separada por virgula. Vazia = nenhuma origem cross-origin
 # liberada (padrao seguro). Ex.: "http://localhost:3000,https://painel.exemplo.com".
 CORS_ORIGINS = [o.strip() for o in _get_env('CORS_ORIGINS').split(',') if o.strip()]

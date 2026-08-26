@@ -1,0 +1,25 @@
+# Blueprint do Render para o painel + API SOMPO.
+# No Render: New > Blueprint > aponte para este repo. As envs com sync:false
+# NAO ficam no repositorio - voce preenche os valores no painel do Render.
+services:
+  - type: web
+    name: sompo-painel
+    runtime: docker
+    rootDir: api
+    dockerfilePath: ./Dockerfile
+    plan: free
+    # Sem healthCheckPath: com o login ligado, TODO o site (inclusive /saude) pede
+    # senha, entao o Render checa apenas se a porta esta no ar. Assim nada fica exposto.
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SECRET_KEY
+        sync: false
+      - key: LLM_API_KEY
+        sync: false
+      - key: LLM_MODEL
+        value: gemini-flash-lite-latest
+      - key: PAINEL_USUARIO
+        sync: false
+      - key: PAINEL_SENHA
+        sync: false

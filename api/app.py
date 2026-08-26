@@ -9,7 +9,16 @@ from flask import Flask, Response, jsonify, request
 from flask_cors import CORS
 
 import documento
-from config import CORS_ORIGINS, FLASK_DEBUG, FLASK_HOST, FLASK_PORT, SOMPO_API_KEY, SUPABASE_URL
+from config import (
+    CORS_ORIGINS,
+    FLASK_DEBUG,
+    FLASK_HOST,
+    FLASK_PORT,
+    PAINEL_SENHA,
+    PAINEL_USUARIO,
+    SOMPO_API_KEY,
+    SUPABASE_URL,
+)
 from relatorios import montar_relatorio_bruto, montar_relatorio_risco
 from scores import calcular_scores
 from supabase_client import consultar_eventos, consultar_telemetria, consultar_resumo
@@ -20,6 +29,33 @@ CORS(app, origins=CORS_ORIGINS)
 
 # Rotas liberadas sem API key mesmo com auth ligada (health check + o painel HTML).
 _ROTAS_PUBLICAS = {'saude', 'painel', 'static'}
+
+
+@app.before_request
+def exigir_login_painel():
+    # Login do painel publico (Basic Auth). Opt-in: so protege quando PAINEL_SENHA
+    # esta configurada (producao). Em modo demo (senha vazia) nada e protegido.
+    # Cobre TODO o site, inclusive '/' e os arquivos estaticos, para que a pagina
+    # do painel nao fique exposta. O navegador guarda a credencial e as chamadas
+    # fetch do painel a reenviam automaticamente.
+    if not PAINEL_SENHA:
+        return None
+    if request.method == 'OPTIONS':
+        return None
+    auth = request.authorization
+    if (
+        auth is not None
+        and auth.username is not None
+        and auth.password is not None
+        and hmac.compare_digest(auth.username, PAINEL_USUARIO)
+        and hmac.compare_digest(auth.password, PAINEL_SENHA)
+    ):
+        return None
+    return Response(
+        'Login necessario',
+        401,
+        {'WWW-Authenticate': 'Basic realm="Painel SOMPO"'},
+    )
 
 
 @app.before_request
@@ -50,7 +86,7 @@ def _parse_int(value: str, default: int, minimum: int | None = None, maximum: in
 
 def _erro(message: str, exc, status: int):
     # O detalhe do erro fica SO no log do servidor - nao vaza para o cliente
-    # (evita expor schema/mensagens internas do Supabase). Ver SEGURANCA.md.
+    # (evita expor schema/mensagens internas do Supabase). Ver docs/SEGURANCA.md.
     app.logger.warning('%s: %s', message, exc)
     return jsonify({'erro': message}), status
 
