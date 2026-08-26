@@ -11,7 +11,7 @@ padrão.
 
 ## O que já foi aplicado no código
 
-### Firmware ESP32 (`sensor-sompo/src/app.ino`)
+### Firmware ESP32 (`firmware/src/app.ino`)
 - **Validação de certificado TLS configurável** pela flag `VALIDAR_CERTIFICADO`:
   - `0` (padrão) → `setInsecure()`: criptografa mas não valida o servidor.
     Necessário no Wokwi/demo (o simulador não traz o bundle de CAs).
@@ -54,7 +54,7 @@ chave de administrador: pode **apagar a trilha de evidência** e **ler dados de
 clientes**. O RLS a limita a apenas INSERT.
 
 1. Abrir o **SQL Editor** no painel do Supabase.
-2. Colar e rodar o conteúdo de `sensor-sompo/sql/preparar_supabase.sql` — cria as
+2. Colar e rodar o conteúdo de `firmware/sql/preparar_supabase.sql` — cria as
    tabelas + a view + os índices + o RLS de uma vez (idempotente, não apaga dados).
 3. Conferir com as duas queries comentadas no fim do arquivo:
    devem mostrar `rowsecurity = true` e apenas as políticas de INSERT.
@@ -64,7 +64,7 @@ As chaves atuais já circularam (zip, Downloads). Antes de ir para produção:
 
 1. No painel do Supabase, gerar **novas** publishable e secret keys.
 2. Atualizar:
-   - `sensor-sompo/src/segredos.h` → nova **publishable** key;
+   - `firmware/src/segredos.h` → nova **publishable** key;
    - `api/.env` → nova **secret** key.
 3. (Opcional) me avisar as chaves novas que eu atualizo os arquivos.
 
@@ -86,7 +86,7 @@ waitress-serve --host=127.0.0.1 --port=5000 app:app
 Chamadas passam a exigir o header: `X-API-Key: <a-mesma-chave>` (menos `/saude`).
 
 ### Firmware
-Em `sensor-sompo/src/app.ino`, trocar:
+Em `firmware/src/app.ino`, trocar:
 ```cpp
 #define VALIDAR_CERTIFICADO 1
 ```

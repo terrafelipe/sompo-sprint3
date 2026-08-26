@@ -79,7 +79,7 @@ cd "C:\Users\USUARIO\Downloads\sompo-sprint3\api"
 > Ainda não fez o setup? Rode antes (uma vez):
 > `python -m venv venv` e depois `.\venv\Scripts\python.exe -m pip install -r requirements.txt`.
 
-**Esperado:** `14 passed`. Cobre `scores.py`, as rotas e os 3 cenários do relatório de risco
+**Esperado:** `18 passed`. Cobre `scores.py`, as rotas e os 3 cenários do relatório de risco
 (com IA / sem chave / provedor fora) — tudo mockado, sem rede. Não precisa de `.env` nem internet.
 
 > Dica: para ativar o venv e não digitar o caminho toda vez: `.\venv\Scripts\Activate.ps1`.

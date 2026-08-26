@@ -36,12 +36,12 @@ Colisão, distância e previsão do tempo estão fora de escopo (máquinas novas
    (`pio run -t upload`).
 
 ### API (`api/`)
-Guia completo em [`api/COMO_TESTAR.md`](api/COMO_TESTAR.md). Resumo:
+Guia completo em [`docs/COMO_TESTAR.md`](docs/COMO_TESTAR.md). Resumo:
 ```bash
 cd api
 python -m venv venv
 venv\Scripts\python.exe -m pip install -r requirements.txt
-venv\Scripts\python.exe -m pytest          # 14 testes, sem rede
+venv\Scripts\python.exe -m pytest          # 18 testes, sem rede
 venv\Scripts\python.exe app.py             # sobe a API em localhost:5000
 ```
 Configuração em `.env` (copie de `.env.example`): URL/secret do Supabase e a chave do Gemini.
@@ -62,8 +62,8 @@ Configuração em `.env` (copie de `.env.example`): URL/secret do Supabase e a c
 - **Segredos nunca vão para o repositório.** `api/.env` e `firmware/src/segredos.h` estão no
   `.gitignore`; o repositório traz só os modelos (`.env.example`, `segredos.exemplo.h`).
 - O ESP32 usa apenas a **publishable key** do Supabase, limitada a INSERT por políticas de RLS
-  (`firmware/sql/politicas_rls.sql`). A **secret key** vive só na API.
-- Detalhes e endurecimento em [`api/SEGURANCA.md`](api/SEGURANCA.md).
+  (`firmware/sql/preparar_supabase.sql`). A **secret key** vive só na API.
+- Detalhes e endurecimento em [`docs/SEGURANCA.md`](docs/SEGURANCA.md).
 
 ## Stack
 

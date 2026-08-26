@@ -16,25 +16,38 @@ A API consulta dados de telemetria e eventos do Supabase, consolida informaçõe
 
 ```text
 api/
-├── app.py
-├── config.py
-├── supabase_client.py
-├── relatorios.py
+├── app.py               # rotas Flask + login/auth (opt-in)
+├── config.py            # variaveis de ambiente
+├── supabase_client.py   # consultas ao Supabase
+├── scores.py            # scores de risco deterministicos
+├── relatorios.py        # monta os relatorios (bruto/risco)
+├── llm.py               # analise redigida pelo Google Gemini
+├── documento.py         # gera o relatorio em Word (.docx)
 ├── requirements.txt
-├── .env
-├── .env.example
+├── .env / .env.example  # segredos (o .env fica local, gitignorado)
 ├── .gitignore
 ├── README.md
-├── tests/
+├── Dockerfile           # imagem de producao (waitress)
+├── .dockerignore
+├── render.yaml          # blueprint de deploy no Render
+├── static/
+│   └── index.html       # painel (dashboard) HTML
+├── tests/               # 18 testes (sem rede)
 │   ├── __init__.py
 │   ├── test_health.py
 │   ├── test_telemetria.py
 │   ├── test_eventos.py
-│   └── test_relatorios.py
+│   ├── test_scores.py
+│   ├── test_relatorios.py
+│   ├── test_relatorio_risco_origens.py
+│   └── test_documento.py
 └── scripts/
     ├── testar_api.py
-    └── testar_supabase.py
+    ├── testar_supabase.py
+    └── salvar_plano_b.py
 ```
+
+> Os guias (COMO_TESTAR, SEGURANCA, DEPLOY) ficam em [`../docs/`](../docs).
 
 ## Instalação
 
@@ -61,7 +74,7 @@ FLASK_HOST=127.0.0.1
 FLASK_PORT=5000
 FLASK_DEBUG=false
 
-# Seguranca (ver SEGURANCA.md)
+# Seguranca (ver docs/SEGURANCA.md)
 SOMPO_API_KEY=
 CORS_ORIGINS=
 ```
@@ -72,7 +85,7 @@ Variáveis de segurança:
 - `CORS_ORIGINS` — origens liberadas para CORS, separadas por vírgula. Vazio = nenhuma.
 
 Detalhes e passos manuais (RLS no Supabase, rotação de chaves, modo produção) em
-[`SEGURANCA.md`](SEGURANCA.md).
+[`docs/SEGURANCA.md`](../docs/SEGURANCA.md).
 
 ## Execução da API
 
@@ -166,16 +179,13 @@ Content-Type: application/json
 
 ## Integração com IA
 
-A arquitetura foi preparada para a API OpenAI compatível:
+A análise de risco é **redigida pelo Google Gemini** (Generative Language API). Os números
+(scores) são **determinísticos**, calculados em `scores.py` — a IA nunca inventa valores, só
+justifica o risco já calculado. A chamada (em `llm.py`) usa:
 
 ```http
-POST https://api.openai.com/v1/chat/completions
-```
-
-Headers:
-
-```http
-Authorization: Bearer {LLM_API_KEY}
+POST https://generativelanguage.googleapis.com/v1beta/models/{LLM_MODEL}:generateContent
+x-goog-api-key: {LLM_API_KEY}
 Content-Type: application/json
 ```
 
@@ -183,15 +193,15 @@ Body:
 
 ```json
 {
-  "model": "{LLM_MODEL}",
-  "messages": [
-    { "role": "user", "content": "PROMPT" }
-  ],
-  "temperature": 0.2
+  "contents": [{ "parts": [{ "text": "PROMPT" }] }],
+  "generationConfig": { "temperature": 0.2, "responseMimeType": "application/json" }
 }
 ```
 
-Se `LLM_API_KEY` estiver vazia, o endpoint `/relatorio/risco` retorna um JSON com a mensagem de configuração pendente e o prompt gerado, sem quebrar a API.
+O campo `origem_da_analise` na resposta indica o que aconteceu: `llm` (a IA escreveu),
+`prompt_apenas` (sem `LLM_API_KEY` — devolve o prompt gerado, sem quebrar a API) ou
+`fallback` (tem chave, mas o provedor falhou). Trocar de provedor mexe só em
+`_chamar_provedor` de `llm.py`.
 
 ## Segurança das chaves
 
