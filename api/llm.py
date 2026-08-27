@@ -14,7 +14,9 @@ transforma isso em resposta HTTP 200. Trocar de provedor mexe só em `_chamar_pr
 """
 from __future__ import annotations
 
+import hashlib
 import json
+import time
 from typing import Any, Dict
 
 import requests
@@ -24,6 +26,18 @@ from config import LLM_API_KEY, LLM_MODEL
 # Endpoint da Google Generative Language API (Gemini).
 URL_BASE = 'https://generativelanguage.googleapis.com/v1beta/models'
 TIMEOUT = 20
+
+# Cache em memoria para nao chamar o Gemini a cada refresh (evita o 429 do tier
+# gratuito): mesma pergunta (prompt) reaproveita a resposta por um tempo.
+# Sucesso fica mais tempo; falha fica pouco (para tentar de novo, sem martelar).
+_CACHE: Dict[str, tuple] = {}
+_TTL_OK = 300     # 5 min
+_TTL_ERRO = 120   # 2 min
+
+
+def limpar_cache() -> None:
+    """Zera o cache da analise (usado nos testes)."""
+    _CACHE.clear()
 
 
 def _chamar_provedor(prompt: str) -> Dict[str, Any]:
@@ -53,11 +67,23 @@ def _chamar_provedor(prompt: str) -> Dict[str, Any]:
 
 
 def analisar_risco(prompt: str) -> Dict[str, Any]:
-    """Decide a origem e retorna um dict. Nunca lança."""
+    """Decide a origem e retorna um dict. Nunca lança. Usa cache por prompt."""
     if not LLM_API_KEY:
         return {'origem': 'prompt_apenas'}
+
+    chave = hashlib.sha256(prompt.encode('utf-8')).hexdigest()
+    agora = time.time()
+    guardado = _CACHE.get(chave)
+    if guardado is not None and guardado[0] > agora:
+        return guardado[1]   # ainda valido -> reaproveita, sem chamar o provedor
+
     try:
         analise = _chamar_provedor(prompt)
-        return {'origem': 'llm', 'analise': analise}
-    except Exception as exc:   # rede, timeout, HTTP >=400, JSON invalido, resposta bloqueada
-        return {'origem': 'fallback', 'erro': str(exc)}
+        resultado = {'origem': 'llm', 'analise': analise}
+        ttl = _TTL_OK
+    except Exception as exc:   # rede, timeout, HTTP >=400 (ex.: 429), JSON invalido
+        resultado = {'origem': 'fallback', 'erro': str(exc)}
+        ttl = _TTL_ERRO
+
+    _CACHE[chave] = (agora + ttl, resultado)
+    return resultado

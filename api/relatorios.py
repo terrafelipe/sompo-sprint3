@@ -92,7 +92,11 @@ def montar_fallback(scores: Dict[str, Any], erro: str | None = None) -> Dict[str
     limitacoes = ('Analise gerada por template (sem IA): os numeros sao deterministicos e o '
                   'texto e padronizado.')
     if erro:
-        limitacoes += f' Provedor de IA indisponivel: {erro}'
+        e = str(erro)
+        if '429' in e or 'Too Many Requests' in e:
+            limitacoes += ' Limite de uso da IA atingido temporariamente; tente novamente em instantes.'
+        else:
+            limitacoes += f' Provedor de IA indisponivel: {e}'
 
     return {
         'justificativa_furto': (
