@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hmac
 import os
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Tuple
 
@@ -26,6 +27,7 @@ from config import (
     PAINEL_SENHA,
     PAINEL_USUARIO,
     SECRET_KEY,
+    SESSAO_HORAS,
     SOMPO_API_KEY,
     SUPABASE_URL,
 )
@@ -36,9 +38,15 @@ from supabase_client import consultar_eventos, consultar_telemetria, consultar_r
 app = Flask(__name__)
 # Chave para assinar o cookie de sessao do login.
 app.secret_key = SECRET_KEY
-app.permanent_session_lifetime = timedelta(hours=8)
-# Cookie de sessao mais seguro (nao acessivel por JS; nao vaza em navegacao cross-site).
-app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE='Lax')
+_SESSAO_SEGUNDOS = SESSAO_HORAS * 3600
+app.permanent_session_lifetime = timedelta(hours=SESSAO_HORAS)
+# Cookie de sessao mais seguro (HttpOnly, SameSite). Sem refresh a cada request: o
+# prazo conta a partir do login, forcando novo login depois de SESSAO_HORAS.
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE='Lax',
+    SESSION_REFRESH_EACH_REQUEST=False,
+)
 # CORS restrito as origens de CORS_ORIGINS (vazio = nenhuma origem cross-origin).
 CORS(app, origins=CORS_ORIGINS)
 
@@ -61,8 +69,11 @@ def exigir_login_painel():
     if request.endpoint in _LOGIN_LIVRE:
         return None
     if session.get('logado'):
-        return None
-    # Nao logado: navegador (HTML) vai para a tela de login; chamada de dados (fetch/JSON)
+        # Timeout absoluto: expira SESSAO_HORAS apos o login, independente de atividade.
+        if time.time() - session.get('login_em', 0) < _SESSAO_SEGUNDOS:
+            return None
+        session.clear()  # sessao expirou -> exige novo login
+    # Nao logado (ou expirado): navegador (HTML) vai para a tela de login; chamada de dados (fetch/JSON)
     # recebe 401 para o JS tratar sem seguir o redirect.
     if 'text/html' in request.headers.get('Accept', ''):
         return redirect(url_for('login', proximo=request.full_path.rstrip('?')))
@@ -90,13 +101,15 @@ def login():
         senha = request.form.get('senha', '')
         if hmac.compare_digest(usuario, PAINEL_USUARIO) and hmac.compare_digest(senha, PAINEL_SENHA):
             session['logado'] = True
-            # "Manter conectado": marcado = cookie dura 8h; desmarcado = cai ao fechar o navegador.
+            session['login_em'] = time.time()  # inicio da sessao, para o timeout absoluto
+            # "Manter conectado": marcado = cookie persiste (ate SESSAO_HORAS); desmarcado =
+            # cai ao fechar o navegador. O timeout de SESSAO_HORAS vale nos dois casos.
             session.permanent = bool(request.form.get('lembrar'))
             return redirect(_destino_seguro(request.form.get('proximo', '')))
         erro = True
 
     proximo = request.values.get('proximo', '')
-    pagina = render_template('login.html', erro=erro, usuario_padrao=PAINEL_USUARIO, proximo=proximo)
+    pagina = render_template('login.html', erro=erro, proximo=proximo)
     return pagina, (401 if erro else 200)
 
 

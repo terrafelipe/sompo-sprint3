@@ -32,6 +32,11 @@ PAINEL_SENHA = _get_env('PAINEL_SENHA')
 # Chave para assinar o cookie de sessao do login. Vazia = gera uma aleatoria a cada
 # start (todo mundo desloga ao reiniciar). Defina em producao para manter a sessao.
 SECRET_KEY = _get_env('SECRET_KEY') or secrets.token_hex(32)
+# Tempo maximo (horas) de uma sessao antes de exigir novo login. Padrao 24.
+try:
+    SESSAO_HORAS = int(_get_env('SESSAO_HORAS', '24'))
+except ValueError:
+    SESSAO_HORAS = 24
 # CORS_ORIGINS: lista separada por virgula. Vazia = nenhuma origem cross-origin
 # liberada (padrao seguro). Ex.: "http://localhost:3000,https://painel.exemplo.com".
 CORS_ORIGINS = [o.strip() for o in _get_env('CORS_ORIGINS').split(',') if o.strip()]

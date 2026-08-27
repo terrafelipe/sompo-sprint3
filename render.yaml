@@ -29,3 +29,6 @@ services:
       # para a sessao nao cair a cada restart.
       - key: SECRET_KEY
         generateValue: true
+      # Horas ate a sessao expirar e exigir novo login.
+      - key: SESSAO_HORAS
+        value: "24"
