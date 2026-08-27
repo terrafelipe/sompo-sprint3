@@ -1,12 +1,14 @@
-# Blueprint do Render para o painel + API SOMPO.
+# Blueprint do Render para o painel + API SOMPO (precisa ficar na RAIZ do repo).
 # No Render: New > Blueprint > aponte para este repo. As envs com sync:false
 # NAO ficam no repositorio - voce preenche os valores no painel do Render.
 services:
   - type: web
     name: sompo-painel
     runtime: docker
-    rootDir: api
-    dockerfilePath: ./Dockerfile
+    # O Dockerfile e o contexto de build ficam em api/ (o `COPY . .` do Dockerfile
+    # espera o conteudo de api/, e o .dockerignore fica na raiz desse contexto).
+    dockerfilePath: ./api/Dockerfile
+    dockerContext: ./api
     plan: free
     # Sem healthCheckPath: com o login ligado, TODO o site (inclusive /saude) pede
     # senha, entao o Render checa apenas se a porta esta no ar. Assim nada fica exposto.

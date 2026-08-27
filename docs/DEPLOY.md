@@ -28,8 +28,8 @@ Enquanto `PAINEL_SENHA` estiver **vazia**, o login fica **desligado** (modo demo
 ## 3. Deploy no Render (via Blueprint)
 
 1. Suba este repositório no GitHub (se ainda não estiver).
-2. No Render: **New → Blueprint** e aponte para o repo. Ele lê o [`render.yaml`](../api/render.yaml)
-   e cria o serviço `sompo-painel` (Docker, plano free, pasta `api/`).
+2. No Render: **New → Blueprint** e aponte para o repo. Ele lê o [`render.yaml`](../render.yaml)
+   (na raiz) e cria o serviço `sompo-painel` (Docker, contexto `api/`, plano free).
 3. Em **Environment**, preencha os valores (não ficam no repositório):
 
    | Variável | Valor |
