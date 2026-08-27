@@ -42,7 +42,7 @@ Enquanto `PAINEL_SENHA` estiver **vazia**, o login fica **desligado** (modo demo
    | `PAINEL_SENHA` | a senha do passo 2 |
 
 4. **Create** → aguarde o build. Ao final o Render dá uma URL `https://sompo-painel.onrender.com`.
-5. Abra a URL: o navegador pede **usuário/senha**. Depois de logar, o painel carrega os
+5. Abra a URL: aparece a **tela de login** (`/login`). Depois de logar, o painel carrega os
    scores e eventos do Supabase de ponta a ponta.
 
 > **Plano free:** o serviço hiberna após inatividade; o **primeiro** acesso depois disso
@@ -62,7 +62,7 @@ docker run -p 5000:5000 --env-file api/.env sompo-painel
 ## Segurança em resumo
 
 - **HTTPS** do Render — os dados da seguradora não trafegam em texto puro.
-- **Login obrigatório** no site inteiro (Basic Auth sobre HTTPS, comparação em tempo
+- **Login obrigatório** no site inteiro (página `/login` + sessão sobre HTTPS, comparação em tempo
   constante). Sem a senha, ninguém com a URL vê os dados.
 - **Segredos fora do repo** — só em variáveis de ambiente do Render; o `.dockerignore`
   garante que `.env` nunca entra na imagem.

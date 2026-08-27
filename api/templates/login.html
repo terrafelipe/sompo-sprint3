@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>Entrar · Painel SOMPO</title>
+  <style>
+    @layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}}
+    ::-webkit-scrollbar{display:none;}
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script id="tailwind-config">
+    tailwind.config={theme:{extend:{
+      "colors":{
+        "surface-tint":"#c00000","secondary":"#545f73","primary":"#b70100","surface":"#fff8f6",
+        "background":"#fff8f6","on-primary":"#ffffff","on-surface":"#2a1613","on-background":"#2a1613",
+        "on-surface-variant":"#5f3f3a","surface-variant":"#ffdad4","surface-container-lowest":"#ffffff",
+        "surface-container-low":"#fff0ee","surface-container":"#ffe9e6","surface-container-high":"#ffe2dd",
+        "primary-fixed-dim":"#ffb4a8","on-primary-fixed-variant":"#930100","outline":"#946e68",
+        "outline-variant":"#e9bcb5","tertiary-container":"#0068f9","error":"#ba1a1a"
+      },
+      "borderRadius":{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},
+      "fontFamily":{"display-kpi":["Inter"],"body-md":["Inter"],"headline-lg":["Inter"],
+        "headline-sm":["Inter"],"label-bold":["Inter"]},
+      "fontSize":{
+        "display-kpi":["48px",{"lineHeight":"1.1","letterSpacing":"-0.02em","fontWeight":"800"}],
+        "headline-lg":["30px",{"lineHeight":"38px","fontWeight":"700"}],
+        "headline-sm":["20px",{"lineHeight":"28px","fontWeight":"600"}],
+        "body-md":["14px",{"lineHeight":"20px","fontWeight":"400"}],
+        "label-bold":["12px",{"lineHeight":"16px","fontWeight":"700"}]
+      }
+    }}};
+  </script>
+</head>
+<body class="bg-background flex items-center justify-center min-h-screen">
+<main class="w-full min-h-screen">
+  <div class="flex flex-col w-full h-full min-h-[100dvh] lg:flex-row bg-background">
+
+    <!-- Esquerda: formulario de login -->
+    <div class="flex flex-col justify-center items-center w-full lg:w-1/2 p-8 lg:p-16 z-10 relative bg-surface">
+      <!-- Blob decorativo -->
+      <div class="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none opacity-20">
+        <div class="absolute -top-20 -left-20 w-96 h-96 bg-primary-fixed-dim rounded-full mix-blend-multiply filter blur-[80px] animate-pulse" style="animation-duration: 8s;"></div>
+      </div>
+
+      <div class="w-full max-w-md space-y-8 relative">
+        <!-- Logo / marca -->
+        <div class="mb-10 flex justify-center lg:justify-start items-center gap-3">
+          <span class="material-symbols-outlined text-primary text-[32px]">agriculture</span>
+          <span class="font-headline-sm text-headline-sm text-primary tracking-tight font-extrabold">SOMPO</span>
+        </div>
+
+        <!-- Cabecalho -->
+        <div class="space-y-2 text-center lg:text-left">
+          <h1 class="font-headline-lg text-headline-lg text-on-surface">Acesse o painel</h1>
+          <p class="font-body-md text-body-md text-secondary">Monitoramento de furto e incêndio · acesso restrito.</p>
+        </div>
+
+        <!-- Erro -->
+        {% if erro %}
+        <div class="flex items-center gap-2 px-4 py-3 rounded-lg bg-error/10 border border-error/30 text-error font-body-md text-body-md">
+          <span class="material-symbols-outlined text-[18px]">error</span>
+          Usuário ou senha incorretos.
+        </div>
+        {% endif %}
+
+        <!-- Formulario (posta para /login) -->
+        <form class="space-y-6" method="post" action="{{ url_for('login') }}">
+          <input type="hidden" name="proximo" value="{{ proximo }}"/>
+
+          <div class="space-y-4">
+            <!-- Usuario -->
+            <div>
+              <label class="block font-label-bold text-label-bold text-on-surface mb-1" for="usuario">Nome de Usuário</label>
+              <div class="relative group">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-secondary pointer-events-none group-focus-within:text-primary transition-colors">
+                  <span class="material-symbols-outlined text-[20px]">person</span>
+                </span>
+                <input class="w-full pl-10 pr-4 py-3 bg-surface-container-lowest text-on-surface font-body-md text-body-md rounded-lg outline-none shadow-sm focus:ring-2 focus:ring-primary/20 transition-all duration-200"
+                       id="usuario" name="usuario" type="text" placeholder="Nome de Usuário"
+                       value="{{ usuario_padrao }}" autocomplete="username" required autofocus/>
+              </div>
+            </div>
+
+            <!-- Senha -->
+            <div>
+              <label class="block font-label-bold text-label-bold text-on-surface mb-1" for="senha">Senha</label>
+              <div class="relative group">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-secondary pointer-events-none group-focus-within:text-primary transition-colors">
+                  <span class="material-symbols-outlined text-[20px]">lock</span>
+                </span>
+                <input class="w-full pl-10 pr-12 py-3 bg-surface-container-lowest text-on-surface font-body-md text-body-md rounded-lg outline-none shadow-sm focus:ring-2 focus:ring-primary/20 transition-all duration-200"
+                       id="senha" name="senha" type="password" placeholder="••••••••"
+                       autocomplete="current-password" required/>
+                <button class="absolute inset-y-0 right-0 flex items-center pr-3 text-secondary hover:text-on-surface transition-colors" onclick="togglePassword()" type="button" aria-label="Mostrar senha">
+                  <span class="material-symbols-outlined text-[20px]" id="visibility-icon">visibility</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Lembrar-me -->
+          <div class="flex items-center">
+            <label class="flex items-center space-x-2 cursor-pointer group">
+              <div class="relative flex items-center justify-center w-4 h-4">
+                <input class="peer appearance-none w-4 h-4 bg-surface-container-lowest rounded shadow-sm checked:bg-primary transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-primary/50" type="checkbox" name="lembrar" value="1"/>
+                <span class="material-symbols-outlined text-on-primary text-[14px] absolute pointer-events-none opacity-0 peer-checked:opacity-100 transition-opacity">check</span>
+              </div>
+              <span class="font-body-md text-body-md text-secondary group-hover:text-on-surface transition-colors">Manter conectado</span>
+            </label>
+          </div>
+
+          <!-- Botao -->
+          <button class="w-full py-3 bg-primary text-on-primary font-label-bold text-label-bold rounded-lg shadow-md hover:bg-on-primary-fixed-variant hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 flex justify-center items-center group" type="submit">
+            <span>Entrar no Painel</span>
+            <span class="material-symbols-outlined ml-2 text-[20px] group-hover:translate-x-1 transition-transform">arrow_forward</span>
+          </button>
+        </form>
+
+        <!-- Aviso de seguranca -->
+        <div class="mt-8 flex items-center justify-center space-x-2 text-secondary opacity-70">
+          <span class="material-symbols-outlined text-[16px]">shield</span>
+          <span class="font-label-bold text-[10px] uppercase tracking-wider">Acesso Restrito • Conexão Criptografada</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Direita: painel de marca (decorativo, sem imagem externa) -->
+    <div class="hidden lg:flex w-full lg:w-1/2 relative overflow-hidden bg-surface-container items-center justify-center">
+      <!-- Gradiente -->
+      <div class="absolute inset-0 bg-gradient-to-br from-primary/15 via-surface-container to-tertiary-container/10 pointer-events-none z-10"></div>
+      <!-- Textura de pontos -->
+      <div class="absolute inset-0 opacity-[0.04]" style="background-image: radial-gradient(circle at 2px 2px, black 1px, transparent 0); background-size: 32px 32px;"></div>
+
+      <!-- Conteudo central -->
+      <div class="relative z-20 flex flex-col items-center text-center px-12">
+        <span class="material-symbols-outlined text-primary text-[64px] mb-6">sensors</span>
+        <h2 class="font-headline-lg text-headline-lg text-on-surface mb-2">Painel de Risco</h2>
+        <p class="font-body-md text-body-md text-secondary max-w-xs">
+          Furto e incêndio em máquinas agrícolas, monitorados em tempo real.
+        </p>
+        <!-- Badge de status -->
+        <div class="mt-10 bg-surface/90 backdrop-blur-md px-6 py-4 rounded-xl shadow-xl flex items-center gap-3">
+          <span class="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse"></span>
+          <span class="font-headline-sm text-headline-sm text-on-surface">Monitoramento Ativo</span>
+        </div>
+      </div>
+
+      <!-- Wordmark vertical -->
+      <div class="absolute right-8 top-1/2 -translate-y-1/2 [writing-mode:vertical-rl] font-display-kpi text-[120px] font-black text-surface-variant/30 tracking-tighter whitespace-nowrap z-0 pointer-events-none select-none mix-blend-multiply">
+        SOMPO
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<script>
+  function togglePassword() {
+    const pwd = document.getElementById('senha');
+    const icon = document.getElementById('visibility-icon');
+    if (pwd.type === 'password') { pwd.type = 'text'; icon.textContent = 'visibility_off'; }
+    else { pwd.type = 'password'; icon.textContent = 'visibility'; }
+  }
+</script>
+</body>
+</html>

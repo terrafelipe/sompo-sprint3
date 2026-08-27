@@ -25,3 +25,7 @@ services:
         sync: false
       - key: PAINEL_SENHA
         sync: false
+      # Assina o cookie de sessao do login. Gerada pelo Render (fixa entre deploys),
+      # para a sessao nao cair a cada restart.
+      - key: SECRET_KEY
+        generateValue: true

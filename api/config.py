@@ -1,4 +1,5 @@
 import os
+import secrets
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -23,10 +24,14 @@ FLASK_DEBUG = _get_env('FLASK_DEBUG', 'false').lower() in {'1', 'true', 'yes', '
 # SOMPO_API_KEY vazia = autenticacao desligada (modo demo). Definida = toda rota
 # (menos /saude) exige o header 'X-API-Key' com esse valor.
 SOMPO_API_KEY = _get_env('SOMPO_API_KEY')
-# Login do painel publico (HTTP Basic Auth). PAINEL_SENHA vazia = login desligado
-# (demo local aberta). Definida = TODO o site (painel + endpoints) exige usuario/senha.
+# Login do painel publico (pagina de login + sessao). PAINEL_SENHA vazia = login
+# desligado (demo local aberta). Definida = TODO o site (painel + endpoints) exige
+# login por usuario/senha em /login.
 PAINEL_USUARIO = _get_env('PAINEL_USUARIO', 'sompo')
 PAINEL_SENHA = _get_env('PAINEL_SENHA')
+# Chave para assinar o cookie de sessao do login. Vazia = gera uma aleatoria a cada
+# start (todo mundo desloga ao reiniciar). Defina em producao para manter a sessao.
+SECRET_KEY = _get_env('SECRET_KEY') or secrets.token_hex(32)
 # CORS_ORIGINS: lista separada por virgula. Vazia = nenhuma origem cross-origin
 # liberada (padrao seguro). Ex.: "http://localhost:3000,https://painel.exemplo.com".
 CORS_ORIGINS = [o.strip() for o in _get_env('CORS_ORIGINS').split(',') if o.strip()]

@@ -5,7 +5,16 @@ import os
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Tuple
 
-from flask import Flask, Response, jsonify, request
+from flask import (
+    Flask,
+    Response,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
 from flask_cors import CORS
 
 import documento
@@ -16,6 +25,7 @@ from config import (
     FLASK_PORT,
     PAINEL_SENHA,
     PAINEL_USUARIO,
+    SECRET_KEY,
     SOMPO_API_KEY,
     SUPABASE_URL,
 )
@@ -24,38 +34,76 @@ from scores import calcular_scores
 from supabase_client import consultar_eventos, consultar_telemetria, consultar_resumo
 
 app = Flask(__name__)
+# Chave para assinar o cookie de sessao do login.
+app.secret_key = SECRET_KEY
+app.permanent_session_lifetime = timedelta(hours=8)
+# Cookie de sessao mais seguro (nao acessivel por JS; nao vaza em navegacao cross-site).
+app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE='Lax')
 # CORS restrito as origens de CORS_ORIGINS (vazio = nenhuma origem cross-origin).
 CORS(app, origins=CORS_ORIGINS)
 
-# Rotas liberadas sem API key mesmo com auth ligada (health check + o painel HTML).
-_ROTAS_PUBLICAS = {'saude', 'painel', 'static'}
+# Rotas liberadas sem API key mesmo com auth ligada (health + painel + login).
+_ROTAS_PUBLICAS = {'saude', 'painel', 'static', 'login'}
+# Rotas acessiveis sem estar logado (a propria pagina de login e o logout).
+_LOGIN_LIVRE = {'login', 'logout'}
 
 
 @app.before_request
 def exigir_login_painel():
-    # Login do painel publico (Basic Auth). Opt-in: so protege quando PAINEL_SENHA
-    # esta configurada (producao). Em modo demo (senha vazia) nada e protegido.
-    # Cobre TODO o site, inclusive '/' e os arquivos estaticos, para que a pagina
-    # do painel nao fique exposta. O navegador guarda a credencial e as chamadas
-    # fetch do painel a reenviam automaticamente.
+    # Login do painel via pagina /login + sessao. Opt-in: so protege quando
+    # PAINEL_SENHA esta configurada (producao). Em modo demo (senha vazia) nada
+    # e protegido. Cobre TODO o site (inclusive '/' e os estaticos); a pagina de
+    # login e self-contained, entao 'static' NAO precisa ficar liberado.
     if not PAINEL_SENHA:
         return None
     if request.method == 'OPTIONS':
         return None
-    auth = request.authorization
-    if (
-        auth is not None
-        and auth.username is not None
-        and auth.password is not None
-        and hmac.compare_digest(auth.username, PAINEL_USUARIO)
-        and hmac.compare_digest(auth.password, PAINEL_SENHA)
-    ):
+    if request.endpoint in _LOGIN_LIVRE:
         return None
-    return Response(
-        'Login necessario',
-        401,
-        {'WWW-Authenticate': 'Basic realm="Painel SOMPO"'},
-    )
+    if session.get('logado'):
+        return None
+    # Nao logado: navegador (HTML) vai para a tela de login; chamada de dados (fetch/JSON)
+    # recebe 401 para o JS tratar sem seguir o redirect.
+    if 'text/html' in request.headers.get('Accept', ''):
+        return redirect(url_for('login', proximo=request.full_path.rstrip('?')))
+    return jsonify({'erro': 'nao_autorizado', 'detalhe': 'login necessario'}), 401
+
+
+def _destino_seguro(proximo: str) -> str:
+    # Evita open redirect: so aceita caminho interno (comeca com '/' e nao '//').
+    if proximo and proximo.startswith('/') and not proximo.startswith('//'):
+        return proximo
+    return url_for('painel')
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    # Login desligado (demo) -> nao ha tela de login; segue para o painel.
+    if not PAINEL_SENHA:
+        return redirect(url_for('painel'))
+    if session.get('logado'):
+        return redirect(_destino_seguro(request.args.get('proximo', '')))
+
+    erro = False
+    if request.method == 'POST':
+        usuario = request.form.get('usuario', '')
+        senha = request.form.get('senha', '')
+        if hmac.compare_digest(usuario, PAINEL_USUARIO) and hmac.compare_digest(senha, PAINEL_SENHA):
+            session['logado'] = True
+            # "Manter conectado": marcado = cookie dura 8h; desmarcado = cai ao fechar o navegador.
+            session.permanent = bool(request.form.get('lembrar'))
+            return redirect(_destino_seguro(request.form.get('proximo', '')))
+        erro = True
+
+    proximo = request.values.get('proximo', '')
+    pagina = render_template('login.html', erro=erro, usuario_padrao=PAINEL_USUARIO, proximo=proximo)
+    return pagina, (401 if erro else 200)
+
+
+@app.get('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login'))
 
 
 @app.before_request
