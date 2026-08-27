@@ -47,7 +47,10 @@ create table if not exists public.eventos (
 -- ==========================================================================
 -- security_invoker = true: quem consulta a view usa as proprias permissoes. A API
 -- usa a secret key (service_role), que le tudo; um anon veria nada (seguro).
-create or replace view public.resumo_diario
+-- DROP antes de recriar: `create or replace view` nao deixa remover/reordenar colunas
+-- de uma view ja existente (erro 42P16). Recriar do zero e seguro (view nao guarda dados).
+drop view if exists public.resumo_diario cascade;
+create view public.resumo_diario
   with (security_invoker = true) as
 select
   dispositivo_id,
