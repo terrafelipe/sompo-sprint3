@@ -35,6 +35,11 @@ Colisão, distância e previsão do tempo estão fora de escopo (máquinas novas
 3. Rode no simulador **Wokwi** (VS Code: `F1 → Wokwi: Start Simulator`) ou grave num ESP32 físico
    (`pio run -t upload`).
 
+> 🔌 **Montagem e fiação do ESP32** (sensores, pinos e ligações): abra
+> [`firmware/montagem_esp32.html`](firmware/montagem_esp32.html) no navegador.
+> Se o `pio` não for reconhecido no PowerShell, veja o troubleshooting em
+> [`docs/COMO_TESTAR.md`](docs/COMO_TESTAR.md).
+
 ### API (`api/`)
 Guia completo em [`docs/COMO_TESTAR.md`](docs/COMO_TESTAR.md). Resumo:
 ```bash
