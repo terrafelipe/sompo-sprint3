@@ -46,10 +46,14 @@ venv\Scripts\python.exe app.py             # sobe a API em localhost:5000
 ```
 Configuração em `.env` (copie de `.env.example`): URL/secret do Supabase e a chave do Gemini.
 
+**Painel público:** o `GET /` serve o dashboard visual. Para publicá-lo na internet com HTTPS e
+login (Docker + Render), veja [`docs/DEPLOY.md`](docs/DEPLOY.md).
+
 ## Endpoints da API
 
 | Rota | O que faz |
 |------|-----------|
+| `GET /` | Painel visual (dashboard) — pede login se `PAINEL_SENHA` estiver definida |
 | `GET /saude` | Health check (API + banco) |
 | `GET /telemetria` | Últimas leituras de telemetria |
 | `GET /eventos` | Eventos (furto/incêndio) do período |

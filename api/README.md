@@ -32,8 +32,11 @@ api/
 ├── render.yaml          # blueprint de deploy no Render
 ├── static/
 │   └── index.html       # painel (dashboard) HTML
+├── templates/
+│   └── login.html       # tela de login (sessao)
 ├── tests/               # 18 testes (sem rede)
 │   ├── __init__.py
+│   ├── conftest.py
 │   ├── test_health.py
 │   ├── test_telemetria.py
 │   ├── test_eventos.py
@@ -77,15 +80,26 @@ FLASK_DEBUG=false
 # Seguranca (ver docs/SEGURANCA.md)
 SOMPO_API_KEY=
 CORS_ORIGINS=
+
+# Login do painel publico (ver docs/DEPLOY.md)
+PAINEL_USUARIO=sompo
+PAINEL_SENHA=
+SECRET_KEY=
+SESSAO_HORAS=24
 ```
 
 Variáveis de segurança:
-- `SOMPO_API_KEY` — vazio desliga a autenticação (modo demo). Se definido, toda
-  rota (menos `/saude`) exige o header `X-API-Key` com esse valor.
+- `SOMPO_API_KEY` — vazio desliga a autenticação da API por header (modo demo). Se definido,
+  toda rota (menos `/saude`) exige o header `X-API-Key` com esse valor.
 - `CORS_ORIGINS` — origens liberadas para CORS, separadas por vírgula. Vazio = nenhuma.
+- `PAINEL_SENHA` — vazio desliga o login do painel (demo local aberta). Se definido, **todo o
+  site** (painel + endpoints) exige login em `/login`. `PAINEL_USUARIO` é o usuário (padrão `sompo`).
+- `SECRET_KEY` — assina o cookie de sessão; vazio gera uma aleatória por start.
+- `SESSAO_HORAS` — horas até a sessão expirar e exigir novo login (padrão 24).
 
 Detalhes e passos manuais (RLS no Supabase, rotação de chaves, modo produção) em
-[`docs/SEGURANCA.md`](../docs/SEGURANCA.md).
+[`docs/SEGURANCA.md`](../docs/SEGURANCA.md). Para publicar o painel na internet, ver
+[`docs/DEPLOY.md`](../docs/DEPLOY.md).
 
 ## Execução da API
 
@@ -104,6 +118,10 @@ pytest
 ```
 
 ## Endpoints
+
+O painel e o login vivem no mesmo app:
+- `GET /` — painel (dashboard) HTML. Se `PAINEL_SENHA` estiver definida, redireciona para `/login`.
+- `GET/POST /login` e `GET /logout` — tela de login e saída (sessão).
 
 ### GET /saude
 
@@ -161,6 +179,14 @@ Exemplo:
 GET /relatorio/risco?dispositivo=SOMPO-ESP32&dias=7
 ```
 
+### GET /scores
+
+Scores de risco determinísticos por eixo (sem IA). Parâmetros: `dispositivo`, `dias`.
+
+### GET /relatorio/risco.docx
+
+Mesmo conteúdo do `/relatorio/risco`, porém como documento Word (.docx) para download.
+
 ## Integração com Supabase
 
 A API executa consultas REST no endpoint:
@@ -202,6 +228,9 @@ O campo `origem_da_analise` na resposta indica o que aconteceu: `llm` (a IA escr
 `prompt_apenas` (sem `LLM_API_KEY` — devolve o prompt gerado, sem quebrar a API) ou
 `fallback` (tem chave, mas o provedor falhou). Trocar de provedor mexe só em
 `_chamar_provedor` de `llm.py`.
+
+> A análise é **cacheada por prompt** (`llm.py`): a mesma situação reaproveita a resposta por
+> alguns minutos, evitando chamar o Gemini a cada refresh (o que estourava o limite gratuito — 429).
 
 ## Segurança das chaves
 

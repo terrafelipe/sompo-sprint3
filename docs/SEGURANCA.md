@@ -30,6 +30,11 @@ padrão.
   - definido → toda rota, **exceto `/saude`**, exige o header `X-API-Key` com esse valor.
 - **`waitress`** adicionado às dependências, para servir em produção com um WSGI de
   verdade em vez do servidor de desenvolvimento do Flask.
+- **Login do painel opt-in** por `PAINEL_SENHA`: vazio = painel aberto (demo); definido = **todo o
+  site** (painel + endpoints) exige login em `/login`. A sessão é assinada por `SECRET_KEY` e
+  expira em `SESSAO_HORAS` (padrão 24). Ver [`DEPLOY.md`](DEPLOY.md).
+- **Análise de IA cacheada** por prompt (`llm.py`), para não chamar o provedor a cada refresh e
+  estourar o limite gratuito (HTTP 429).
 
 ### Novas variáveis de ambiente (`.env`)
 | Variável | Padrão (demo) | Produção |
@@ -38,6 +43,9 @@ padrão.
 | `FLASK_HOST` | `127.0.0.1` | `127.0.0.1` (atrás de proxy) |
 | `SOMPO_API_KEY` | vazio (sem auth) | uma chave forte e aleatória |
 | `CORS_ORIGINS` | vazio | origens do seu frontend, separadas por vírgula |
+| `PAINEL_SENHA` | vazio (painel aberto) | senha forte — liga o login do painel |
+| `SECRET_KEY` | aleatória por start | valor fixo e aleatório (mantém a sessão) |
+| `SESSAO_HORAS` | `24` | horas até a sessão expirar |
 
 ---
 

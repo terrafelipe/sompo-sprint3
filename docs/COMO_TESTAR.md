@@ -121,8 +121,12 @@ curl.exe "http://localhost:5000/relatorio/risco?dias=7"
 Com o banco vazio, os scores vêm **0** e `origem_da_analise` é `prompt_apenas` — normal.
 
 **Painel visual (recomendado):** abra **`http://localhost:5000/`** no navegador — mostra os scores,
-telemetria, eventos e o relatório de risco montados. O botão **📄 Baixar Word** gera o relatório de
+telemetria, eventos e o relatório de risco montados. O botão **📄 Exportar Word** gera o relatório de
 risco como documento `.docx` (abre no Word/Google Docs), com os horários já em **Brasília**.
+
+> 🔐 **Login opcional:** com `PAINEL_SENHA` definida no `.env`, o painel pede usuário/senha em
+> `/login` (vazia = aberto, modo demo). Para publicar o painel na internet (Docker + Render),
+> veja [`DEPLOY.md`](DEPLOY.md).
 
 Para parar a API: `Ctrl+C` no terminal dela.
 
