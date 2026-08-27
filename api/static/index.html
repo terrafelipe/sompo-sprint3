@@ -5,133 +5,269 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SOMPO · Painel de Risco</title>
 <style>
-  :root{
-    --bg:#0f172a; --bg2:#1e293b; --card:#1e293b; --line:#334155;
-    --txt:#e2e8f0; --muted:#94a3b8; --brand:#38bdf8;
-    --verde:#22c55e; --amarelo:#f59e0b; --vermelho:#ef4444;
-    --shadow:0 4px 20px rgba(0,0,0,.25);
-  }
-  *{box-sizing:border-box}
-  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
-       background:linear-gradient(160deg,#0f172a,#0b1220);color:var(--txt);min-height:100vh}
-  header{position:sticky;top:0;z-index:10;background:rgba(15,23,42,.9);backdrop-filter:blur(8px);
-         border-bottom:1px solid var(--line);padding:14px 20px;display:flex;flex-wrap:wrap;
-         align-items:center;gap:14px}
-  header h1{margin:0;font-size:18px;letter-spacing:.5px}
-  header h1 span{color:var(--brand)}
-  header .sub{color:var(--muted);font-size:12px;margin-top:2px}
-  .grow{flex:1}
-  .pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;
-        padding:5px 10px;border-radius:999px;border:1px solid var(--line);background:var(--bg2)}
-  .dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
-  .dot.ok{background:var(--verde)} .dot.bad{background:var(--vermelho)}
-  input,button{font:inherit;color:var(--txt);background:var(--bg2);border:1px solid var(--line);
-        border-radius:8px;padding:7px 10px}
-  button{cursor:pointer;font-weight:600}
-  button:hover{border-color:var(--brand)}
-  main{max-width:1100px;margin:0 auto;padding:20px;display:grid;gap:16px;
-       grid-template-columns:1fr 1fr}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;
-        box-shadow:var(--shadow)}
-  .card h2{margin:0 0 14px;font-size:14px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted)}
-  .full{grid-column:1/-1}
-  /* Risco */
-  .riscos{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-  .eixo .top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
-  .eixo .nome{font-weight:600}
-  .eixo .score{font-size:26px;font-weight:800}
-  .bar{height:10px;border-radius:999px;background:#0b1220;overflow:hidden;border:1px solid var(--line)}
-  .bar>span{display:block;height:100%;transition:width .5s}
-  .classif{display:inline-block;margin-top:8px;font-size:11px;font-weight:700;padding:3px 9px;
-        border-radius:999px}
-  .just{color:var(--muted);font-size:13px;line-height:1.5;margin-top:10px}
-  .BAIXO{color:var(--verde)} .MEDIO{color:var(--amarelo)} .ALTO{color:var(--vermelho)}
-  .b-BAIXO{background:rgba(34,197,94,.15);color:var(--verde)}
-  .b-MEDIO{background:rgba(245,158,11,.15);color:var(--amarelo)}
-  .b-ALTO{background:rgba(239,68,68,.15);color:var(--vermelho)}
-  .origem{font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;border:1px solid var(--line)}
-  .o-llm{background:rgba(34,197,94,.15);color:var(--verde);border-color:transparent}
-  .o-prompt_apenas{background:rgba(148,163,184,.15);color:var(--muted)}
-  .o-fallback{background:rgba(245,158,11,.15);color:var(--amarelo);border-color:transparent}
-  ul.recs{margin:12px 0 0;padding-left:18px;color:var(--txt);font-size:13px;line-height:1.6}
-  .lim{margin-top:12px;font-size:12px;color:var(--muted);border-top:1px dashed var(--line);padding-top:10px}
-  /* Telemetria */
-  .kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
-  .kpi{background:#0b1220;border:1px solid var(--line);border-radius:10px;padding:12px}
-  .kpi .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
-  .kpi .v{font-size:20px;font-weight:700;margin-top:3px}
-  /* Eventos */
-  .ev{display:flex;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)}
-  .ev:last-child{border-bottom:0}
-  .sev{min-width:26px;height:26px;border-radius:7px;display:grid;place-items:center;font-weight:800;font-size:12px}
-  .ev .tipo{font-weight:600;font-size:13px}
-  .ev .quando{color:var(--muted);font-size:11px}
-  .vazio{color:var(--muted);font-size:13px;font-style:italic;padding:8px 0}
-  .foot{max-width:1100px;margin:0 auto;padding:0 20px 30px;color:var(--muted);font-size:11px}
-  @media(max-width:720px){main{grid-template-columns:1fr}.riscos{grid-template-columns:1fr}}
+  @layer base{html,body{margin:0;padding:0}}
+  ::-webkit-scrollbar{width:8px;height:8px}
+  ::-webkit-scrollbar-thumb{background:#e9bcb5;border-radius:8px}
 </style>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com"></script>
+<script id="tailwind-config">
+  tailwind.config={theme:{extend:{
+    "colors":{
+      "surface-tint":"#c00000","secondary":"#545f73","primary":"#b70100","surface":"#fff8f6",
+      "background":"#fff8f6","on-primary":"#ffffff","on-surface":"#2a1613","on-background":"#2a1613",
+      "on-surface-variant":"#5f3f3a","surface-variant":"#ffdad4","surface-container-lowest":"#ffffff",
+      "surface-container-low":"#fff0ee","surface-container":"#ffe9e6","surface-container-high":"#ffe2dd",
+      "primary-container":"#e60000","on-primary-container":"#fff7f5","primary-fixed-dim":"#ffb4a8",
+      "on-primary-fixed-variant":"#930100","outline":"#946e68","outline-variant":"#e9bcb5",
+      "tertiary":"#0051c6","tertiary-container":"#0068f9","error":"#ba1a1a","ok":"#10b981","atencao":"#f59e0b"
+    },
+    "fontFamily":{"sans":["Inter","system-ui","sans-serif"]},
+    "borderRadius":{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","2xl":"1rem","full":"9999px"}
+  }}};
+</script>
 </head>
-<body>
-<header>
-  <div>
-    <h1>SOMPO <span>· Painel de Risco</span></h1>
-    <div class="sub">Monitor de furto e incêndio · máquinas agrícolas</div>
-  </div>
-  <div class="grow"></div>
-  <span class="pill"><span id="saudeDot" class="dot"></span><span id="saudeTxt">verificando…</span></span>
-  <input id="dispositivo" value="SOMPO-ESP32" size="14" title="ID do dispositivo">
-  <button id="btnAtualizar">Atualizar</button>
-  <button id="btnBaixar" title="Baixar o relatório de risco em Word (.docx)">📄 Baixar Word</button>
-</header>
+<body class="bg-background text-on-background font-sans text-sm">
 
-<main>
-  <section class="card full">
-    <h2>Análise de risco <span id="origemBadge"></span></h2>
-    <div class="riscos">
-      <div class="eixo">
-        <div class="top"><span class="nome">🔓 Furto</span><span id="scoreFurto" class="score">–</span></div>
-        <div class="bar"><span id="barFurto" style="width:0%"></span></div>
-        <div><span id="classifFurto" class="classif b-BAIXO">–</span></div>
-        <div id="justFurto" class="just"></div>
+<!-- ===================== SIDEBAR ===================== -->
+<aside class="hidden lg:flex fixed left-0 top-0 h-full w-64 bg-surface-container-lowest z-50 flex-col shadow-[4px_0_24px_rgba(0,0,0,0.03)]">
+  <div class="px-6 h-20 flex items-center gap-3">
+    <span class="material-symbols-outlined text-primary text-[30px]">agriculture</span>
+    <div>
+      <div class="text-lg font-extrabold text-primary tracking-tight leading-none">SOMPO</div>
+      <div class="text-[10px] uppercase tracking-wider text-on-surface-variant mt-0.5">Painel de Risco</div>
+    </div>
+  </div>
+  <nav class="flex-1 px-3 space-y-1 mt-4">
+    <a href="#" data-nav="visao"      class="flex items-center px-4 py-3 rounded-xl font-semibold transition-colors"><span class="material-symbols-outlined mr-3">dashboard</span>Visão Geral</a>
+    <a href="#" data-nav="risco"      class="flex items-center px-4 py-3 rounded-xl font-semibold transition-colors"><span class="material-symbols-outlined mr-3">analytics</span>Análise de Risco</a>
+    <a href="#" data-nav="telemetria" class="flex items-center px-4 py-3 rounded-xl font-semibold transition-colors"><span class="material-symbols-outlined mr-3">sensors</span>Telemetria</a>
+    <a href="#" data-nav="alertas"    class="flex items-center px-4 py-3 rounded-xl font-semibold transition-colors"><span class="material-symbols-outlined mr-3">warning</span>Alertas</a>
+  </nav>
+  <div class="px-4 py-5 border-t border-outline-variant/40">
+    <a href="/logout" class="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl text-on-surface-variant hover:bg-surface-container-high hover:text-primary transition-colors font-semibold">
+      <span class="material-symbols-outlined text-[20px]">logout</span> Sair
+    </a>
+  </div>
+</aside>
+
+<!-- ===================== CONTEUDO ===================== -->
+<div class="lg:pl-64">
+
+  <!-- HEADER -->
+  <header class="sticky top-0 z-40 bg-surface/80 backdrop-blur-xl border-b border-outline-variant/30 px-4 lg:px-8 py-3 lg:py-0 lg:h-20 flex flex-wrap items-center gap-3">
+    <!-- Nav mobile (sidebar some no celular) -->
+    <div class="lg:hidden flex items-center gap-2 font-extrabold text-primary mr-1">
+      <span class="material-symbols-outlined">agriculture</span> SOMPO
+    </div>
+    <div class="grow"></div>
+    <span class="inline-flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-full bg-surface-container-lowest shadow-sm">
+      <span id="saudeDot" class="w-2 h-2 rounded-full bg-outline"></span>
+      <span id="saudeTxt">verificando…</span>
+    </span>
+    <div class="relative">
+      <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant">memory</span>
+      <input id="dispositivo" value="SOMPO-ESP32" title="ID do dispositivo"
+             class="w-36 bg-surface-container-lowest rounded-full py-2 pl-9 pr-3 text-sm outline-none shadow-sm focus:ring-2 focus:ring-primary/20"/>
+    </div>
+    <button id="btnAtualizar" class="inline-flex items-center gap-1.5 bg-surface-container text-primary font-semibold px-4 py-2 rounded-lg hover:bg-surface-container-high transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+      <span id="iconAtualizar" class="material-symbols-outlined text-[18px]">refresh</span> <span id="txtAtualizar">Atualizar</span>
+    </button>
+    <button id="btnBaixar" title="Baixar o relatório de risco em Word (.docx)"
+            class="inline-flex items-center gap-1.5 bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg shadow-md hover:bg-on-primary-fixed-variant transition-all">
+      <span class="material-symbols-outlined text-[18px]">download</span> Exportar Word
+    </button>
+    <a href="/logout" class="lg:hidden inline-flex items-center p-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high" title="Sair">
+      <span class="material-symbols-outlined">logout</span>
+    </a>
+  </header>
+
+  <!-- Navegacao por abas no mobile (a sidebar some) -->
+  <div class="lg:hidden flex gap-2 overflow-x-auto px-4 pt-4">
+    <a href="#" data-nav="visao"      class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Visão Geral</a>
+    <a href="#" data-nav="risco"      class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Risco</a>
+    <a href="#" data-nav="telemetria" class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Telemetria</a>
+    <a href="#" data-nav="alertas"    class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Alertas</a>
+  </div>
+
+  <!-- MAIN -->
+  <main class="p-4 lg:p-8">
+    <div class="flex items-end justify-between mb-8 flex-wrap gap-3">
+      <div>
+        <h1 id="tituloView" class="text-2xl lg:text-3xl font-bold text-on-background mb-1">Visão Geral</h1>
+        <p class="text-on-surface-variant">Monitoramento de furto e incêndio em máquinas agrícolas.</p>
       </div>
-      <div class="eixo">
-        <div class="top"><span class="nome">🔥 Incêndio</span><span id="scoreIncendio" class="score">–</span></div>
-        <div class="bar"><span id="barIncendio" style="width:0%"></span></div>
-        <div><span id="classifIncendio" class="classif b-BAIXO">–</span></div>
-        <div id="justIncendio" class="just"></div>
+      <div class="text-xs text-on-surface-variant">Atualizado às <span id="ultima" class="font-semibold text-on-surface">–</span> · auto-refresh 10s</div>
+    </div>
+
+    <!-- KPI CARDS (só na Visão Geral) -->
+    <div data-section="kpis" class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div class="bg-surface-container-lowest p-5 rounded-2xl shadow-sm">
+        <div class="flex justify-between items-start mb-3">
+          <h3 class="text-on-surface-variant text-sm">Nível de risco atual</h3>
+          <span class="material-symbols-outlined text-secondary">speed</span>
+        </div>
+        <div id="kpiRisco" class="text-2xl font-extrabold text-on-surface">–</div>
+      </div>
+      <div class="bg-surface-container-lowest p-5 rounded-2xl shadow-sm">
+        <div class="flex justify-between items-start mb-3">
+          <h3 class="text-on-surface-variant text-sm">Alertas (7 dias)</h3>
+          <span class="material-symbols-outlined text-error">warning</span>
+        </div>
+        <div id="kpiAlertas" class="text-4xl font-extrabold text-on-surface leading-none">–</div>
+      </div>
+      <div class="bg-surface-container-lowest p-5 rounded-2xl shadow-sm">
+        <div class="flex justify-between items-start mb-3">
+          <h3 class="text-on-surface-variant text-sm">Score de furto</h3>
+          <span class="material-symbols-outlined text-secondary">lock_open</span>
+        </div>
+        <div class="flex items-end gap-1"><span id="kpiFurto" class="text-4xl font-extrabold text-on-surface leading-none">–</span><span class="text-on-surface-variant mb-1">/100</span></div>
+      </div>
+      <div class="bg-surface-container-lowest p-5 rounded-2xl shadow-sm">
+        <div class="flex justify-between items-start mb-3">
+          <h3 class="text-on-surface-variant text-sm">Score de incêndio</h3>
+          <span class="material-symbols-outlined text-primary">local_fire_department</span>
+        </div>
+        <div class="flex items-end gap-1"><span id="kpiIncendio" class="text-4xl font-extrabold text-on-surface leading-none">–</span><span class="text-on-surface-variant mb-1">/100</span></div>
       </div>
     </div>
-    <ul id="recs" class="recs"></ul>
-    <div id="lim" class="lim"></div>
-  </section>
 
-  <section class="card">
-    <h2>Telemetria atual</h2>
-    <div id="kpis" class="kpis"></div>
-  </section>
+    <!-- GRID PRINCIPAL (a navegação lateral alterna as views ajustando cada seção) -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
 
-  <section class="card">
-    <h2>Eventos recentes (7 dias)</h2>
-    <div id="eventos"></div>
-  </section>
-</main>
+      <!-- ANALISE DE RISCO -->
+      <section data-section="risco" class="bg-surface-container-lowest rounded-2xl shadow-sm p-6">
+        <div class="flex items-center justify-between mb-6">
+          <h2 class="text-lg font-semibold text-on-surface">Análise de Risco</h2>
+          <span id="origemBadge"></span>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div>
+            <div class="flex justify-between items-baseline mb-2">
+              <span class="font-semibold flex items-center gap-2"><span class="material-symbols-outlined text-[20px] text-secondary">lock_open</span>Furto</span>
+              <span id="scoreFurto" class="text-3xl font-extrabold">–</span>
+            </div>
+            <div class="h-2.5 rounded-full bg-surface-variant overflow-hidden"><span id="barFurto" class="block h-full transition-all duration-500" style="width:0%"></span></div>
+            <div class="mt-2"><span id="classifFurto" class="inline-block text-[11px] font-bold px-2.5 py-1 rounded-full">–</span></div>
+            <p id="justFurto" class="text-on-surface-variant text-[13px] leading-relaxed mt-3"></p>
+          </div>
+          <div>
+            <div class="flex justify-between items-baseline mb-2">
+              <span class="font-semibold flex items-center gap-2"><span class="material-symbols-outlined text-[20px] text-primary">local_fire_department</span>Incêndio</span>
+              <span id="scoreIncendio" class="text-3xl font-extrabold">–</span>
+            </div>
+            <div class="h-2.5 rounded-full bg-surface-variant overflow-hidden"><span id="barIncendio" class="block h-full transition-all duration-500" style="width:0%"></span></div>
+            <div class="mt-2"><span id="classifIncendio" class="inline-block text-[11px] font-bold px-2.5 py-1 rounded-full">–</span></div>
+            <p id="justIncendio" class="text-on-surface-variant text-[13px] leading-relaxed mt-3"></p>
+          </div>
+        </div>
+        <ul id="recs" class="mt-6 pl-5 list-disc text-[13px] leading-relaxed text-on-surface space-y-1"></ul>
+        <div id="lim" class="mt-4 pt-3 border-t border-dashed border-outline-variant/50 text-xs text-on-surface-variant"></div>
+      </section>
 
-<div class="foot">
-  Atualizado às <span id="ultima">–</span> · auto-refresh 10s ·
-  <span id="fonteBanco"></span>
+      <!-- TELEMETRIA -->
+      <section data-section="telemetria" class="bg-surface-container-lowest rounded-2xl shadow-sm p-6">
+        <div class="flex items-center justify-between mb-5">
+          <h2 class="text-lg font-semibold text-on-surface">Telemetria atual</h2>
+        </div>
+        <div id="kpis" class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6"></div>
+        <div class="border-t border-outline-variant/30 pt-4">
+          <div class="text-xs text-on-surface-variant mb-2 flex items-center gap-1.5"><span class="material-symbols-outlined text-[16px]">thermostat</span>Temperatura de escape (últimas leituras)</div>
+          <div id="sparkTemp"></div>
+        </div>
+      </section>
+
+      <!-- ALERTAS -->
+      <section data-section="alertas" class="bg-surface-container-lowest rounded-2xl shadow-sm flex flex-col">
+        <div class="p-5 border-b border-outline-variant/30 flex items-center justify-between">
+          <h2 class="text-lg font-semibold text-on-surface">Feed de Alertas</h2>
+          <span id="alertasBadge" class="bg-error text-on-primary text-[11px] font-bold px-2 py-0.5 rounded-full">0</span>
+        </div>
+        <div id="eventos" class="p-3 flex-1 overflow-y-auto max-h-[420px] space-y-1"></div>
+      </section>
+
+      <!-- TABELA DE LEITURAS -->
+      <section data-section="tabela" class="bg-surface-container-lowest rounded-2xl shadow-sm overflow-hidden">
+        <div class="p-5 border-b border-outline-variant/30">
+          <h2 class="text-lg font-semibold text-on-surface">Últimas leituras</h2>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left">
+            <thead>
+              <tr class="bg-surface-container-low border-b border-outline-variant/30 text-[11px] uppercase tracking-wider text-on-surface-variant">
+                <th class="py-3 px-5">Horário</th>
+                <th class="py-3 px-5">Nível de risco</th>
+                <th class="py-3 px-5">Temp. escape</th>
+                <th class="py-3 px-5">Umidade</th>
+                <th class="py-3 px-5">Vibração</th>
+                <th class="py-3 px-5">Motor</th>
+                <th class="py-3 px-5">Movimento</th>
+              </tr>
+            </thead>
+            <tbody id="tabelaTelemetria" class="text-[13px]"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <p class="text-xs text-on-surface-variant"><span id="fonteBanco"></span></p>
+  </main>
 </div>
 
 <script>
 const $ = id => document.getElementById(id);
 let dispositivo = 'SOMPO-ESP32';
 
-const corRisco = c => c === 'ALTO' ? 'var(--vermelho)' : c === 'MEDIO' ? 'var(--amarelo)' : 'var(--verde)';
-const sevCor = s => s >= 4 ? 'var(--vermelho)' : s >= 3 ? 'var(--amarelo)' : 'var(--brand)';
-const fmtHora = iso => {
-  if(!iso) return '';
-  const d = new Date(iso);
-  return isNaN(d) ? String(iso) : d.toLocaleString('pt-BR');
+const RISCO = {ALTO:'#ba1a1a', MEDIO:'#f59e0b', BAIXO:'#10b981'};
+const corRisco = c => RISCO[c] || RISCO.BAIXO;
+const sevCor = s => s >= 4 ? '#ba1a1a' : s >= 3 ? '#f59e0b' : '#545f73';
+const fmtHora = iso => { if(!iso) return ''; const d = new Date(iso); return isNaN(d) ? String(iso) : d.toLocaleString('pt-BR'); };
+const fmtHoraCurta = iso => { if(!iso) return ''; const d = new Date(iso); return isNaN(d) ? String(iso) : d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); };
+const nivelCor = n => { const s=String(n||'').toUpperCase(); if(s.includes('CRIT')||s.includes('ALTO'))return '#ba1a1a'; if(s.includes('ATEN')||s.includes('MEDIO'))return '#f59e0b'; return '#10b981'; };
+
+/* ---------- Navegação por views (Visão Geral mostra tudo) ---------- */
+const NAV_BASE = 'flex items-center px-4 py-3 rounded-xl font-semibold transition-colors';
+const NAV_ON = ' bg-primary text-on-primary';
+const NAV_OFF = ' text-on-surface-variant hover:bg-surface-container-high';
+const CHIP_ON = ' bg-primary text-on-primary';
+const CHIP_OFF = ' bg-surface-container text-on-surface-variant';
+const TITULOS = {visao:'Visão Geral', risco:'Análise de Risco', telemetria:'Telemetria', alertas:'Alertas'};
+// Para cada view, quais seções aparecem e com qual largura (colunas de 12).
+const VIEWS = {
+  visao:      {kpis:true, risco:12, telemetria:8, alertas:4, tabela:12},
+  risco:      {risco:12},
+  telemetria: {telemetria:12, tabela:12},
+  alertas:    {alertas:12},
 };
+
+let viewAtual = 'visao';
+function setView(view){
+  viewAtual = view;
+  const cfg = VIEWS[view] || VIEWS.visao;
+  // Os spans de 12 colunas só valem no desktop (lg). No mobile o grid é de 1 coluna,
+  // então NÃO aplicamos gridColumn (senão criaria colunas implícitas e estouraria).
+  const desktop = window.matchMedia('(min-width:1024px)').matches;
+  document.querySelectorAll('[data-section]').forEach(el => {
+    const k = el.dataset.section;
+    if (cfg[k]) {
+      el.style.display = '';
+      el.style.gridColumn = (desktop && typeof cfg[k] === 'number') ? ('span ' + cfg[k] + ' / span ' + cfg[k]) : '';
+    } else {
+      el.style.display = 'none';
+    }
+  });
+  // sidebar (desktop)
+  document.querySelectorAll('aside [data-nav]').forEach(a => {
+    a.className = NAV_BASE + (a.dataset.nav === view ? NAV_ON : NAV_OFF);
+  });
+  // chips (mobile)
+  document.querySelectorAll('.lg\\:hidden [data-nav]').forEach(a => {
+    a.className = 'whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors' + (a.dataset.nav === view ? CHIP_ON : CHIP_OFF);
+  });
+  $('tituloView').textContent = TITULOS[view] || 'Visão Geral';
+  window.scrollTo({top:0, behavior:'smooth'});
+}
 
 async function getJSON(path){
   const r = await fetch(path, {headers:{'Accept':'application/json'}});
@@ -139,15 +275,27 @@ async function getJSON(path){
   return r.json();
 }
 
+function sparkline(values){
+  const nums = values.filter(v => typeof v === 'number' && !isNaN(v));
+  if(nums.length < 2) return '<div class="text-xs text-on-surface-variant italic py-4">Sem dados suficientes ainda.</div>';
+  const w=320,h=64,pad=6, min=Math.min(...nums), max=Math.max(...nums), range=(max-min)||1, step=w/(nums.length-1);
+  const pts = nums.map((v,i)=>`${(i*step).toFixed(1)},${(h - pad - ((v-min)/range)*(h-2*pad)).toFixed(1)}`);
+  const line = pts.join(' ');
+  return `<svg viewBox="0 0 ${w} ${h}" class="w-full h-16" preserveAspectRatio="none">
+    <polygon points="0,${h} ${line} ${w},${h}" fill="rgba(183,1,0,0.07)"/>
+    <polyline points="${line}" fill="none" stroke="#b70100" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+  </svg>`;
+}
+
 async function carregarSaude(){
   try{
     const s = await getJSON('/saude');
     const ok = s.banco === 'ok';
-    $('saudeDot').className = 'dot ' + (ok ? 'ok' : 'bad');
+    $('saudeDot').className = 'w-2 h-2 rounded-full ' + (ok ? 'bg-ok animate-pulse' : 'bg-error');
     $('saudeTxt').textContent = ok ? 'API e banco OK' : 'Banco indisponível';
-    $('fonteBanco').textContent = ok ? 'Supabase conectado' : 'Supabase indisponível';
+    $('fonteBanco').textContent = ok ? 'Fonte: Supabase conectado.' : 'Fonte: Supabase indisponível.';
   }catch(e){
-    $('saudeDot').className = 'dot bad';
+    $('saudeDot').className = 'w-2 h-2 rounded-full bg-error';
     $('saudeTxt').textContent = 'API offline';
   }
 }
@@ -158,39 +306,69 @@ async function carregarRisco(){
     const sf = d.score_furto ?? 0, si = d.score_incendio ?? 0;
     const cf = d.classificacao_furto || 'BAIXO', ci = d.classificacao_incendio || 'BAIXO';
     $('scoreFurto').textContent = sf; $('scoreIncendio').textContent = si;
+    $('kpiFurto').textContent = sf; $('kpiIncendio').textContent = si;
     $('barFurto').style.width = sf+'%'; $('barFurto').style.background = corRisco(cf);
     $('barIncendio').style.width = si+'%'; $('barIncendio').style.background = corRisco(ci);
-    $('classifFurto').textContent = cf; $('classifFurto').className = 'classif b-'+cf;
-    $('classifIncendio').textContent = ci; $('classifIncendio').className = 'classif b-'+ci;
+    const badge = (el, c) => { const cor=corRisco(c); el.textContent=c; el.style.background=cor+'22'; el.style.color=cor; };
+    badge($('classifFurto'), cf); badge($('classifIncendio'), ci);
     $('justFurto').textContent = d.justificativa_furto || '';
     $('justIncendio').textContent = d.justificativa_incendio || '';
     const recs = d.recomendacoes || [];
     $('recs').innerHTML = recs.map(r=>`<li>${r}</li>`).join('');
     $('lim').textContent = d.limitacoes ? ('Limitações: ' + d.limitacoes) : '';
     const org = d.origem_da_analise || '';
-    const rotulo = {llm:'IA · Gemini', prompt_apenas:'sem IA · prompt', fallback:'fallback · template'}[org] || org;
-    $('origemBadge').innerHTML = org ? `<span class="origem o-${org}">${rotulo}</span>` : '';
+    const meta = {llm:['IA · Gemini','#10b981'], prompt_apenas:['sem IA · prompt','#545f73'], fallback:['fallback · template','#f59e0b']}[org];
+    $('origemBadge').innerHTML = meta ? `<span class="text-[11px] font-bold px-3 py-1 rounded-full" style="background:${meta[1]}22;color:${meta[1]}">${meta[0]}</span>` : '';
   }catch(e){
-    $('justFurto').textContent = 'Relatório indisponível ('+e.message+')';
+    $('justFurto').textContent = 'Relatório indisponível ('+e.message+').';
   }
 }
 
 async function carregarTelemetria(){
   try{
     const d = await getJSON(`/telemetria?dispositivo=${encodeURIComponent(dispositivo)}&limite=10`);
-    const t = (d.dados && d.dados[0]) || null;
-    if(!t){ $('kpis').innerHTML = '<div class="vazio">Sem telemetria ainda — aguardando o ESP32.</div>'; return; }
+    const linhas = d.dados || [];
+    const t = linhas[0] || null;
     const bool = v => v ? 'Sim' : 'Não';
-    const kpi = (k,v) => `<div class="kpi"><div class="k">${k}</div><div class="v">${v}</div></div>`;
+
+    if(!t){
+      $('kpis').innerHTML = '<div class="col-span-full text-on-surface-variant italic text-sm py-2">Sem telemetria ainda — aguardando o ESP32.</div>';
+      $('kpiRisco').textContent = '–';
+      $('sparkTemp').innerHTML = sparkline([]);
+      $('tabelaTelemetria').innerHTML = '<tr><td colspan="7" class="py-6 px-5 text-on-surface-variant italic">Nenhuma leitura recebida.</td></tr>';
+      return;
+    }
+
+    $('kpiRisco').textContent = t.nivel_risco ?? '–';
+    $('kpiRisco').style.color = nivelCor(t.nivel_risco);
+
+    const kpi = (icon,k,v) => `<div class="bg-surface-container-low rounded-xl p-3">
+      <div class="text-[11px] uppercase tracking-wide text-on-surface-variant flex items-center gap-1"><span class="material-symbols-outlined text-[15px]">${icon}</span>${k}</div>
+      <div class="text-lg font-bold mt-1">${v}</div></div>`;
     $('kpis').innerHTML =
-      kpi('Nível de risco', t.nivel_risco ?? '–') +
-      kpi('Motor', bool(t.motor_ligado)) +
-      kpi('Temp. escape', (t.temp_escape ?? '–')+' °C') +
-      kpi('Umidade', (t.umidade_ar ?? '–')+' %') +
-      kpi('Vibração', (t.vibracao ?? '–')+' g') +
-      kpi('Em movimento', bool(t.em_movimento));
+      kpi('shield','Nível de risco', t.nivel_risco ?? '–') +
+      kpi('settings','Motor', bool(t.motor_ligado)) +
+      kpi('thermostat','Temp. escape', (t.temp_escape ?? '–')+' °C') +
+      kpi('water_drop','Umidade', (t.umidade_ar ?? '–')+' %') +
+      kpi('vibration','Vibração', (t.vibracao ?? '–')+' g') +
+      kpi('directions_run','Movimento', bool(t.em_movimento));
+
+    $('sparkTemp').innerHTML = sparkline(linhas.map(x=>x.temp_escape).reverse());
+
+    $('tabelaTelemetria').innerHTML = linhas.map(x=>{
+      const cor = nivelCor(x.nivel_risco);
+      return `<tr class="border-b border-outline-variant/20 hover:bg-surface-container-low/50 transition-colors">
+        <td class="py-3 px-5 text-on-surface-variant">${fmtHoraCurta(x.criado_em)}</td>
+        <td class="py-3 px-5"><span class="inline-flex items-center gap-1.5 font-semibold" style="color:${cor}"><span class="w-1.5 h-1.5 rounded-full" style="background:${cor}"></span>${x.nivel_risco ?? '–'}</span></td>
+        <td class="py-3 px-5">${x.temp_escape ?? '–'} °C</td>
+        <td class="py-3 px-5">${x.umidade_ar ?? '–'} %</td>
+        <td class="py-3 px-5">${x.vibracao ?? '–'} g</td>
+        <td class="py-3 px-5">${bool(x.motor_ligado)}</td>
+        <td class="py-3 px-5">${bool(x.em_movimento)}</td>
+      </tr>`;
+    }).join('');
   }catch(e){
-    $('kpis').innerHTML = '<div class="vazio">Telemetria indisponível.</div>';
+    $('kpis').innerHTML = '<div class="col-span-full text-on-surface-variant italic text-sm py-2">Telemetria indisponível.</div>';
   }
 }
 
@@ -198,16 +376,27 @@ async function carregarEventos(){
   try{
     const d = await getJSON(`/eventos?dispositivo=${encodeURIComponent(dispositivo)}&dias=7`);
     const evs = d.dados || [];
-    if(!evs.length){ $('eventos').innerHTML = '<div class="vazio">Nenhum evento no período.</div>'; return; }
-    $('eventos').innerHTML = evs.slice(0,12).map(e=>{
-      const s = e.severidade ?? 0;
-      return `<div class="ev">
-        <div class="sev" style="background:${sevCor(s)}22;color:${sevCor(s)}">${s}</div>
-        <div style="flex:1"><div class="tipo">${e.tipo||'evento'}</div>
-        <div class="quando">${fmtHora(e.criado_em)}</div></div></div>`;
+    $('alertasBadge').textContent = evs.length;
+    $('kpiAlertas').textContent = evs.length;
+    if(!evs.length){ $('eventos').innerHTML = '<div class="text-on-surface-variant italic text-sm p-3">Nenhum evento no período. 🎉</div>'; return; }
+    const icone = t => { t=String(t||'').toLowerCase(); if(t.includes('chama')||t.includes('escape')||t.includes('incend'))return 'local_fire_department'; if(t.includes('movimento')||t.includes('furto'))return 'directions_run'; if(t.includes('autoriz')||t.includes('operador'))return 'badge'; return 'warning'; };
+    $('eventos').innerHTML = evs.slice(0,20).map(e=>{
+      const s = e.severidade ?? 0, cor = sevCor(s);
+      return `<div class="flex gap-3 p-3 rounded-lg hover:bg-surface-container-low/60 transition-colors">
+        <div class="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style="background:${cor}1a">
+          <span class="material-symbols-outlined text-[18px]" style="color:${cor}">${icone(e.tipo)}</span>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex justify-between items-start gap-2">
+            <span class="font-semibold text-[13px] text-on-surface truncate">${e.tipo || 'evento'}</span>
+            <span class="text-[11px] text-on-surface-variant whitespace-nowrap">${fmtHora(e.criado_em)}</span>
+          </div>
+          <span class="text-[10px] font-bold px-2 py-0.5 rounded mt-1 inline-block" style="background:${cor}1a;color:${cor}">Severidade ${s}</span>
+        </div>
+      </div>`;
     }).join('');
   }catch(e){
-    $('eventos').innerHTML = '<div class="vazio">Eventos indisponíveis.</div>';
+    $('eventos').innerHTML = '<div class="text-on-surface-variant italic text-sm p-3">Eventos indisponíveis.</div>';
   }
 }
 
@@ -217,7 +406,27 @@ async function carregarTudo(){
   $('ultima').textContent = new Date().toLocaleTimeString('pt-BR');
 }
 
-$('btnAtualizar').addEventListener('click', carregarTudo);
+// Liga a navegação
+document.querySelectorAll('[data-nav]').forEach(a =>
+  a.addEventListener('click', e => { e.preventDefault(); setView(a.dataset.nav); })
+);
+// Reaplica os spans ao cruzar o breakpoint mobile/desktop.
+window.addEventListener('resize', () => setView(viewAtual));
+setView('visao');
+
+// Atualizar manual com feedback visual (icone girando + "Atualizando...").
+async function atualizarManual(){
+  const btn=$('btnAtualizar'), icon=$('iconAtualizar'), txt=$('txtAtualizar');
+  if(btn.disabled) return;
+  btn.disabled=true; icon.classList.add('animate-spin'); txt.textContent='Atualizando…';
+  const t0=Date.now();
+  try{ await carregarTudo(); }
+  finally{
+    // Garante que o feedback fique visivel por pelo menos ~600ms.
+    setTimeout(()=>{ icon.classList.remove('animate-spin'); btn.disabled=false; txt.textContent='Atualizar'; }, Math.max(0, 600-(Date.now()-t0)));
+  }
+}
+$('btnAtualizar').addEventListener('click', atualizarManual);
 $('btnBaixar').addEventListener('click', () => {
   const dev = $('dispositivo').value.trim() || 'SOMPO-ESP32';
   window.location = `/relatorio/risco.docx?dispositivo=${encodeURIComponent(dev)}&dias=7`;
