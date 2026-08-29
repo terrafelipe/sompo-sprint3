@@ -3,7 +3,8 @@ version = 1
 elf = ".pio/build/esp32/firmware.elf"
 firmware = ".pio/build/esp32/firmware.bin"
 
-# Forward http://localhost:8180 to port 80 on the simulated ESP32:
+# Forward http://localhost:8181 to port 80 on the simulated ESP32:
+# (8180 fica ocupada por outra IDE/simulacao - ver EADDRINUSE)
 [[net.forward]]
-from = "localhost:8180"
+from = "localhost:8181"
 to = "target:80"

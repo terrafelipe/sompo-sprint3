@@ -97,7 +97,10 @@
 #define LIMIAR_DESLOCAMENTO   8.0    // cm de afastamento da posicao estacionada
 #define MAX_FALHAS_DISTANCIA  5      // leituras invalidas seguidas antes de desistir
 #define TRAVA_EVENTO          5000   // ms anti-spam dos eventos continuos
-#define AQUECIMENTO_PIR       60000  // ms de warmup do PIR antes de confiar
+// Warmup do PIR: no hardware real ele precisa de ~60 s para estabilizar; na demo
+// (Wokwi) 60 s fazem a chama "nunca disparar" nos testes, entao caem para 3 s.
+// Uma unica definicao (ternario constante) - evita o warning de macro redefinida.
+#define AQUECIMENTO_PIR       (MODO_SIMULACAO ? 3000 : 60000)  // ms
 #define TEMP_MODULO_MIN       -40.0  // faixa de operacao do MPU-6050 (datasheet)
 #define TEMP_MODULO_MAX       85.0
 
@@ -111,7 +114,9 @@
 // Intervalos do loop
 #define INTERVALO_LEITURA     100    // ms - ciclo principal de sensores/atuadores
 #define INTERVALO_DHT         2000   // ms - DHT22 so aceita 1 leitura a cada 2 s
-#define INTERVALO_TELEMETRIA  10000  // ms - amostra periodica gravada no Supabase
+#define INTERVALO_TELEMETRIA  30000  // ms - amostra periodica gravada no Supabase
+                                     // (30s alivia a emulacao do TLS no Wokwi; o
+                                     //  handshake HTTPS e o que mais pesa no simulador)
 #define INTERVALO_SAUDE_MPU   5000   // ms - reconferencia de presenca do MPU no I2C
 
 // Supabase (URL e chave publishable ficam em segredos.h)

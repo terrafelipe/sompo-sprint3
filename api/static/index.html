@@ -203,6 +203,7 @@
                 <th class="py-3 px-5">Vibração</th>
                 <th class="py-3 px-5">Motor</th>
                 <th class="py-3 px-5">Movimento</th>
+                <th class="py-3 px-5">Chama</th>
               </tr>
             </thead>
             <tbody id="tabelaTelemetria" class="text-[13px]"></tbody>
@@ -335,7 +336,7 @@ async function carregarTelemetria(){
       $('kpis').innerHTML = '<div class="col-span-full text-on-surface-variant italic text-sm py-2">Sem telemetria ainda — aguardando o ESP32.</div>';
       $('kpiRisco').textContent = '–';
       $('sparkTemp').innerHTML = sparkline([]);
-      $('tabelaTelemetria').innerHTML = '<tr><td colspan="7" class="py-6 px-5 text-on-surface-variant italic">Nenhuma leitura recebida.</td></tr>';
+      $('tabelaTelemetria').innerHTML = '<tr><td colspan="8" class="py-6 px-5 text-on-surface-variant italic">Nenhuma leitura recebida.</td></tr>';
       return;
     }
 
@@ -351,7 +352,9 @@ async function carregarTelemetria(){
       kpi('thermostat','Temp. escape', (t.temp_escape ?? '–')+' °C') +
       kpi('water_drop','Umidade', (t.umidade_ar ?? '–')+' %') +
       kpi('vibration','Vibração', (t.vibracao ?? '–')+' g') +
-      kpi('directions_run','Movimento', bool(t.em_movimento));
+      kpi('directions_run','Movimento', bool(t.em_movimento)) +
+      kpi('local_fire_department','Chama', bool(t.chama_detectada)) +
+      kpi('straighten','Distância', (t.distancia_cm ?? '–')+' cm');
 
     $('sparkTemp').innerHTML = sparkline(linhas.map(x=>x.temp_escape).reverse());
 
@@ -365,6 +368,7 @@ async function carregarTelemetria(){
         <td class="py-3 px-5">${x.vibracao ?? '–'} g</td>
         <td class="py-3 px-5">${bool(x.motor_ligado)}</td>
         <td class="py-3 px-5">${bool(x.em_movimento)}</td>
+        <td class="py-3 px-5">${bool(x.chama_detectada)}</td>
       </tr>`;
     }).join('');
   }catch(e){
