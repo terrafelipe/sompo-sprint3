@@ -34,10 +34,11 @@ api/
 │   └── index.html       # painel (dashboard) HTML
 ├── templates/
 │   └── login.html       # tela de login (sessao)
-├── tests/               # 18 testes (sem rede)
+├── tests/               # 23 testes (sem rede)
 │   ├── __init__.py
 │   ├── conftest.py
 │   ├── test_health.py
+│   ├── test_auth.py
 │   ├── test_telemetria.py
 │   ├── test_eventos.py
 │   ├── test_scores.py
@@ -116,6 +117,26 @@ A API ficará disponível em:
 ```bash
 pytest
 ```
+
+## Autenticação (header `X-API-Key`)
+
+Quando `SOMPO_API_KEY` está definida (produção), **toda rota — exceto `/saude`** — exige o
+header `X-API-Key` com o valor da chave. Sem o header, ou com valor errado, a API responde
+`401` e **não** processa a rota:
+
+```json
+{ "erro": "nao_autorizado", "detalhe": "X-API-Key ausente ou invalida" }
+```
+
+Exemplo de chamada autenticada (curl):
+
+```bash
+curl -H "X-API-Key: SUA_CHAVE" "https://sua-api.onrender.com/telemetria?dispositivo=SOMPO-ESP32"
+```
+
+No Postman: aba **Headers** → `Key = X-API-Key`, `Value = SUA_CHAVE`.
+
+Com `SOMPO_API_KEY` vazia (modo demo), nenhuma rota exige o header.
 
 ## Endpoints
 

@@ -46,7 +46,7 @@ Guia completo em [`docs/COMO_TESTAR.md`](docs/COMO_TESTAR.md). Resumo:
 cd api
 python -m venv venv
 venv\Scripts\python.exe -m pip install -r requirements.txt
-venv\Scripts\python.exe -m pytest          # 18 testes, sem rede
+venv\Scripts\python.exe -m pytest          # 23 testes, sem rede
 venv\Scripts\python.exe app.py             # sobe a API em localhost:5000
 ```
 Configuração em `.env` (copie de `.env.example`): URL/secret do Supabase e a chave do Gemini.
@@ -70,6 +70,9 @@ login (Docker + Render), veja [`docs/DEPLOY.md`](docs/DEPLOY.md).
 
 - **Segredos nunca vão para o repositório.** `api/.env` e `firmware/src/segredos.h` estão no
   `.gitignore`; o repositório traz só os modelos (`.env.example`, `segredos.exemplo.h`).
+- **API protegida por chave** (`SOMPO_API_KEY`): em produção, toda rota — exceto `/saude` —
+  exige o header `X-API-Key`. Sem ele (ou errado) a resposta é `401`. Exemplo:
+  `curl -H "X-API-Key: SUA_CHAVE" https://sua-api.onrender.com/telemetria`.
 - O ESP32 usa apenas a **publishable key** do Supabase, limitada a INSERT por políticas de RLS
   (`firmware/sql/preparar_supabase.sql`). A **secret key** vive só na API.
 - Detalhes e endurecimento em [`docs/SEGURANCA.md`](docs/SEGURANCA.md).
