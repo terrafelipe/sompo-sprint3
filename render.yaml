@@ -21,6 +21,10 @@ services:
         sync: false
       - key: LLM_MODEL
         value: gemini-flash-lite-latest
+      # Trava de acesso da API por header X-API-Key (ver docs/SEGURANCA.md).
+      # Preencha o valor no painel do Render (New > Environment Variable).
+      - key: SOMPO_API_KEY
+        sync: false
       - key: PAINEL_USUARIO
         sync: false
       - key: PAINEL_SENHA
