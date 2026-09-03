@@ -68,6 +68,11 @@ def exigir_login_painel():
         return None
     if request.endpoint in _LOGIN_LIVRE:
         return None
+    # Cliente de API (script, aparelho no campo, outro front) entra pela chave, sem
+    # sessao de navegador: se o X-API-Key confere, libera aqui e deixa a trava de
+    # API key (exigir_api_key) cuidar da validacao por rota.
+    if SOMPO_API_KEY and hmac.compare_digest(request.headers.get('X-API-Key', ''), SOMPO_API_KEY):
+        return None
     if session.get('logado'):
         # Timeout absoluto: expira SESSAO_HORAS apos o login, independente de atividade.
         if time.time() - session.get('login_em', 0) < _SESSAO_SEGUNDOS:

@@ -46,7 +46,7 @@ Guia completo em [`docs/COMO_TESTAR.md`](docs/COMO_TESTAR.md). Resumo:
 cd api
 python -m venv venv
 venv\Scripts\python.exe -m pip install -r requirements.txt
-venv\Scripts\python.exe -m pytest          # 23 testes, sem rede
+venv\Scripts\python.exe -m pytest          # 25 testes, sem rede
 venv\Scripts\python.exe app.py             # sobe a API em localhost:5000
 ```
 Configuração em `.env` (copie de `.env.example`): URL/secret do Supabase e a chave do Gemini.

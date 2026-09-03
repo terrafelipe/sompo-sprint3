@@ -52,3 +52,22 @@ def test_saude_fica_de_fora_da_trava():
          patch('supabase_client.consultar_tabela', return_value=[{'id': 1}]):
         response = client.get('/saude')
     assert response.status_code == 200
+
+
+def test_api_key_valida_passa_mesmo_com_login_ligado():
+    # Login do painel + API key ligados: cliente de API (sem sessao) entra pela chave.
+    client = app.test_client()
+    with patch('app.PAINEL_SENHA', 'senha-do-painel'), \
+         patch('app.SOMPO_API_KEY', _CHAVE), \
+         patch('app.consultar_telemetria', return_value=[]):
+        response = client.get('/telemetria', headers={'X-API-Key': _CHAVE})
+    assert response.status_code == 200
+
+
+def test_sem_sessao_e_sem_chave_com_login_ligado_retorna_401():
+    # Sem navegador (sem sessao) e sem a chave: barrado.
+    client = app.test_client()
+    with patch('app.PAINEL_SENHA', 'senha-do-painel'), \
+         patch('app.SOMPO_API_KEY', _CHAVE):
+        response = client.get('/telemetria')
+    assert response.status_code == 401

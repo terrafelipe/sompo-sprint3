@@ -34,7 +34,7 @@ api/
 │   └── index.html       # painel (dashboard) HTML
 ├── templates/
 │   └── login.html       # tela de login (sessao)
-├── tests/               # 23 testes (sem rede)
+├── tests/               # 25 testes (sem rede)
 │   ├── __init__.py
 │   ├── conftest.py
 │   ├── test_health.py
