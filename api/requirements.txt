@@ -5,3 +5,4 @@ python-dotenv==1.0.1
 python-docx==1.1.2
 pytest==8.3.2
 waitress==3.0.2
+gunicorn==23.0.0

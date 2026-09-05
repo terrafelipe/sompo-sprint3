@@ -59,6 +59,37 @@ docker run -p 5000:5000 --env-file api/.env sompo-painel
 # abre em http://localhost:5000 (com login se PAINEL_SENHA estiver no .env)
 ```
 
+## 5. (Alternativa) Gunicorn + Nginx via Docker Compose
+
+Além do Render, o repositório traz o stack **Nginx (proxy reverso) + Gunicorn (API Flask)** —
+o mesmo desenho de um servidor de produção (ex.: uma VM EC2), mas rodando local, com um comando:
+
+```bash
+# na raiz do repo (precisa do Docker Desktop com virtualizacao ligada)
+docker compose up --build
+# abre em http://localhost:8080
+```
+
+O fluxo é `navegador → Nginx (porta 8080) → Gunicorn → Flask`. Arquivos:
+[`docker-compose.yml`](../docker-compose.yml) e [`nginx/nginx.conf`](../nginx/nginx.conf). A porta
+do Gunicorn (5000) **não** é publicada no host de propósito — o tráfego é obrigado a passar pelo
+Nginx, comprovando o proxy reverso.
+
+### Por que o deploy oficial é o Render (e não EC2 + Gunicorn + Nginx)
+
+| Critério | Render (escolhido) | EC2 + Gunicorn + Nginx |
+|---|---|---|
+| Manutenção do servidor | Nenhuma (plataforma gerencia) | Você gerencia SO, updates, firewall |
+| HTTPS/SSL | Automático | Manual (Certbot/Let's Encrypt) |
+| Custo | Free tier | Free tier 12 meses, depois pago |
+| Deploy | `git push` → redeploy | Configurar systemd, Nginx, deploy manual |
+| Controle de infra | Menor | Total |
+
+Para um projeto acadêmico com foco em **arquitetura, segurança e integração IoT**, o Render
+entrega o painel no ar com HTTPS e zero manutenção, sem custo. O stack Gunicorn + Nginx fica
+documentado e versionado como alternativa reproduzível (Docker Compose), demonstrando o domínio
+do modelo de produção sem o overhead de manter um servidor.
+
 ## Segurança em resumo
 
 - **HTTPS** do Render — os dados da seguradora não trafegam em texto puro.
