@@ -3,21 +3,25 @@
 Este documento reúne o endurecimento de segurança aplicado e os **passos manuais**
 que precisam ser feitos no painel do Supabase (não dá para automatizar daqui).
 
-Princípio geral: **seguro por padrão, sem quebrar a demo do Wokwi.** Tudo o que
-poderia afetar a demo fica atrás de uma flag/variável de ambiente, desligada por
-padrão.
+Princípio geral: **seguro por padrão, sem quebrar a demo.** Tudo o que poderia
+afetar a demo fica atrás de uma flag/variável de ambiente, desligada por padrão.
 
 ---
 
 ## O que já foi aplicado no código
 
-### Firmware ESP32 (`firmware/src/app.ino`)
-- **Validação de certificado TLS configurável** pela flag `VALIDAR_CERTIFICADO`:
-  - `0` (padrão) → `setInsecure()`: criptografa mas não valida o servidor.
-    Necessário no Wokwi/demo (o simulador não traz o bundle de CAs).
-  - `1` → `setCACert(SUPABASE_ROOT_CA)`: autentica o Supabase pelo CA raiz
-    embutido (**Google Trust Services – GTS Root R4**, válido até 2036), fechando
-    a porta a ataques man-in-the-middle. **Use `1` em produção / hardware real.**
+### Firmware ESP32 (`firmware/sompo_hardware_final/`)
+> ⚠️ O firmware está em **bring-up de hardware** e ainda não tem Wi-Fi nem TLS — o sketch anterior,
+> que fazia o POST ao Supabase, foi removido junto com a simulação. Os requisitos abaixo valem para
+> quando o envio for portado para o sketch de hardware.
+
+- **Credenciais fora do repositório:** `segredos.h` fica ao lado do `.ino`, gitignorado; o repo traz
+  só o `segredos.exemplo.h`.
+- **Só a publishable key vai no ESP32** — nunca a service_role. Quem a limita a INSERT são as
+  políticas de RLS em `firmware/sql/preparar_supabase.sql`.
+- **Validar o certificado TLS** (`setCACert` com o CA raiz do Supabase — **Google Trust Services –
+  GTS Root R4**, válido até 2036) em vez de `setInsecure()`, fechando a porta a ataques
+  man-in-the-middle. Com internet real (hotspot do celular) não há motivo para não validar.
 
 ### API Flask
 - **`FLASK_DEBUG=false`** por padrão — desliga o debugger interativo (que, exposto,
@@ -72,7 +76,7 @@ As chaves atuais já circularam (zip, Downloads). Antes de ir para produção:
 
 1. No painel do Supabase, gerar **novas** publishable e secret keys.
 2. Atualizar:
-   - `firmware/src/segredos.h` → nova **publishable** key;
+   - `firmware/sompo_hardware_final/segredos.h` → nova **publishable** key;
    - `api/.env` → nova **secret** key.
 3. (Opcional) me avisar as chaves novas que eu atualizo os arquivos.
 
@@ -94,8 +98,5 @@ waitress-serve --host=127.0.0.1 --port=5000 app:app
 Chamadas passam a exigir o header: `X-API-Key: <a-mesma-chave>` (menos `/saude`).
 
 ### Firmware
-Em `firmware/src/app.ino`, trocar:
-```cpp
-#define VALIDAR_CERTIFICADO 1
-```
-e regravar o ESP32. (No Wokwi, manter `0`.)
+Pendente: o sketch de hardware ainda não faz rede. Ao portar o envio, usar `setCACert()` com o CA
+raiz do Supabase (não `setInsecure()`) e regravar o ESP32.

@@ -12,9 +12,10 @@
 **/*.pyc
 **/.pytest_cache/
 
-# PlatformIO / build do firmware
-**/.pio/
-**/compile_commands.json
+# Build do firmware (Arduino IDE)
+**/build/
+**/*.bin
+**/*.elf
 
 # Artefatos gerados
 **/plano_b/

@@ -4,8 +4,8 @@
 -- Ele cria as tabelas que o ESP32 grava e a API le, a view de resumo, os indices e
 -- a seguranca (RLS). E idempotente: pode rodar de novo sem quebrar.
 --
--- O schema abaixo bate EXATAMENTE com o que o firmware envia (enviarTelemetria /
--- dispararEvento em src/app.ino) e com o que a API consulta (api/supabase_client.py).
+-- O schema abaixo e o contrato que a API consulta (api/supabase_client.py) e que o
+-- firmware deve respeitar ao enviar telemetria/eventos.
 --
 -- Este e o UNICO script necessario. Ele cria as tabelas do sensor + view +
 -- indices + RLS, e ainda protege as tabelas de negocio (cliente/sinistros/etc)

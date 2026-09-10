@@ -1,12 +1,17 @@
 # Como testar tudo, do zero
 
-Duas coisas para testar: a **API (Python/Flask)** e o **firmware do ESP32** (no simulador **Wokwi**
-ou na **placa física**). O roteiro vai do mais simples (sem hardware, sem internet) ao completo
-(ponta a ponta). Comandos em **PowerShell** (Windows).
+Duas coisas para testar: a **API (Python/Flask)** e o **firmware do ESP32** na **placa física**.
+O roteiro vai do mais simples (sem hardware, sem internet) ao completo. Comandos em **PowerShell**
+(Windows).
 
-> 🎯 **Só quer a placa física funcionando (ex.: apresentação)?** O mínimo é: **passo 0** (setup) →
-> **passo 4b** (gravar no ESP32 físico) → conferir no painel do Supabase. Os passos 1–3 são para
-> validar a API, e o 4/6/8 são complementares.
+> 🎯 **Só quer a placa física funcionando (ex.: apresentação)?** Vá direto ao **passo 4** (gravar o
+> sketch pela Arduino IDE). Os passos 1–3 validam a API, e o 8 é complementar.
+
+> ⚠️ **O firmware ainda não fala com a API.** O projeto migrou do simulador para a placa física,
+> com outro conjunto de sensores, e o sketch está em **bring-up incremental** (um sensor por vez).
+> O envio de telemetria ao Supabase será portado depois que todos os sensores forem validados no
+> hardware. Por isso os passos 5 e 7 dependem do dado que já está no banco, não de dado novo
+> chegando ao vivo.
 
 Caminhos:
 - API: `C:\Users\USUARIO\Downloads\sompo-sprint3\api`
@@ -22,10 +27,11 @@ Caminhos:
 
 **Requisitos necessários:**
 - **Python** instalado (`python --version` deve responder). Usado pela API.
-- **PlatformIO** (extensão no VS Code) — para o firmware (ESP32/Wokwi ou físico).
+- **Arduino IDE** com o suporte a ESP32 instalado (Boards Manager → *esp32 by Espressif*) — para o
+  firmware. **Não** usamos mais PlatformIO.
 - Acesso a um projeto no **Supabase** (para os passos 3 em diante). Sem ele, dá para
   fazer o passo 1 (testes offline) mesmo assim.
-- **Só para o ESP32 físico** (passo 4b): a **placa ESP32**, um **cabo USB de dados**
+- **Só para o ESP32 físico** (passo 4): a **placa ESP32 DevKit V1**, um **cabo USB de dados**
   (não serve cabo só de carga) e o **driver USB-serial** da placa (**CP2102** ou **CH340**).
   Sem o driver o Windows não cria a porta COM e o upload não acha a placa.
 
@@ -132,109 +138,88 @@ Para parar a API: `Ctrl+C` no terminal dela.
 
 ---
 
-## 4. Firmware no Wokwi (simulador — opcional) — manda dado real ao Supabase (~5 min)
+## 4. Firmware na placa física (Arduino IDE) — bring-up dos sensores
 
-> 🎯 **Vai apresentar com a placa física?** Pule direto para o **passo 4b**. O Wokwi (este passo) é
-> útil para testar sem hardware, mas o simulador falha o TLS com frequência (erro `(-80)`), então
-> **não** conte com ele para a demo — o ESP32 físico é o caminho confiável.
+O firmware é um **sketch da Arduino IDE**, gravado direto no ESP32. Não há mais simulador,
+PlatformIO nem `diagram.json`.
 
-> ⚠️ **Antes de compilar, crie o `segredos.h`** (equivale ao `.env`, é gitignorado e **não** vem
-> no clone). Copie o modelo e preencha:
-> ```powershell
-> cd "C:\Users\USUARIO\Downloads\sompo-sprint3\firmware\src"
-> Copy-Item segredos.exemplo.h segredos.h
-> ```
-> No `segredos.h`: cole a **Project URL** em `SUPABASE_URL_CFG` e a **publishable key**
-> (`sb_publishable_...`) em `SUPABASE_CHAVE_CFG`. ⚠️ **Nunca** a service_role/secret aqui — no ESP32
-> vai só a publishable (o RLS a limita a INSERT). Sem esse arquivo, `pio run` falha com
-> `fatal error: segredos.h: No such file or directory`.
-
-> 💡 **PlatformIO não acha o projeto?** O `platformio.ini` fica em `firmware/`, não na raiz. Abra a
-> pasta `firmware/` no VS Code (File → Open Folder), ou rode `pio run` de dentro dela pelo terminal.
-
-1. Confira `firmware\src\segredos.h`. Para o **Wokwi**, já funciona com
-   `WIFI_SSID_CFG "Wokwi-GUEST"` e senha vazia. (Para hardware real, use o hotspot do celular.)
-2. Compile:
-   ```powershell
-   cd "C:\Users\USUARIO\Downloads\sompo-sprint3\firmware"
-   pio run
-   ```
-3. No VS Code: `F1` → **"Wokwi: Start Simulator"** (usa `wokwi.toml` + `diagram.json` + o firmware compilado).
-4. No Serial Monitor você deve ver `[SISTEMA] Wi-Fi conectado` e, a cada 10s, o envio de telemetria.
-
-**Esperado:** uma linha nova na tabela `telemetria` do painel do Supabase a cada 10s.
-
-> Se aparecer `[REDE] falha no envio` no Serial: provavelmente o RLS está bloqueando o INSERT
-> da publishable key. Ver `SEGURANCA.md` (passo 1 — aplicar o RLS).
-
----
-
-## 4b. ESP32 físico (o caminho da apresentação) — hotspot do celular
-
-Este é o caminho para mostrar a **placa de verdade**. É mais confiável que o Wokwi (o simulador
-falha o TLS com frequência — o erro `(-80)`; ver "Se algo falhar"). O ESP32 físico usa a internet
-real do **hotspot do celular**.
-
-> ✅ **Grave uma vez, roda sozinho.** Depois do upload, o programa fica salvo na **flash** da placa.
-> Na apresentação **não precisa de PC, nem PlatformIO, nem compilar de novo** — basta ligar o ESP32
-> em qualquer energia USB (carregador, powerbank ou a USB do notebook) com o hotspot ligado, que ele
-> envia sozinho. **Grave e teste em casa antes de segunda**, não na hora.
-
-**1. No celular, ligar o hotspot em 2.4 GHz** ⚠️ (o ESP32 NÃO enxerga 5 GHz)
-- **Android:** Config → Ponto de acesso → **Banda do AP → 2.4 GHz**.
-- **iPhone:** ligar **"Maximizar compatibilidade"** (força 2.4 GHz).
-- SSID e senha **simples, sem acento nem caractere especial**.
-- Deixe os **dados móveis ligados** — é por eles que o ESP32 alcança o Supabase.
-
-**2. Editar `firmware\src\segredos.h`** (troque só estas duas linhas para o seu hotspot):
-```c
-#define WIFI_SSID_CFG        "NomeDoSeuHotspot"
-#define WIFI_PASSWORD_CFG    "suasenha123"
+**1. Abrir o sketch**
 ```
-(A `SUPABASE_URL_CFG` e a `SUPABASE_CHAVE_CFG` você já preencheu no passo 4.)
-
-**3. Ligar a placa no PC** por um **cabo USB de dados** (não só de carga). Isso já basta para gravar.
-
-**4. Compilar e gravar — um comando só** (o `-t upload` **compila e grava** de uma vez):
-```powershell
-cd "C:\Users\USUARIO\Downloads\sompo-sprint3\firmware"
-pio run -t upload
+firmware\sompo_hardware_final\sompo_hardware_final.ino
 ```
-No VS Code, o mesmo botão é o **→ (Upload)** na barra azul de baixo. Ao terminar, a placa reinicia
-e já começa a rodar o programa.
+(A pasta tem o mesmo nome do `.ino` — é o que a Arduino IDE exige.)
 
-> ⚠️ **`pio` não é reconhecido?** O CLI vem com a extensão do PlatformIO, mas não fica no PATH do
-> PowerShell comum. Duas saídas: (a) use o **terminal do PlatformIO** no VS Code (ícone do alienígena
-> → *PIO Home* → *Miscellaneous → New Terminal*), onde `pio` já funciona; ou (b) adicione ao PATH de
-> vez (uma vez), depois reabra o terminal:
-> ```powershell
-> [Environment]::SetEnvironmentVariable("Path",
->   [Environment]::GetEnvironmentVariable("Path","User") + ";$env:USERPROFILE\.platformio\penv\Scripts",
->   "User")
-> ```
+**2. Configurar a IDE**
+- **Ferramentas → Placa → ESP32 Arduino → ESP32 Dev Module**
+- **Ferramentas → Porta →** a COM da placa (precisa do driver **CP2102/CH340**)
+- **Monitor Serial → 115200 baud**
 
-**5. (Opcional) Ver o log** para confirmar que conectou e está enviando:
-```powershell
-pio device monitor
+**3. Instalar as bibliotecas** (Ferramentas → Gerenciar Bibliotecas) — as versões testadas:
+
+| Biblioteca | Versão | Para |
+|---|---|---|
+| Adafruit MPU6050 | 2.2.9 | MPU-6050 |
+| Adafruit BusIO | 1.17.4 | dependência |
+| Adafruit Unified Sensor | 1.1.15 | dependência |
+| Adafruit AHTX0 | 2.0.6 | AHT10 (a mesma lib serve para o AHT20) |
+| TinyGPSPlus (Mikal Hart) | 1.0.3 | GPS — **não** a "TinyGPSPlus-ESP32" |
+| MFRC522 (miguelbalboa) | 1.4.12 | RC522 |
+| **MAX6675 (RobTillaart)** | 0.3.4 | termopar — API **diferente** da Adafruit |
+
+> ⚠️ **MAX6675:** a lib do RobTillaart usa `MAX6675(cs, miso, clock)`, exige `begin()` e a leitura é
+> `read()` (`STATUS_OK == 0`) seguida de `getCelsius()`. Trocar pela `<max6675.h>` da Adafruit
+> quebra a compilação — o cabeçalho do `.ino` avisa isso.
+
+**4. Ligar um sensor por vez (o ponto principal deste passo)**
+
+No topo do `.ino` há uma flag por sensor:
+```cpp
+#define USAR_MPU          1   // PASSO 1 - em teste agora
+#define USAR_AHT          0   // PASSO 2
+#define USAR_BUZZER       0   // PASSO 3
+#define USAR_RFID         0
+...
+#define DIAG_I2C          1   // scanner I2C no setup
 ```
-**Esperado:** `[SISTEMA] Wi-Fi conectado, IP ...` e, a cada 10s, o envio de telemetria.
-Para **sair** do monitor: `Ctrl+C`.
+Com a flag em `0`, o `#include`, o objeto, a init, a chamada no `loop()` e a função `lerX()` daquele
+sensor **não entram no binário** e nenhum pino dele é tocado. Monte o sensor na protoboard, vire
+**só a flag dele** para `1`, grave e confira o Serial. Deu certo → próximo. Ordem:
+`MPU → AHT → BUZZER → RFID/TERMOPAR/CHAMA/REED/POT`.
 
-> ⚠️ **Uma porta COM de cada vez:** enquanto o monitor estiver aberto, ele "segura" a porta. Se for
-> gravar de novo (`pio run -t upload`) e der erro de porta ocupada, feche o monitor com `Ctrl+C` antes.
+**5. Gravar e conferir**
 
-**Confirmar ponta a ponta:** no painel do Supabase → Table Editor → `telemetria`, deve entrar uma
-linha nova a cada ~10s.
+Botão **→ (Upload)** e depois **Monitor Serial (115200)**. Com só o MPU ligado, o esperado é:
+```
+=== Sistema Sompo - Inicializando sensores ===
+Scanner I2C: procurando dispositivos...
+  I2C: dispositivo encontrado em 0x68
+MPU-6050 OK - calibrando repouso, nao mexa na placa...
+MPU-6050 baseline de repouso: 9.81 m/s2 (limiar de vibracao: 2.00)
+=== Setup concluido ===
+Acel (m/s2): X=... Y=... Z=...
+|a|=9.81 m/s2 (desvio 0.03, limiar 2.00)
+```
+Nenhuma linha de AHT, GPS, RFID, termopar, capô, chama ou potenciômetro deve aparecer — se aparecer,
+alguma flag ficou em `1` sem querer.
 
-> Opcional, já que agora há internet real: `#define VALIDAR_CERTIFICADO 1` no `app.ino` liga a
-> validação de certificado TLS (produção). `0` funciona igual e é mais simples para a demo.
+> 🔌 **Fiação:** o mapa de pinos completo está no **cabeçalho do próprio `.ino`**. Os três erros que
+> mais custam tempo: **AD0 do MPU-6050 tem que ir no GND** (senão o endereço I2C oscila e a leitura
+> falha de forma intermitente); **RC522 é 3.3V** (5V queima); e **GPS é cruzado** (TX→16, RX→17).
+> MPU+AHT dividindo o I2C e RC522+MAX6675 dividindo o SPI é **de propósito**, não é erro.
+
+> 📡 **Wi-Fi / Supabase:** ainda não estão no sketch de hardware. Quando forem portados, copie
+> `firmware\sompo_hardware_final\segredos.exemplo.h` para `segredos.h` **na mesma pasta** (a Arduino
+> IDE compila todos os arquivos da pasta do sketch) e preencha o hotspot do celular em **2.4 GHz**
+> (o ESP32 não enxerga 5 GHz) mais a **publishable key** do Supabase — nunca a service_role.
 
 ---
 
 ## 5. Ver o dado ponta a ponta
 
-- **Painel do Supabase** → Table Editor → `telemetria`: linhas entrando a cada 10s.
-- Com a API no ar, os endpoints agora devolvem dado real:
+- **Painel do Supabase** → Table Editor → `telemetria`: as linhas já gravadas pelo firmware
+  anterior. (Dado **novo** só volta a entrar quando o envio Wi-Fi for portado para o sketch de
+  hardware — ver o aviso no topo deste documento.)
+- Com a API no ar, os endpoints devolvem esse dado:
   ```powershell
   curl.exe "http://localhost:5000/telemetria?limite=5"
   curl.exe "http://localhost:5000/relatorio/bruto?dias=7"
@@ -242,23 +227,29 @@ linha nova a cada ~10s.
 
 ---
 
-## 6. Disparar eventos na banca (Wokwi ou placa física)
+## 6. Disparar os cenários na bancada (placa física)
 
-Os estímulos abaixo valem tanto no simulador quanto nos sensores reais da placa.
+Estímulos para testar cada sensor conforme ele é ligado pela flag `USAR_<SENSOR>`. O resultado
+aparece no **Monitor Serial** — os eventos ainda **não** sobem para a API (o envio Wi-Fi será
+portado depois do bring-up).
 
-| Evento | Como disparar (Wokwi ou sensor real) |
-|---|---|
-| `operador_nao_autorizado` (roubo) | Gire o **potenciômetro** (pino 34) para cima **sem** apertar o botão do crachá (pino 27). |
-| `furto_movimento` | Com o pot **para baixo** (máquina desligada), mude a distância do **HC-SR04** (> 8 cm). |
-| `escape_atencao` / `escape_critico` | Suba a **temperatura do DHT22** (mapeada para 300–600 °C; passa de 450/550). |
-| `chama_detectada` | Acione o **PIR** (pino 35) depois dos 60 s de aquecimento. |
+| Cenário | Sensor | Como disparar | O que esperar no Serial |
+|---|---|---|---|
+| Vibração / adulteração | MPU-6050 | Bata na mesa ou mexa na placa | o `desvio` sobe e passa de `LIMIAR_VIBRACAO` |
+| Ambiente | AHT10 | Sopre / encoste o dedo no sensor | temperatura e umidade mudam |
+| Alarme sonoro | Buzzer | Autoteste no boot | bipe de 2500 Hz logo após o setup |
+| Crachá / autorização | RC522 | Encoste a tag no leitor | `RFID detectado - UID: ...` |
+| Escape quente | MAX6675 | Aqueça a ponta do termopar | a temperatura em °C sobe |
+| Chama | KY-026 | Aproxime uma chama (ajuste o trimmer) | `!!! CHAMA DETECTADA !!!` + buzzer 2000 Hz |
+| Capô aberto | Reed | Afaste o ímã do reed | `Capo: ABERTO` |
+| Motor ligado/desligado | Potenciômetro | Gire o eixo | leitura 0–4095 e `DESLIGADO`/`ligado` |
+| **Furto (regra combinada)** | Pot + MPU + buzzer | Pot **para baixo** (motor desligado) **e** sacuda a placa | `!!! ALERTA: vibracao detectada com motor desligado !!!` + buzzer 3000 Hz |
 
-Confira o resultado:
-```powershell
-curl.exe "http://localhost:5000/eventos?dias=7"
-curl.exe "http://localhost:5000/scores?dias=7"
-```
-**Esperado:** o evento aparece em `/eventos` e o `score_furto`/`score_incendio` sobe.
+> 🎚️ **Limiares** ficam nos `#define` do topo do `.ino` (`LIMIAR_VIBRACAO`,
+> `LIMIAR_POT_MOTOR_DESLIGADO`). A linha `|a|=... (desvio ..., limiar ...)` existe justamente para
+> calibrar o primeiro na bancada: parado o desvio fica perto de 0; se nem sacudindo ele passar do
+> limiar, baixe o valor. Nos módulos com comparador (KY-026 e reed) a sensibilidade é ajustada no
+> **trimmer da própria placa**, e a polaridade HIGH/LOW pode precisar ser invertida no código.
 
 ---
 
@@ -339,17 +330,22 @@ horários em Brasília — mais fácil de ler/apresentar que o JSON.
 - **testar_supabase 404:** a `SUPABASE_URL` está errada — use a **Project URL** (`https://<ref>.supabase.co`)
   de Settings → API, **não** o link do painel (`.../dashboard/project/...`).
 - **testar_supabase 401/403:** problema de chave ou RLS — ver `SEGURANCA.md`.
-- **`(-80)` / `start_ssl_client` / `connection refused` no Serial (Wokwi):** é o **TLS do simulador**
-  falhando, **não** o seu código. Reinicie o simulador e tente de novo; se insistir, use o **ESP32
-  físico** (passo 4b), que é confiável.
-- **`[REDE] falha ... HTTP 401/403` no Serial (físico):** aí sim é **RLS/chave** — confira a
-  publishable key no `segredos.h` e rode `firmware/sql/preparar_supabase.sql` (aplica o RLS de INSERT).
-- **ESP32 físico não conecta no Wi-Fi:** o hotspot precisa estar em **2.4 GHz** (não 5 GHz), com SSID/senha
-  simples; deixe os dados móveis ligados.
-- **`pio` não é reconhecido (fora do PATH):** o CLI existe (vem com a extensão), só não está no PATH.
-  Use o **terminal do PlatformIO** no VS Code, ou adicione `%USERPROFILE%\.platformio\penv\Scripts`
-  ao PATH (ver nota no passo 4b) e reabra o terminal.
-- **`pio run -t upload` não acha a placa / erro de porta:** cabo USB de **dados** (não só carga),
-  driver **CP2102/CH340** instalado, e feche o `pio device monitor` antes de gravar (uma porta COM por vez).
+- **Upload não acha a placa / erro de porta:** cabo USB de **dados** (não só carga), driver
+  **CP2102/CH340** instalado, e feche o **Monitor Serial** antes de gravar (uma porta COM por vez).
+  Se insistir, segure o botão **BOOT** da placa durante o "Connecting...".
+- **Monitor Serial só com caracteres estranhos:** o baud está errado — tem que ser **115200**.
+- **`ERRO: MPU-6050 nao encontrado` / scanner I2C não acha nada:** é fiação, não código. Confira
+  **AD0 no GND**, 3.3V/GND chegando na trilha da protoboard e **SDA=21 / SCL=22**. Barramento vazio =
+  alimentação ou cabo; `0x68` aparecendo mas `begin()` falhando = biblioteca/endereço.
+- **`ERRO: AHT10 nao encontrado`:** o scanner tem que mostrar `0x38`. O AHT10 divide o I2C com o MPU,
+  então os dois endereços (`0x38` e `0x68`) devem aparecer juntos.
+- **Termopar com leitura absurda:** inverta as duas garras do termopar no bloco verde (polaridade)
+  e confira o CS em **GPIO 15** (o RC522 usa o CS **5**; SCK/MISO são compartilhados de propósito).
+- **Sensor "sempre acionado" (KY-026 ou reed):** são módulos com comparador — ajuste o **trimmer**
+  da placa; se continuar invertido, troque o `== LOW` por `== HIGH` (ou vice-versa) na função `lerX()`.
+- **Erro de compilação no MAX6675** (`no matching function`, `getCelsius não existe`): está instalada
+  a lib da **Adafruit** em vez da do **RobTillaart** 0.3.4. Ver a tabela do passo 4.
+- **ESP32 não conecta no Wi-Fi** (quando a rede for portada): o hotspot precisa estar em **2.4 GHz**
+  (não 5 GHz), com SSID/senha simples; deixe os dados móveis ligados.
 - **quer o relatório com IA de verdade:** preencher `LLM_API_KEY` no `.env` (sem ela a origem fica
   `prompt_apenas`, que é o esperado agora).

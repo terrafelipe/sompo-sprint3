@@ -5,7 +5,7 @@
 $ErrorActionPreference = 'Stop'
 $raiz = $PSScriptRoot
 $api  = Join-Path $raiz 'api'
-$fw   = Join-Path $raiz 'firmware\src'
+$fw   = Join-Path $raiz 'firmware\sompo_hardware_final'
 
 Write-Host "== SOMPO :: setup ==" -ForegroundColor Cyan
 
@@ -34,12 +34,14 @@ if (Test-Path $env_) {
 }
 
 # --- 4. segredos.h do firmware ---
+# Ainda nao consumido: o sketch de hardware esta em bring-up e nao tem Wi-Fi.
+# Fica pronto para quando o envio de telemetria for portado.
 $seg = Join-Path $fw 'segredos.h'
 if (Test-Path $seg) {
-    Write-Host "[ok]  firmware\src\segredos.h ja existe (nao mexi)" -ForegroundColor Green
+    Write-Host "[ok]  firmware\sompo_hardware_final\segredos.h ja existe (nao mexi)" -ForegroundColor Green
 } else {
     Copy-Item (Join-Path $fw 'segredos.exemplo.h') $seg
-    Write-Host "[novo] firmware\src\segredos.h criado a partir do exemplo - PREENCHA as chaves" -ForegroundColor Yellow
+    Write-Host "[novo] firmware\sompo_hardware_final\segredos.h criado a partir do exemplo" -ForegroundColor Yellow
 }
 
 # --- Resumo do que falta ---
@@ -48,10 +50,11 @@ Write-Host "== Falta preencher (uma vez) ==" -ForegroundColor Cyan
 Write-Host "  api\.env"
 Write-Host "    SUPABASE_URL          -> Project URL (Settings -> API), ex: https://xxxx.supabase.co"
 Write-Host "    SUPABASE_SECRET_KEY   -> service_role / secret key (fica so na API)"
-Write-Host "  firmware\src\segredos.h"
-Write-Host "    WIFI_SSID_CFG/PASSWORD -> hotspot do celular (2.4 GHz) p/ ESP32 fisico; Wokwi usa Wokwi-GUEST"
+Write-Host "  firmware\sompo_hardware_final\segredos.h  (so quando o firmware ganhar Wi-Fi)"
+Write-Host "    WIFI_SSID_CFG/PASSWORD -> hotspot do celular em 2.4 GHz (o ESP32 nao enxerga 5 GHz)"
 Write-Host "    SUPABASE_URL_CFG       -> mesma Project URL"
 Write-Host "    SUPABASE_CHAVE_CFG     -> anon / publishable key (sb_publishable_...)"
 Write-Host ""
 Write-Host "Testar a API (offline):  cd api ; .\venv\Scripts\python.exe -m pytest" -ForegroundColor Cyan
+Write-Host "Firmware: abrir firmware\sompo_hardware_final\sompo_hardware_final.ino na Arduino IDE" -ForegroundColor Cyan
 Write-Host "Setup concluido." -ForegroundColor Green
