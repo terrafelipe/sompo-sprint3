@@ -11,17 +11,17 @@ afetar a demo fica atrás de uma flag/variável de ambiente, desligada por padr�
 ## O que já foi aplicado no código
 
 ### Firmware ESP32 (`firmware/sompo_hardware_final/`)
-> ⚠️ O firmware está em **bring-up de hardware** e ainda não tem Wi-Fi nem TLS — o sketch anterior,
-> que fazia o POST ao Supabase, foi removido junto com a simulação. Os requisitos abaixo valem para
-> quando o envio for portado para o sketch de hardware.
-
 - **Credenciais fora do repositório:** `segredos.h` fica ao lado do `.ino`, gitignorado; o repo traz
   só o `segredos.exemplo.h`.
 - **Só a publishable key vai no ESP32** — nunca a service_role. Quem a limita a INSERT são as
   políticas de RLS em `firmware/sql/preparar_supabase.sql`.
-- **Validar o certificado TLS** (`setCACert` com o CA raiz do Supabase — **Google Trust Services –
-  GTS Root R4**, válido até 2036) em vez de `setInsecure()`, fechando a porta a ataques
-  man-in-the-middle. Com internet real (hotspot do celular) não há motivo para não validar.
+- **Certificado TLS validado sempre:** `postarSupabase()` usa `setCACert(SUPABASE_ROOT_CA)` com o CA
+  raiz do Supabase (**Google Trust Services – GTS Root R4**, válido até 2036), fechando a porta a
+  ataques man-in-the-middle. A flag `VALIDAR_CERTIFICADO` do firmware antigo **não existe mais**: o
+  `setInsecure()` só se justificava porque o simulador não trazia o bundle de CAs, e o simulador
+  saiu do projeto.
+- **`Prefer: return=minimal`** no POST — o Supabase não ecoa o registro gravado, o que economiza RAM
+  e evita jogar dado de volta no Serial.
 
 ### API Flask
 - **`FLASK_DEBUG=false`** por padrão — desliga o debugger interativo (que, exposto,
@@ -98,5 +98,5 @@ waitress-serve --host=127.0.0.1 --port=5000 app:app
 Chamadas passam a exigir o header: `X-API-Key: <a-mesma-chave>` (menos `/saude`).
 
 ### Firmware
-Pendente: o sketch de hardware ainda não faz rede. Ao portar o envio, usar `setCACert()` com o CA
-raiz do Supabase (não `setInsecure()`) e regravar o ESP32.
+Nada a mudar: o `setCACert()` com o CA raiz do Supabase já é o caminho único do
+`postarSupabase()` — não há flag para desligar a validação.

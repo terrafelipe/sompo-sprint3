@@ -24,9 +24,12 @@ sensores → ESP32 → Wi-Fi → Supabase (PostgREST)
 
 > ⚠️ **Estado atual do firmware:** o projeto migrou do simulador para a **placa física**, com um
 > conjunto de sensores diferente do que era simulado. O sketch está na fase de **bring-up
-> incremental** (um sensor por vez, ver abaixo) e **ainda não tem Wi-Fi nem envio ao Supabase** — a
-> etapa de rede será portada depois que todos os sensores estiverem validados no hardware. Enquanto
-> isso, a `api/` roda e é testada com os dados já existentes no banco.
+> incremental** (um sensor por vez, ver abaixo). O envio ao Supabase já está implementado, mas
+> **desligado** (`USAR_WIFI 0`) — liga-se por último, com os sensores todos validados.
+>
+> Um efeito do hardware novo: **não há mais HC-SR04**, então as colunas `distancia_cm` e
+> `em_movimento` ficam nulas e o evento `furto_movimento` (deslocamento) foi substituído por
+> **`furto_adulteracao`** (vibração detectada pelo MPU-6050 com a máquina desligada).
 
 ## Escopo
 
@@ -43,9 +46,16 @@ e grave. Monitor Serial em **115200**.
 **Bring-up incremental:** no topo do `.ino` há uma flag `USAR_<SENSOR>` por sensor. Cada flag
 protege o `#include`, o objeto global, a init do `setup()`, a chamada no `loop()` e a própria
 função `lerX()` — com a flag em `0` aquele sensor não é compilado e nenhum pino dele é tocado.
-Liga-se **um por vez**, na ordem `MPU → AHT → BUZZER → RFID/TERMOPAR/CHAMA/REED/POT`, confirmando
-cada um na bancada antes de passar para o próximo. Assim o Monitor Serial não enche de leitura de
-pino solto e o build nunca quebra por biblioteca ausente.
+Liga-se **um por vez**, na ordem `MPU → AHT → BUZZER → RFID/TERMOPAR/CHAMA/REED/POT → WIFI`,
+confirmando cada um na bancada antes de passar para o próximo. Assim o Monitor Serial não enche de
+leitura de pino solto e o build nunca quebra por biblioteca ausente.
+
+**Envio ao Supabase (`USAR_WIFI 1`):** o POST roda numa tarefa própria no núcleo 0 — o `loop()`
+só enfileira, nunca fala com a rede. Duas filas com semânticas diferentes: eventos numa FIFO de 16
+que não se perde por falta de cobertura (é a trilha de evidência do sinistro) e telemetria numa
+caixa de um slot sobrescrito (a amostra de agora vale mais que a antiga). Exige
+`segredos.h` preenchido. Para conferir o JSON **antes** de ter rede, ligue `DIAG_TELEMETRIA 1`:
+o payload é impresso no Serial sem precisar de Wi-Fi.
 
 O mapa de pinos e as notas de fiação (AD0 do MPU no GND, RC522 só em 3.3V, I2C e SPI
 compartilhados de propósito) estão no cabeçalho do próprio `.ino`.

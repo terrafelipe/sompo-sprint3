@@ -33,6 +33,22 @@ def test_scores_severidade_ausente_usa_padrao():
     assert r['score_furto'] == 20
 
 
+def test_scores_furto_adulteracao():
+    # Evento do hardware fisico: vibracao (MPU-6050) com a maquina desligada.
+    # Substitui o furto_movimento, que dependia do HC-SR04 (fora do hardware atual).
+    r = calcular_scores('SOMPO-ESP32', 7, [{'tipo': 'furto_adulteracao', 'severidade': 4}])
+    assert r['score_furto'] == 40
+    assert r['score_incendio'] == 0
+    assert r['detalhamento']['furto_adulteracao']['eixo'] == 'furto'
+
+
+def test_scores_furto_adulteracao_sem_severidade():
+    # Sem o campo severidade, cai na SEVERIDADE_PADRAO do tipo (4 -> 40 pontos),
+    # e nao em 0 como aconteceria se o tipo nao estivesse registrado.
+    r = calcular_scores('SOMPO-ESP32', 7, [{'tipo': 'furto_adulteracao'}])
+    assert r['score_furto'] == 40
+
+
 def test_scores_sem_eventos():
     r = calcular_scores('SOMPO-ESP32', 7, [])
     assert r['score_furto'] == 0
