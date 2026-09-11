@@ -42,8 +42,12 @@ alter table public.telemetria add column if not exists capo_aberto         boole
 alter table public.telemetria add column if not exists tanque_aberto       boolean;
 alter table public.telemetria add column if not exists operador_autorizado boolean;
 
--- ATENCAO: as duas linhas abaixo APAGAM o historico dessas colunas, sem volta.
--- Para preservar o dado antigo, comente-as: as colunas ficam nulas e inertes.
+-- ATENCAO: as duas linhas de drop abaixo APAGAM o historico dessas colunas, sem
+-- volta. Para preservar o dado antigo, comente-as: as colunas ficam nulas e inertes.
+-- A view resumo_diario do schema SIMULADO referenciava em_movimento; ela precisa
+-- sair ANTES do drop das colunas (senao o Postgres recusa: 2BP01, dependencia).
+-- E recriada logo abaixo, na secao 2, ja sem as colunas do HC-SR04.
+drop view if exists public.resumo_diario cascade;
 alter table public.telemetria drop column if exists distancia_cm;
 alter table public.telemetria drop column if exists em_movimento;
 
