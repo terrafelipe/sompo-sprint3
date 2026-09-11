@@ -3,6 +3,7 @@
 **/.env
 **/.env.*
 !**/.env.example
+!**/.env.deploy.example
 **/segredos.h
 
 # Python
@@ -23,6 +24,10 @@
 # Editores
 .vscode/
 .idea/
+# Excecao: a config da extensao Arduino E entregavel - e o que faz o VS Code
+# saber a placa (esp32dev), achar o arduino-cli portatil e montar o IntelliSense.
+!firmware/sompo_hardware_final/.vscode/
+!firmware/sompo_hardware_final/.vscode/*.json
 
 # Lixo do sistema operacional
 **/.DS_Store

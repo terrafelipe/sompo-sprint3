@@ -1,8 +1,12 @@
-# Build da Arduino IDE (cache de compilacao/upload)
+# Build da Arduino IDE / arduino-cli (arduino.json -> "output")
 build/
 *.bin
 *.elf
 *.hex
+
+# arduino-cli portatil: ~30 MB de binario nao vao para o Git.
+# Recrie com: .\firmware\tools\instalar-arduino-cli.ps1
+tools/arduino-cli.exe
 
 # Credenciais locais - use sompo_hardware_final/segredos.exemplo.h como modelo
 sompo_hardware_final/segredos.h

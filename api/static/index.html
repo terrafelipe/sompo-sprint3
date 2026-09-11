@@ -202,7 +202,7 @@
                 <th class="py-3 px-5">Umidade</th>
                 <th class="py-3 px-5">Vibração</th>
                 <th class="py-3 px-5">Motor</th>
-                <th class="py-3 px-5">Movimento</th>
+                <th class="py-3 px-5">Capô</th>
                 <th class="py-3 px-5">Chama</th>
               </tr>
             </thead>
@@ -349,12 +349,13 @@ async function carregarTelemetria(){
     $('kpis').innerHTML =
       kpi('shield','Nível de risco', t.nivel_risco ?? '–') +
       kpi('settings','Motor', bool(t.motor_ligado)) +
+      kpi('badge','Operador', t.operador_autorizado == null ? '–' : (t.operador_autorizado ? 'Autorizado' : 'Sem crachá')) +
       kpi('thermostat','Temp. escape', (t.temp_escape ?? '–')+' °C') +
+      kpi('device_thermostat','Temp. ambiente', (t.temp_ambiente ?? '–')+' °C') +
       kpi('water_drop','Umidade', (t.umidade_ar ?? '–')+' %') +
       kpi('vibration','Vibração', (t.vibracao ?? '–')+' g') +
-      kpi('directions_run','Movimento', bool(t.em_movimento)) +
-      kpi('local_fire_department','Chama', bool(t.chama_detectada)) +
-      kpi('straighten','Distância', (t.distancia_cm ?? '–')+' cm');
+      kpi('car_crash','Capô', bool(t.capo_aberto)) +
+      kpi('local_fire_department','Chama', bool(t.chama_detectada));
 
     $('sparkTemp').innerHTML = sparkline(linhas.map(x=>x.temp_escape).reverse());
 
@@ -367,7 +368,7 @@ async function carregarTelemetria(){
         <td class="py-3 px-5">${x.umidade_ar ?? '–'} %</td>
         <td class="py-3 px-5">${x.vibracao ?? '–'} g</td>
         <td class="py-3 px-5">${bool(x.motor_ligado)}</td>
-        <td class="py-3 px-5">${bool(x.em_movimento)}</td>
+        <td class="py-3 px-5">${bool(x.capo_aberto)}</td>
         <td class="py-3 px-5">${bool(x.chama_detectada)}</td>
       </tr>`;
     }).join('');

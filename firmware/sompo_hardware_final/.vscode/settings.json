@@ -1,0 +1,20 @@
+{
+  // Aponta a extensao Arduino para o arduino-cli PORTATIL do repo, em
+  // firmware/tools/. Sem isto ela procura uma instalacao global que nao existe.
+  // Rode antes: .\firmware\tools\instalar-arduino-cli.ps1
+  "arduino.useArduinoCli": true,
+  "arduino.path": "../tools",
+  "arduino.commandPath": "arduino-cli.exe",
+
+  "arduino.additionalUrls": [
+    "https://espressif.github.io/arduino-esp32/package_esp32_index.json"
+  ],
+
+  // O Monitor Serial do projeto roda a 115200 (ver Serial.begin no .ino).
+  "arduino.defaultBaudRate": 115200,
+
+  // A pasta build/ e artefato de compilacao (arduino.json -> "output").
+  "files.exclude": {
+    "../build": true
+  }
+}

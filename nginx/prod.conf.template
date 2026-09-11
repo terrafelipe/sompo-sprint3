@@ -1,0 +1,70 @@
+# Nginx de PRODUCAO (VPS/EC2) - HTTPS com Let's Encrypt.
+#
+# A imagem nginx:alpine roda envsubst em /etc/nginx/templates/*.template na hora
+# de subir, entao ${DOMINIO} vem do ambiente (arquivo .env na raiz). Por isso
+# este arquivo e .template e nao .conf.
+#
+# ATENCAO: as variaveis do PROPRIO nginx ($host, $remote_addr, ...) usam $ sem
+# chaves e o envsubst as ignora - so ${DOMINIO} e substituido. Escrever uma
+# variavel do nginx com chaves faz o envsubst troca-la por vazio e a config
+# quebra. Vale inclusive dentro de comentario, que tambem passa pelo envsubst.
+
+upstream sompo_api {
+    server api:5000;          # 'api' = nome do servico no docker-compose
+}
+
+# ---------------------------------------------------------------------------
+# Porta 80: serve APENAS o desafio do Let's Encrypt e redireciona o resto.
+# ---------------------------------------------------------------------------
+server {
+    listen 80;
+    server_name ${DOMINIO};
+
+    # O certbot grava o token aqui (webroot) e a Let's Encrypt vem busca-lo por
+    # HTTP. Tem de ficar ANTES do redirect, senao a renovacao passa a falhar.
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+# ---------------------------------------------------------------------------
+# Porta 443: o site de verdade.
+# ---------------------------------------------------------------------------
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name ${DOMINIO};
+
+    ssl_certificate     /etc/letsencrypt/live/${DOMINIO}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${DOMINIO}/privkey.pem;
+
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ciphers         HIGH:!aNULL:!MD5;
+    ssl_session_cache   shared:SSL:10m;
+    ssl_session_timeout 1d;
+
+    # HSTS: o navegador passa a recusar http:// neste dominio. Ligue so depois
+    # que o HTTPS estiver confirmado - voltar atras leva 6 meses de cache.
+    # add_header Strict-Transport-Security "max-age=15768000" always;
+
+    # O painel envia o relatorio .docx; o padrao de 1 MB e apertado.
+    client_max_body_size 10m;
+
+    location / {
+        proxy_pass http://sompo_api;
+
+        # Preservam host e IP de origem para a API enxergar o cliente real, e
+        # nao o container do Nginx. O X-Forwarded-Proto e o que faz o Flask
+        # saber que a origem era HTTPS (cookie de sessao Secure).
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_read_timeout 120s;   # /relatorio/risco espera a resposta do LLM
+    }
+}

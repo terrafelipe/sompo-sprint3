@@ -27,9 +27,14 @@ sensores → ESP32 → Wi-Fi → Supabase (PostgREST)
 > incremental** (um sensor por vez, ver abaixo). O envio ao Supabase já está implementado, mas
 > **desligado** (`USAR_WIFI 0`) — liga-se por último, com os sensores todos validados.
 >
-> Um efeito do hardware novo: **não há mais HC-SR04**, então as colunas `distancia_cm` e
-> `em_movimento` ficam nulas e o evento `furto_movimento` (deslocamento) foi substituído por
-> **`furto_adulteracao`** (vibração detectada pelo MPU-6050 com a máquina desligada).
+> Um efeito do hardware novo: **não há mais HC-SR04**, então `distancia_cm`/`em_movimento` saíram
+> da tabela e entraram `temp_ambiente`, `capo_aberto`, `tanque_aberto` e `operador_autorizado`. O
+> evento `furto_movimento` (deslocamento) foi substituído por **`furto_adulteracao`** (vibração
+> detectada pelo MPU-6050 com a máquina desligada).
+>
+> O contrato entre firmware, banco e API é verificado por testes
+> (`api/tests/test_contrato_firmware.py`): uma chave nova no `.ino` sem coluna no `.sql`, ou um
+> evento que não pontua no `scores.py`, quebra o `pytest`.
 
 ## Escopo
 
@@ -39,9 +44,22 @@ Colisão, distância e previsão do tempo estão fora de escopo (máquinas novas
 ## Como rodar
 
 ### Firmware (`firmware/`)
-Requer a **Arduino IDE** (não PlatformIO). Abra
-`firmware/sompo_hardware_final/sompo_hardware_final.ino`, selecione a placa **ESP32 Dev Module**
-e grave. Monitor Serial em **115200**.
+Um sketch Arduino, compilado pelo **arduino-cli portátil do próprio repo** (sem instalação global,
+sem PlatformIO). Uma vez por máquina:
+
+```powershell
+.\firmware\tools\instalar-arduino-cli.ps1      # baixa o CLI + o core ESP32
+```
+
+Depois, pelo VS Code (extensão **Arduino Community Edition**, já configurada em
+`firmware/sompo_hardware_final/.vscode/`) ou pela linha de comando:
+
+```powershell
+.\firmware\tools\arduino-cli.exe --config-file firmware\arduino-cli.yaml `
+  compile --fqbn esp32:esp32:esp32 firmware\sompo_hardware_final
+```
+
+Placa **ESP32 Dev Module** (`esp32:esp32:esp32`), Monitor Serial em **115200**.
 
 **Bring-up incremental:** no topo do `.ino` há uma flag `USAR_<SENSOR>` por sensor. Cada flag
 protege o `#include`, o objeto global, a init do `setup()`, a chamada no `loop()` e a própria

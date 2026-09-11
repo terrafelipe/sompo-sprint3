@@ -1,0 +1,16 @@
+﻿# GERADO por firmware/tools/instalar-arduino-cli.ps1 - nao edite a mao.
+# Noutra maquina: .\firmware\tools\instalar-arduino-cli.ps1 -Regenerar
+#
+# Os caminhos sao absolutos porque o arduino-cli nao expande %VARIAVEIS%.
+board_manager:
+  additional_urls:
+    - https://espressif.github.io/arduino-esp32/package_esp32_index.json
+directories:
+  # Core ESP32 + toolchain (~1,5 GB). Fica FORA do repo de proposito.
+  data: C:\Users\felip\AppData\Local\Arduino15
+  downloads: C:\Users\felip\AppData\Local\Arduino15\staging
+  # Sketchbook: onde estao as bibliotecas ja instaladas (Adafruit, MFRC522, ...).
+  # Sem isto o compile falha com "Adafruit_MPU6050.h: No such file".
+  user: C:\Users\felip\OneDrive\Documentos\Arduino
+logging:
+  level: warn

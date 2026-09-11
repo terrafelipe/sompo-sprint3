@@ -1,0 +1,63 @@
+# Stack de PRODUCAO (VPS/EC2): Nginx com HTTPS -> Gunicorn -> Flask.
+#
+#     cp .env.deploy.example .env   &&   nano .env      # preencha DOMINIO/EMAIL
+#     docker compose -f docker-compose.prod.yml up -d --build
+#
+# O passo a passo completo (inclusive a PRIMEIRA emissao do certificado, que
+# exige uma ordem especifica) esta em docs/DEPLOY.md.
+#
+# Diferencas para o docker-compose.yml (stack local, HTTP na 8080):
+#   - portas 80 e 443 no host, com certificado Let's Encrypt de verdade
+#   - certbot renovando sozinho
+#   - restart: always (sobrevive a reboot da instancia)
+
+services:
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    # Gunicorn com 3 workers. Nao publicamos a 5000 no host: o trafego e
+    # obrigado a passar pelo Nginx.
+    command: gunicorn --bind 0.0.0.0:5000 --workers 3 --timeout 120 app:app
+    env_file:
+      - ./api/.env
+    expose:
+      - "5000"
+    restart: always
+
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      # Consumido pelo envsubst da imagem ao gerar o conf a partir do template.
+      DOMINIO: ${DOMINIO:?defina DOMINIO no .env da raiz}
+    volumes:
+      - ./nginx/prod.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - certbot-etc:/etc/letsencrypt:ro
+      - certbot-www:/var/www/certbot:ro
+    depends_on:
+      - api
+    restart: always
+    # Recarrega a config a cada 12h para pegar o certificado renovado sem
+    # derrubar o site (o certbot troca o arquivo, mas o nginx so le no start).
+    command: >
+      sh -c "while :; do sleep 12h & wait $${!}; nginx -s reload; done &
+             nginx -g 'daemon off;'"
+
+  certbot:
+    image: certbot/certbot:latest
+    volumes:
+      - certbot-etc:/etc/letsencrypt
+      - certbot-www:/var/www/certbot
+    # Tenta renovar a cada 12h. A Let's Encrypt so renova nos ultimos 30 dias
+    # de validade, entao rodar com frequencia nao gasta cota.
+    entrypoint: >
+      sh -c "trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot;
+             sleep 12h & wait $${!}; done"
+    restart: always
+
+volumes:
+  certbot-etc:
+  certbot-www:

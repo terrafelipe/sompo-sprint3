@@ -1,0 +1,21 @@
+﻿{
+    "//": "GERADO por firmware/tools/instalar-arduino-cli.ps1 - nao edite a mao.",
+    "configurations": [
+        {
+            "name": "ESP32",
+            "includePath": [
+        "C:/Users/felip/AppData/Local/Arduino15/packages/esp32/hardware/esp32/3.3.11/cores/esp32",
+        "C:/Users/felip/AppData/Local/Arduino15/packages/esp32/hardware/esp32/3.3.11/variants/esp32",
+        "C:/Users/felip/AppData/Local/Arduino15/packages/esp32/hardware/esp32/3.3.11/libraries/**",
+        "C:/Users/felip/OneDrive/Documentos/Arduino/libraries/**",
+        "${workspaceFolder}/**"
+            ],
+            "defines": [ "ARDUINO=10819", "ESP32=1", "ARDUINO_ARCH_ESP32=1", "F_CPU=240000000L" ],
+            "compilerPath": "C:/Users/felip/AppData/Local/Arduino15/packages/esp32/tools/esp-x32/2601/bin/xtensa-esp32-elf-g++.exe",
+            "cStandard": "c11",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "gcc-x64"
+        }
+    ],
+    "version": 4
+}
