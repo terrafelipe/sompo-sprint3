@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 from app import app
 
-EVENTOS = [{'id': 1, 'tipo': 'furto_movimento', 'severidade': 4}]   # furto -> score 40
+EVENTOS = [{'id': 1, 'tipo': 'furto_adulteracao', 'severidade': 4}]   # furto -> score 40
 
 
 def _get():

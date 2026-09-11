@@ -5,7 +5,7 @@ from scores import calcular_scores
 
 
 EVENTOS = [
-    {'tipo': 'furto_movimento', 'severidade': 4},   # furto +40
+    {'tipo': 'furto_adulteracao', 'severidade': 4},  # furto +40
     {'tipo': 'furto_capo', 'severidade': 2},         # furto +10
     {'tipo': 'chama_detectada', 'severidade': 5},    # incendio +70
 ]

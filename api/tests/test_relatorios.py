@@ -20,7 +20,7 @@ def test_relatorio_risco_sem_llm_key():
     # Sem LLM_API_KEY a origem e 'prompt_apenas' e o endpoint continua 200.
     client = app.test_client()
     with patch('app.consultar_resumo', return_value=[{'dia': '2026-08-19', 'amostras': 10}]), \
-         patch('app.consultar_eventos', return_value=[{'id': 1, 'tipo': 'furto_movimento', 'severidade': 4}]), \
+         patch('app.consultar_eventos', return_value=[{'id': 1, 'tipo': 'furto_adulteracao', 'severidade': 4}]), \
          patch('llm.LLM_API_KEY', ''):
         response = client.get('/relatorio/risco?dispositivo=SOMPO-ESP32&dias=7')
     assert response.status_code == 200
@@ -28,5 +28,5 @@ def test_relatorio_risco_sem_llm_key():
     assert data['tipo'] == 'relatorio_risco'
     assert data['origem_da_analise'] == 'prompt_apenas'
     assert 'prompt_gerado' in data
-    # score vem do calculo deterministico (furto_movimento sev 4 -> 40)
+    # score vem do calculo deterministico (furto_adulteracao sev 4 -> 40)
     assert data['score_furto'] == 40

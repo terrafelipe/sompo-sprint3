@@ -13,7 +13,6 @@ from typing import Any, Dict, List
 
 # Eixo de cada tipo de evento (contrato em CLAUDE-SOMPO.md).
 EIXO_POR_TIPO = {
-    'furto_movimento': 'furto',
     'furto_adulteracao': 'furto',     # vibracao com a maquina desligada (MPU-6050)
     'furto_cerca': 'furto',
     'furto_capo': 'furto',
@@ -28,7 +27,6 @@ EIXO_POR_TIPO = {
 
 # Severidade padrão por tipo, usada quando o evento não trouxe o campo.
 SEVERIDADE_PADRAO = {
-    'furto_movimento': 4,
     'furto_adulteracao': 4,
     'furto_cerca': 4,
     'furto_capo': 2,

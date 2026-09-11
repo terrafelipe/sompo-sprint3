@@ -22,7 +22,7 @@ def test_montar_docx_gera_arquivo_valido():
         'justificativa_furto': 'x', 'justificativa_incendio': 'y',
         'recomendacoes': ['a', 'b'], 'limitacoes': 'z',
     }
-    eventos = [{'criado_em': '2026-08-21T17:04:04+00:00', 'tipo': 'furto_movimento', 'severidade': 2}]
+    eventos = [{'criado_em': '2026-08-21T17:04:04+00:00', 'tipo': 'furto_adulteracao', 'severidade': 2}]
     conteudo = documento.montar_docx(relatorio, eventos)
     # .docx é um zip: começa com a assinatura 'PK'.
     assert conteudo[:2] == b'PK'

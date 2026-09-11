@@ -1,17 +1,40 @@
-﻿{
-    "//": "GERADO por firmware/tools/instalar-arduino-cli.ps1 - nao edite a mao.",
+{
     "configurations": [
         {
-            "name": "ESP32",
+            "name": "esp32:esp32:esp32",
             "includePath": [
-        "C:/Users/felip/AppData/Local/Arduino15/packages/esp32/hardware/esp32/3.3.11/cores/esp32",
-        "C:/Users/felip/AppData/Local/Arduino15/packages/esp32/hardware/esp32/3.3.11/variants/esp32",
-        "C:/Users/felip/AppData/Local/Arduino15/packages/esp32/hardware/esp32/3.3.11/libraries/**",
-        "C:/Users/felip/OneDrive/Documentos/Arduino/libraries/**",
-        "${workspaceFolder}/**"
+                "${workspaceFolder}/**",
+                "C:\\Users\\USUARIO\\AppData\\Local\\Temp\\vs-arduino-sketch-RYfKZL\\sompo_hardware_final",
+                "C:\\Users\\USUARIO\\AppData\\Local\\Arduino15\\packages\\esp32\\tools\\esp32-libs\\3.3.11/qio_qspi/include",
+                "C:\\Users\\USUARIO\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.11\\cores\\esp32",
+                "C:\\Users\\USUARIO\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.11\\variants\\esp32",
+                "C:\\Users\\USUARIO\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.11\\libraries\\Wire\\src",
+                "c:\\Users\\USUARIO\\OneDrive\\Documentos\\Arduino\\libraries\\Adafruit_MPU6050",
+                "c:\\Users\\USUARIO\\OneDrive\\Documentos\\Arduino\\libraries\\Adafruit_BusIO",
+                "C:\\Users\\USUARIO\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.11\\libraries\\SPI\\src",
+                "c:\\Users\\USUARIO\\OneDrive\\Documentos\\Arduino\\libraries\\Adafruit_Unified_Sensor",
+                "C:\\Users\\USUARIO\\AppData\\Local\\Arduino15\\packages\\esp32\\tools\\esp-x32\\2601\\xtensa-esp32-elf\\include"
             ],
-            "defines": [ "ARDUINO=10819", "ESP32=1", "ARDUINO_ARCH_ESP32=1", "F_CPU=240000000L" ],
-            "compilerPath": "C:/Users/felip/AppData/Local/Arduino15/packages/esp32/tools/esp-x32/2601/bin/xtensa-esp32-elf-g++.exe",
+            "forcedInclude": [
+                "C:\\Users\\USUARIO\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.11\\cores\\esp32\\Arduino.h"
+            ],
+            "defines": [
+                "F_CPU=240000000L",
+                "ARDUINO=10607",
+                "ARDUINO_ESP32_DEV",
+                "ARDUINO_ARCH_ESP32",
+                "ARDUINO_BOARD=\"ESP32_DEV\"",
+                "ARDUINO_VARIANT=\"esp32\"",
+                "ARDUINO_PARTITION_default",
+                "ARDUINO_HOST_OS=\"windows\"",
+                "ARDUINO_FQBN=\"esp32:esp32:esp32\"",
+                "ESP32=ESP32",
+                "CORE_DEBUG_LEVEL=0",
+                "ARDUINO_RUNNING_CORE=1",
+                "ARDUINO_EVENT_RUNNING_CORE=1",
+                "ARDUINO_USB_CDC_ON_BOOT=0"
+            ],
+            "compilerPath": "C:\\Users\\USUARIO\\AppData\\Local\\Arduino15\\packages\\esp32\\tools\\esp-x32\\2601/bin/xtensa-esp32-elf-g++",
             "cStandard": "c11",
             "cppStandard": "c++17",
             "intelliSenseMode": "gcc-x64"
