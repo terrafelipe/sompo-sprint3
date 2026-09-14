@@ -27,31 +27,28 @@ api/
 ├── .env / .env.example  # segredos (o .env fica local, gitignorado)
 ├── .gitignore
 ├── README.md
-├── Dockerfile           # imagem de producao (waitress)
+├── Dockerfile           # imagem de producao (waitress; docker compose troca por gunicorn)
 ├── .dockerignore
-├── render.yaml          # blueprint de deploy no Render
 ├── static/
 │   └── index.html       # painel (dashboard) HTML
 ├── templates/
 │   └── login.html       # tela de login (sessao)
-├── tests/               # 25 testes (sem rede)
-│   ├── __init__.py
-│   ├── conftest.py
-│   ├── test_health.py
-│   ├── test_auth.py
-│   ├── test_telemetria.py
-│   ├── test_eventos.py
-│   ├── test_scores.py
-│   ├── test_relatorios.py
-│   ├── test_relatorio_risco_origens.py
-│   └── test_documento.py
-└── scripts/
-    ├── testar_api.py
-    ├── testar_supabase.py
-    └── salvar_plano_b.py
+└── tests/               # 32 testes (sem rede)
+    ├── __init__.py
+    ├── conftest.py
+    ├── test_health.py
+    ├── test_auth.py
+    ├── test_telemetria.py
+    ├── test_eventos.py
+    ├── test_scores.py
+    ├── test_relatorios.py
+    ├── test_relatorio_risco_origens.py
+    ├── test_documento.py
+    └── test_contrato_firmware.py   # firmware (.ino) x schema (.sql) x scores.py
 ```
 
-> Os guias (COMO_TESTAR, SEGURANCA, DEPLOY) ficam em [`../docs/`](../docs).
+> Os guias (COMO_TESTAR, SEGURANCA, DEPLOY) ficam em [`../docs/`](../docs). Os arquivos de deploy
+> (`docker-compose*.yml`, `nginx/`, `render.yaml`) ficam na raiz do repo.
 
 ## Instalação
 
@@ -282,13 +279,16 @@ O campo `origem_da_analise` na resposta indica o que aconteceu: `llm` (a IA escr
     {
       "id": 1,
       "dispositivo_id": "SOMPO-ESP32",
+      "criado_em": "2026-08-19T12:00:00+00:00",
       "temp_escape": 41.3,
+      "temp_ambiente": 27.4,
       "umidade_ar": 58.2,
-      "chama_detectada": false,
-      "vibracao": 0.62,
-      "motor_ligado": true,
-      "distancia_cm": 137.0,
-      "em_movimento": false,
+      "chama_detectada": null,
+      "vibracao": 0.02,
+      "motor_ligado": false,
+      "capo_aberto": false,
+      "tanque_aberto": false,
+      "operador_autorizado": false,
       "nivel_risco": "SEGURO"
     }
   ]

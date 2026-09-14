@@ -18,9 +18,6 @@
 **/*.bin
 **/*.elf
 
-# Artefatos gerados
-**/plano_b/
-
 # Editores
 .vscode/
 .idea/

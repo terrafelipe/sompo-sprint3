@@ -2,9 +2,8 @@
 // .ino - a Arduino IDE compila todos os arquivos da pasta do sketch) e preencha.
 // 'segredos.h' esta no .gitignore e nunca deve ir para o repositorio.
 //
-// AINDA NAO USADO: o sketch atual (sompo_hardware_final.ino) esta na fase de
-// bring-up dos sensores e nao tem Wi-Fi. Este modelo fica aqui para quando o
-// envio de telemetria for portado para o firmware de hardware.
+// Incluido pelo .ino quando USAR_WIFI = 1 (Wi-Fi + envio ao Supabase). Sem o
+// 'segredos.h' a compilacao falha com "segredos.h: No such file".
 //
 // A chave que entra aqui e a PUBLISHABLE (sb_publishable_...), nunca a SECRET.
 // A secret pertence exclusivamente a API Flask - ver README da api/.

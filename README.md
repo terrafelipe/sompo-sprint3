@@ -22,15 +22,15 @@ sensores → ESP32 → Wi-Fi → Supabase (PostgREST)
 - **`api/`** — API REST em Flask. Lê o Supabase, calcula **scores de risco determinísticos** e gera os
   relatórios, usando o LLM apenas para redigir a análise (nunca para calcular os números).
 
-> ⚠️ **Estado atual do firmware:** o projeto migrou do simulador para a **placa física**, com um
-> conjunto de sensores diferente do que era simulado. O sketch está na fase de **bring-up
-> incremental** (um sensor por vez, ver abaixo). O envio ao Supabase já está implementado, mas
-> **desligado** (`USAR_WIFI 0`) — liga-se por último, com os sensores todos validados.
+> **Estado atual do firmware:** placa física com **Wi-Fi ligado** (`USAR_WIFI 1`) e envio ao
+> Supabase em produção. Sensores ativos: MPU-6050, AHT10, buzzer, RC522, termopar MAX6675, reed
+> do capô e do tanque, GPS. Dois ficam desligados por flag no topo do `.ino`: `USAR_CHAMA 0`
+> (módulo KY-026 defeituoso — religar com sensor novo) e `USAR_POT 0` (potenciômetro não montado,
+> então o motor conta sempre como "desligado").
 >
-> Um efeito do hardware novo: **não há mais HC-SR04**, então `distancia_cm`/`em_movimento` saíram
-> da tabela e entraram `temp_ambiente`, `capo_aberto`, `tanque_aberto` e `operador_autorizado`. O
-> evento `furto_movimento` (deslocamento) foi substituído por **`furto_adulteracao`** (vibração
-> detectada pelo MPU-6050 com a máquina desligada).
+> Não há HC-SR04 no hardware: `distancia_cm`/`em_movimento` saíram da tabela e entraram
+> `temp_ambiente`, `capo_aberto`, `tanque_aberto` e `operador_autorizado`. O evento de furto por
+> deslocamento deu lugar a **`furto_adulteracao`** (vibração pelo MPU-6050 com a máquina desligada).
 >
 > O contrato entre firmware, banco e API é verificado por testes
 > (`api/tests/test_contrato_firmware.py`): uma chave nova no `.ino` sem coluna no `.sql`, ou um
@@ -61,22 +61,22 @@ Depois, pelo VS Code (extensão **Arduino Community Edition**, já configurada e
 
 Placa **ESP32 Dev Module** (`esp32:esp32:esp32`), Monitor Serial em **115200**.
 
-**Bring-up incremental:** no topo do `.ino` há uma flag `USAR_<SENSOR>` por sensor. Cada flag
-protege o `#include`, o objeto global, a init do `setup()`, a chamada no `loop()` e a própria
-função `lerX()` — com a flag em `0` aquele sensor não é compilado e nenhum pino dele é tocado.
-Liga-se **um por vez**, na ordem `MPU → AHT → BUZZER → RFID/TERMOPAR/CHAMA/REED/POT → WIFI`,
-confirmando cada um na bancada antes de passar para o próximo. Assim o Monitor Serial não enche de
-leitura de pino solto e o build nunca quebra por biblioteca ausente.
+**Flags por sensor:** no topo do `.ino` há uma flag `USAR_<SENSOR>` por sensor. Com a flag em
+`0` aquele sensor não é compilado, nenhum pino dele é tocado e o campo correspondente é **omitido**
+do JSON (coluna fica `NULL` — mandar `0` seria inventar medição). Serve para isolar um sensor com
+defeito ou para o bring-up de um sensor novo: liga-se um por vez, confirmando no Monitor Serial.
+Ordem sugerida: `MPU → AHT → BUZZER → RFID/TERMOPAR/CHAMA/REED/POT → WIFI`.
 
 **Envio ao Supabase (`USAR_WIFI 1`):** o POST roda numa tarefa própria no núcleo 0 — o `loop()`
 só enfileira, nunca fala com a rede. Duas filas com semânticas diferentes: eventos numa FIFO de 16
 que não se perde por falta de cobertura (é a trilha de evidência do sinistro) e telemetria numa
 caixa de um slot sobrescrito (a amostra de agora vale mais que a antiga). Exige
-`segredos.h` preenchido. Para conferir o JSON **antes** de ter rede, ligue `DIAG_TELEMETRIA 1`:
-o payload é impresso no Serial sem precisar de Wi-Fi.
+`segredos.h` preenchido (copie de `segredos.exemplo.h`; o `setup.ps1` faz isso). Para conferir o
+JSON sem rede, ligue `DIAG_TELEMETRIA 1`: o payload é impresso no Serial.
 
-O mapa de pinos e as notas de fiação (AD0 do MPU no GND, RC522 só em 3.3V, I2C e SPI
-compartilhados de propósito) estão no cabeçalho do próprio `.ino`.
+O mapa de pinos e as notas de fiação (AD0 do MPU no GND, RC522 só em 3.3V, I2C compartilhado
+entre MPU e AHT de propósito, MAX6675 em pinos próprios fora do SPI do RC522) estão no cabeçalho
+do próprio `.ino`.
 
 ### API (`api/`)
 Guia completo em [`docs/COMO_TESTAR.md`](docs/COMO_TESTAR.md). Resumo:
@@ -84,7 +84,7 @@ Guia completo em [`docs/COMO_TESTAR.md`](docs/COMO_TESTAR.md). Resumo:
 cd api
 python -m venv venv
 venv\Scripts\python.exe -m pip install -r requirements.txt
-venv\Scripts\python.exe -m pytest          # 25 testes, sem rede
+venv\Scripts\python.exe -m pytest          # 32 testes, sem rede
 venv\Scripts\python.exe app.py             # sobe a API em localhost:5000
 ```
 Configuração em `.env` (copie de `.env.example`): URL/secret do Supabase e a chave do Gemini.
@@ -100,9 +100,11 @@ login (Docker + Render), veja [`docs/DEPLOY.md`](docs/DEPLOY.md).
 | `GET /saude` | Health check (API + banco) |
 | `GET /telemetria` | Últimas leituras de telemetria |
 | `GET /eventos` | Eventos (furto/incêndio) do período |
+| `GET /resumo` | Resumo diário (view `resumo_diario`) |
 | `GET /scores` | Scores de risco determinísticos por eixo |
 | `GET /relatorio/bruto` | Relatório factual |
 | `GET /relatorio/risco` | Relatório interpretado pela IA (com fallback gracioso) |
+| `GET /relatorio/risco.docx` | O mesmo relatório como documento Word para download |
 
 ## Segurança
 

@@ -12,7 +12,6 @@ __pycache__/
 
 # Nao precisa em producao (os guias ficam em docs/, fora deste contexto de build).
 tests/
-scripts/
 README.md
 
 .vscode/

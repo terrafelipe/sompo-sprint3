@@ -4,7 +4,7 @@ da análise, sempre de forma segura (nunca lança para a rota).
 Provedor: Google Gemini (Generative Language API) - tier gratuito.
 Chave gratuita em https://aistudio.google.com/apikey
 
-Três origens possíveis (ver plano_final_sprint3.md, passo 4):
+Três origens possíveis:
   - 'prompt_apenas' : sem LLM_API_KEY -> não chama ninguém, devolve só o sinal.
   - 'llm'           : chave presente e provedor respondeu com JSON válido.
   - 'fallback'      : chave presente mas o provedor falhou (timeout/erro/JSON inválido).

@@ -1,6 +1,6 @@
 """Cálculo determinístico de risco (furto e incêndio) a partir dos eventos.
 
-Regra do projeto (ver plano_final_sprint3.md): os scores são calculados aqui,
+Regra do projeto: os scores são calculados aqui,
 ANTES de qualquer prompt, e entram na camada de IA como fato dado. O LLM nunca
 recalcula nem contesta esses números.
 

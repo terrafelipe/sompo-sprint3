@@ -1,4 +1,4 @@
-"""Os tres cenarios do /relatorio/risco (passo 4 do plano_final_sprint3.md).
+"""Os tres cenarios do /relatorio/risco.
 Todos devem responder HTTP 200; so muda o campo origem_da_analise."""
 from unittest.mock import patch
 
