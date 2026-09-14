@@ -42,16 +42,16 @@
  */
 
 // ---------- Ligue um sensor por vez ----------
-#define USAR_MPU          1   // PASSO 1 - em teste agora
-#define USAR_AHT          0   // PASSO 2
-#define USAR_BUZZER       0   // PASSO 3
-#define USAR_RFID         0
-#define USAR_TERMOPAR     0
-#define USAR_CHAMA        0
-#define USAR_REED_CAPO    0
-#define USAR_POT          0
-#define USAR_GPS          0   // fora da demo: sem sinal indoor
-#define USAR_REED_TANQUE  0   // fora da demo: so um reed fisico por vez
+#define USAR_MPU          1
+#define USAR_AHT          1
+#define USAR_BUZZER       1
+#define USAR_RFID         1
+#define USAR_TERMOPAR     1
+#define USAR_CHAMA        1
+#define USAR_REED_CAPO    1
+#define USAR_POT          0   // pot nao montado: motor fica sempre "desligado"
+#define USAR_GPS          1   // montado (sem fix indoor: Serial mostra "sem fix")
+#define USAR_REED_TANQUE  1
 #define USAR_WIFI         0   // ULTIMO PASSO: envio ao Supabase (exige segredos.h)
 
 #define DIAG_I2C          1   // scanner I2C no setup (ajuda nos passos 1 e 2)
