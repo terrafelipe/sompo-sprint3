@@ -4,7 +4,7 @@
             "name": "esp32:esp32:esp32",
             "includePath": [
                 "${workspaceFolder}/**",
-                "C:\\Users\\USUARIO\\AppData\\Local\\Temp\\vs-arduino-sketch-2DJcCY\\sompo_hardware_final",
+                "C:\\Users\\USUARIO\\AppData\\Local\\Temp\\vs-arduino-sketch-QGGwZy\\sompo_hardware_final",
                 "C:\\Users\\USUARIO\\AppData\\Local\\Arduino15\\packages\\esp32\\tools\\esp32-libs\\3.3.11/qio_qspi/include",
                 "C:\\Users\\USUARIO\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.11\\cores\\esp32",
                 "C:\\Users\\USUARIO\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.11\\variants\\esp32",
@@ -17,6 +17,10 @@
                 "c:\\Users\\USUARIO\\OneDrive\\Documentos\\Arduino\\libraries\\TinyGPSPlus\\src",
                 "c:\\Users\\USUARIO\\OneDrive\\Documentos\\Arduino\\libraries\\MFRC522\\src",
                 "c:\\Users\\USUARIO\\OneDrive\\Documentos\\Arduino\\libraries\\MAX6675",
+                "C:\\Users\\USUARIO\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.11\\libraries\\WiFi\\src",
+                "C:\\Users\\USUARIO\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.11\\libraries\\Network\\src",
+                "C:\\Users\\USUARIO\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.11\\libraries\\NetworkClientSecure\\src",
+                "C:\\Users\\USUARIO\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.11\\libraries\\HTTPClient\\src",
                 "C:\\Users\\USUARIO\\AppData\\Local\\Arduino15\\packages\\esp32\\tools\\esp-x32\\2601\\xtensa-esp32-elf\\include"
             ],
             "forcedInclude": [
