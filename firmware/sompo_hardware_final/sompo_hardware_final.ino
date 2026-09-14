@@ -15,11 +15,12 @@
  *   MPU-6050   I2C  SDA=21 SCL=22   AD0 no GND (fixa o endereco em 0x68)
  *   AHT10      I2C  SDA=21 SCL=22   (0x38 - divide o barramento com o MPU)
  *   RC522      SPI  SCK=18 MISO=19 MOSI=23  SS=5  RST=27   SO 3.3V (5V queima)
- *   MAX6675    SPI  SCK=18 SO=19    CS=15   (nao usa MOSI)
+ *   MAX6675    bit-bang  SO=13 SCK=4  CS=15  (pinos proprios: NAO no SPI do RC522)
  *   Reed capo / tanque  32 / 33     KY-026 chama  25
  *   Potenciometro  34 (ADC1: o ADC2 morre quando o Wi-Fi liga)
  *   Buzzer 26      GPS NEO-6M  TX->16 RX->17 (cruzado)
- * Barramento compartilhado (I2C e SPI) e de proposito, nao e erro.
+ * I2C (MPU+AHT) e compartilhado de proposito. O MAX6675 saiu do SPI do RC522:
+ * o modulo nao liberava o MISO e travava a leitura do cartao - agora tem pinos so seus.
  *
  * CONTRATO DE DADOS - nao mudar de um lado so:
  *   colunas  -> firmware/sql/preparar_supabase.sql
@@ -47,12 +48,12 @@
 #define USAR_BUZZER       1
 #define USAR_RFID         1
 #define USAR_TERMOPAR     1
-#define USAR_CHAMA        1
+#define USAR_CHAMA        0   // modulo KY-026 defeituoso (DO travado) - religar com sensor novo
 #define USAR_REED_CAPO    1
 #define USAR_POT          0   // pot nao montado: motor fica sempre "desligado"
 #define USAR_GPS          1   // montado (sem fix indoor: Serial mostra "sem fix")
 #define USAR_REED_TANQUE  1
-#define USAR_WIFI         0   // ULTIMO PASSO: envio ao Supabase (exige segredos.h)
+#define USAR_WIFI         1   // ULTIMO PASSO: envio ao Supabase (exige segredos.h)
 
 #define DIAG_I2C          1   // scanner I2C no setup (ajuda nos passos 1 e 2)
 #define DIAG_TELEMETRIA   0   // imprime o JSON no Serial; funciona com USAR_WIFI 0
@@ -100,6 +101,8 @@
 #define RFID_SS  5
 #define RFID_RST 27
 #define TERMOPAR_CS 15
+#define TERMOPAR_SO  13   // MAX6675 e software SPI: SO em pino proprio (nao no 19)
+#define TERMOPAR_SCK 4    // ...e SCK proprio - assim nao briga com o MISO do RC522
 #define REED_CAPO   32
 #define REED_TANQUE 33
 #define CHAMA_PIN   25
@@ -387,7 +390,7 @@ namespace Rfid {
   // encostar a sua tag: "UID: A1 B2 C3 D4" -> {0xA1,0xB2,0xC3,0xD4}.
   // Com o valor de exemplo, TODA partida vira evento de furto.
   const byte AUTORIZADOS[][4] = {
-    { 0xDE, 0xAD, 0xBE, 0xEF },   // TROCAR pelo UID real
+    { 0x8B, 0xEE, 0xBC, 0x06 },   // tag do operador (lida na bancada)
   };
 
   bool autorizado() {
@@ -426,8 +429,10 @@ namespace Rfid {
 
 namespace Termopar {
 #if USAR_TERMOPAR
-  // Lib RobTillaart: construtor (select, miso, clock) - CS primeiro, nao o clock
-  MAX6675 dev(TERMOPAR_CS, SPI_MISO, SPI_SCK);
+  // Lib RobTillaart: construtor (select, miso, clock) - CS primeiro, nao o clock.
+  // Pinos PROPRIOS (13/4), fora do SPI do RC522: o modulo MAX6675 nao libera a
+  // linha MISO quando nao esta selecionado e travava a leitura do cartao.
+  MAX6675 dev(TERMOPAR_CS, TERMOPAR_SO, TERMOPAR_SCK);
   bool ok = false;
   bool atencaoAnterior = false, criticoAnterior = false;
 
@@ -534,7 +539,10 @@ namespace Chama {
 #if USAR_CHAMA
   bool anterior = false;
 
-  void iniciar() { pinMode(CHAMA_PIN, INPUT); }
+  // INPUT_PULLUP: com o DO solto/desconectado o pino fica em HIGH (= sem chama),
+  // em vez de flutuar e disparar alarme fantasma. O DO do KY-026 (saida do LM393)
+  // puxa para LOW na chama e vence o pull-up interno.
+  void iniciar() { pinMode(CHAMA_PIN, INPUT_PULLUP); }
   void ler() { Estado::chamaDetectada = digitalRead(CHAMA_PIN) == LOW; }  // KY-026: LOW = chama
   void eventos() {
     if (Estado::chamaDetectada && !anterior) {
