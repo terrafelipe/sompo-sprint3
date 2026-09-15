@@ -16,7 +16,7 @@
  *   AHT10      I2C  SDA=21 SCL=22   (0x38 - divide o barramento com o MPU)
  *   RC522      SPI  SCK=18 MISO=19 MOSI=23  SS=5  RST=27   SO 3.3V (5V queima)
  *   MAX6675    bit-bang  SO=13 SCK=4  CS=15  (pinos proprios: NAO no SPI do RC522)
- *   Reed capo / tanque  32 / 33     KY-026 chama  25
+ *   Reed capo / tanque  32 / 33     KY-026 chama  A0=35 (D0 queimou; A0 e ADC1, aguenta o Wi-Fi)
  *   Potenciometro  34 (ADC1: o ADC2 morre quando o Wi-Fi liga)
  *   Buzzer 26      GPS NEO-6M  TX->16 RX->17 (cruzado)
  * I2C (MPU+AHT) e compartilhado de proposito. O MAX6675 saiu do SPI do RC522:
@@ -48,9 +48,9 @@
 #define USAR_BUZZER       1
 #define USAR_RFID         1
 #define USAR_TERMOPAR     1
-#define USAR_CHAMA        0   // modulo KY-026 defeituoso (DO travado) - religar com sensor novo
+#define USAR_CHAMA        1   // KY-026 lido pelo A0 (analogico): o D0 queimou (ver docs)
 #define USAR_REED_CAPO    1
-#define USAR_POT          0   // pot nao montado: motor fica sempre "desligado"
+#define USAR_POT          1   // pot montado no GPIO34 (simula a ignicao)
 #define USAR_GPS          1   // montado (sem fix indoor: Serial mostra "sem fix")
 #define USAR_REED_TANQUE  1
 #define USAR_WIFI         1   // ULTIMO PASSO: envio ao Supabase (exige segredos.h)
@@ -105,8 +105,9 @@
 #define TERMOPAR_SCK 4    // ...e SCK proprio - assim nao briga com o MISO do RC522
 #define REED_CAPO   32
 #define REED_TANQUE 33
-#define CHAMA_PIN   25
-#define POT_PIN     34
+#define CHAMA_PIN   35   // A0 do KY-026 (analogico). O D0 queimou; A0 no GPIO35 = ADC1
+                         // e so-entrada, sobrevive ao Wi-Fi (o antigo D0/25 era ADC2 e morreria).
+#define POT_PIN     34   // pot montado: ADC1 (a chama saiu do 34 pro 35, sem conflito)
 #define BUZZER_PIN  26
 
 // ---------- Parametros ajustaveis na bancada ----------
@@ -117,6 +118,7 @@
 #define INTERVALO_SAUDE_MPU_MS  5000   // reconferencia do MPU no barramento
 
 #define LIMIAR_POT_MOTOR_DESLIGADO 2000  // pot (0-4095) abaixo disso = desligado
+#define LIMIAR_CHAMA        2000         // A0 do KY-026 (raw 0-4095) abaixo disso = chama. CALIBRAR
 #define LIMIAR_VIBRACAO     2.0          // desvio em m/s2 do repouso = vibracao
 #define AMOSTRAS_BASELINE   50           // amostras que calibram o repouso
 #define AMOSTRAS_VIBRACAO   3            // leituras seguidas p/ confirmar
@@ -124,6 +126,11 @@
 #define TEMP_ESCAPE_CRITICO 550.0        // C
 #define TRAVA_EVENTO_MS     5000         // anti-spam dos eventos continuos
 #define GRAVIDADE           9.80665      // m/s2 por g
+
+// Tom do alarme (buzzer continuo). Passivo? o volume e maximo perto da frequencia
+// de RESSONANCIA do buzzer (varia por modelo, tipico 2000-4000 Hz) - ajuste por ouvido.
+#define BUZZER_FREQ_CHAMA   2000         // Hz - alarme de incendio (fogo/temperatura)
+#define BUZZER_FREQ_FURTO   3000         // Hz - alarme de furto (vibracao/capo/tanque/partida)
 
 #define DISPOSITIVO_ID "SOMPO-ESP32"     // TEM de bater com o default da API
 #define TAM_PAYLOAD    384               // maior linha JSON que montamos
@@ -193,11 +200,31 @@ namespace Alarme {
 #if USAR_BUZZER
   void iniciar() { pinMode(BUZZER_PIN, OUTPUT); }
   void beep(unsigned f, unsigned long d) { tone(BUZZER_PIN, f, d); }
-  void autoteste() { Serial.println("Buzzer - bipe de teste"); beep(2500, 200); delay(300); }
+  void continuo(unsigned f) { tone(BUZZER_PIN, f); }   // sem duracao: toca ate noTone()
+  void parar() { noTone(BUZZER_PIN); }
+  void autoteste() { Serial.println("Buzzer - bipe de teste"); beep(BUZZER_FREQ_FURTO, 200); delay(300); }
+
+  // Alarme CONTINUO: enquanto houver ameaca ativa o buzzer nao para; sem ameaca,
+  // silencia. Chamado todo ciclo (100 ms) no loop(). Fogo tem prioridade e tom proprio.
+  void atualizar() {
+    bool fogo  = Estado::chamaDetectada || Estado::tempEscape >= TEMP_ESCAPE_ATENCAO;
+    // Furto so soa ARMADO (sem cracha). Passar o cracha (desarmar) cala o furto -
+    // mas NUNCA o fogo. Ligada e sem cracha ja e furto por si so.
+    bool furto = !Estado::operadorAutorizado &&
+                 ((!Estado::motorLigado &&
+                    (Estado::vibracaoConfirmada || Estado::capoAberto || Estado::tanqueAberto))
+                  || Estado::motorLigado);
+    if (fogo)       continuo(BUZZER_FREQ_CHAMA);
+    else if (furto) continuo(BUZZER_FREQ_FURTO);
+    else            parar();
+  }
 #else
   inline void iniciar() {}
   inline void beep(unsigned, unsigned long) {}
+  inline void continuo(unsigned) {}
+  inline void parar() {}
   inline void autoteste() {}
+  inline void atualizar() {}
 #endif
 }
 
@@ -288,7 +315,8 @@ namespace Mpu {
     // dependia do HC-SR04: aqui nao da para afirmar deslocamento, so que
     // alguem esta mexendo na maquina.
     unsigned long agora = millis();
-    if (!Estado::vibracaoConfirmada || Estado::motorLigado) return;
+    // Desarmado (cracha passado) = operador legitimo mexendo: nao e furto.
+    if (!Estado::vibracaoConfirmada || Estado::motorLigado || Estado::operadorAutorizado) return;
     if (agora - ultimoEvento <= TRAVA_EVENTO_MS) return;
     ultimoEvento = agora;
     char det[96];
@@ -296,7 +324,6 @@ namespace Mpu {
              Estado::vibracaoG, (float)LIMIAR_VIBRACAO);
     Evento::disparar("FURTO", "vibracao detectada com a maquina desligada",
                      "furto_adulteracao", 4, det);
-    Alarme::beep(3000, 400);   // 3000 Hz = furto
   }
 
   void imprimir() {
@@ -385,6 +412,7 @@ namespace Gps {
 namespace Rfid {
 #if USAR_RFID
   MFRC522 dev(RFID_SS, RFID_RST);
+  unsigned long ultimoToque = 0;   // anti-repique: 1 arma/desarma por aproximacao
 
   // UIDs autorizados (4 bytes). Preencha com o que o Serial imprimir ao
   // encostar a sua tag: "UID: A1 B2 C3 D4" -> {0xA1,0xB2,0xC3,0xD4}.
@@ -413,8 +441,19 @@ namespace Rfid {
       Serial.print(dev.uid.uidByte[i] < 0x10 ? " 0" : " ");
       Serial.print(dev.uid.uidByte[i], HEX);
     }
-    if (autorizado()) { Estado::operadorAutorizado = true; Serial.println("  -> AUTORIZADO"); }
-    else              { Serial.println("  -> nao autorizado"); }
+    if (autorizado()) {
+      // O cracha ARMA/DESARMA o sistema, como a chave de ignicao: uma passada
+      // desarma (autoriza), a proxima rearma. O estado PERSISTE ate a proxima
+      // passada. Anti-repique para uma aproximacao nao contar como duas.
+      if (millis() - ultimoToque > 1500) {
+        ultimoToque = millis();
+        Estado::operadorAutorizado = !Estado::operadorAutorizado;
+        Serial.println(Estado::operadorAutorizado ? "  -> AUTORIZADO (sistema desarmado)"
+                                                   : "  -> REARMADO (aguardando cracha)");
+      }
+    } else {
+      Serial.println("  -> nao autorizado");
+    }
     dev.PICC_HaltA();
   }
   void telemetria(Json &j) {
@@ -450,7 +489,6 @@ namespace Termopar {
     if (critico && !criticoAnterior) {
       snprintf(det, sizeof(det), "{\"limiar_c\":%.0f}", (float)TEMP_ESCAPE_CRITICO);
       Evento::disparar("INCENDIO", "temperatura do escape critica", "escape_critico", 4, det);
-      Alarme::beep(2000, 500);
     } else if (atencao && !critico && !atencaoAnterior) {
       snprintf(det, sizeof(det), "{\"limiar_c\":%.0f}", (float)TEMP_ESCAPE_ATENCAO);
       Evento::disparar("INCENDIO", "temperatura do escape em atencao", "escape_atencao", 2, det);
@@ -498,13 +536,13 @@ namespace Reed {
   }
   void eventos() {
 #if USAR_REED_CAPO
-    if (Estado::capoAberto && !capoAnterior && !Estado::motorLigado)
+    if (Estado::capoAberto && !capoAnterior && !Estado::motorLigado && !Estado::operadorAutorizado)
       Evento::disparar("AVISO", "capo aberto com a maquina desligada",
                        "furto_capo", 2, "{\"sensor\":\"reed_capo\"}");
     capoAnterior = Estado::capoAberto;
 #endif
 #if USAR_REED_TANQUE
-    if (Estado::tanqueAberto && !tanqueAnterior && !Estado::motorLigado)
+    if (Estado::tanqueAberto && !tanqueAnterior && !Estado::motorLigado && !Estado::operadorAutorizado)
       Evento::disparar("AVISO", "tanque aberto com a maquina desligada",
                        "furto_tanque", 3, "{\"sensor\":\"reed_tanque\"}");
     tanqueAnterior = Estado::tanqueAberto;
@@ -538,21 +576,32 @@ namespace Reed {
 namespace Chama {
 #if USAR_CHAMA
   bool anterior = false;
+  int  leituraRaw = 4095;   // ultimo A0 lido (0-4095); alto = sem chama
 
-  // INPUT_PULLUP: com o DO solto/desconectado o pino fica em HIGH (= sem chama),
-  // em vez de flutuar e disparar alarme fantasma. O DO do KY-026 (saida do LM393)
-  // puxa para LOW na chama e vence o pull-up interno.
-  void iniciar() { pinMode(CHAMA_PIN, INPUT_PULLUP); }
-  void ler() { Estado::chamaDetectada = digitalRead(CHAMA_PIN) == LOW; }  // KY-026: LOW = chama
+  // O D0 (digital) deste KY-026 queimou numa inversao de VCC/GND - fica travado.
+  // O estagio analogico (A0) sobreviveu: o raw CAI em direcao a 0 quanto mais
+  // perto a chama. Lemos A0 no GPIO35 (ADC1, que aguenta o Wi-Fi; o antigo D0/25
+  // era ADC2 e o ADC2 morre com o radio ligado) e aplicamos LIMIAR_CHAMA por
+  // software. GPIO34 e so-de-entrada: nao precisa de pinMode.
+  void iniciar() {}
+  void ler() {
+    leituraRaw = analogRead(CHAMA_PIN);
+    Estado::chamaDetectada = leituraRaw < LIMIAR_CHAMA;   // perto da chama = raw baixo
+  }
   void eventos() {
     if (Estado::chamaDetectada && !anterior) {
-      Evento::disparar("INCENDIO", "chama detectada", "chama_detectada", 5,
-                       "{\"sensor\":\"ky026\"}");
-      Alarme::beep(2000, 500);   // 2000 Hz = chama (diferente do furto)
+      char det[48];
+      snprintf(det, sizeof(det), "{\"sensor\":\"ky026\",\"a0\":%d}", leituraRaw);
+      Evento::disparar("INCENDIO", "chama detectada", "chama_detectada", 5, det);
     }
     anterior = Estado::chamaDetectada;
   }
-  void imprimir() { if (Estado::chamaDetectada) Serial.println("!!! CHAMA DETECTADA !!!"); }
+  // Imprime o raw SEMPRE: e assim que se calibra o LIMIAR_CHAMA - anote o valor
+  // parado (baseline) e o valor com a chama na distancia desejada; ponha o limiar no meio.
+  void imprimir() {
+    Serial.printf("Chama: A0=%d (limiar %d)%s\n", leituraRaw, LIMIAR_CHAMA,
+                  Estado::chamaDetectada ? "  <-- CHAMA DETECTADA" : "");
+  }
   void telemetria(Json &j) {
     j.add(",\"chama_detectada\":%s", Estado::chamaDetectada ? "true" : "false");
   }
@@ -571,11 +620,10 @@ namespace Motor {
   bool anterior = false;
 
   void ler() {
-    bool ligado = analogRead(POT_PIN) >= LIMIAR_POT_MOTOR_DESLIGADO;
-    // Desligar encerra a sessao: o cracha tem de ser passado de novo na proxima
-    // partida, senao uma autorizacao de ontem valeria para o ladrao de hoje.
-    if (!ligado && Estado::motorLigado) Estado::operadorAutorizado = false;
-    Estado::motorLigado = ligado;
+    // O pot so diz se a maquina esta ligada. Quem arma/desarma e SO o cracha
+    // (Rfid::ler) - por isso nao mexemos em operadorAutorizado aqui (antes, o
+    // ruido do pot perto do limiar zerava a autorizacao sozinho).
+    Estado::motorLigado = analogRead(POT_PIN) >= LIMIAR_POT_MOTOR_DESLIGADO;
   }
   void eventos() {
     if (Estado::motorLigado && !anterior && !Estado::operadorAutorizado)
@@ -584,8 +632,8 @@ namespace Motor {
     anterior = Estado::motorLigado;
   }
   void imprimir() {
-    Serial.printf("Potenciometro (motor): %s | operador: %s\n",
-                  Estado::motorLigado ? "ligado" : "DESLIGADO",
+    Serial.printf("Motor: %s | operador: %s\n",
+                  Estado::motorLigado ? "LIGADO" : "desligado",
                   Estado::operadorAutorizado ? "autorizado" : "sem cracha");
   }
   void telemetria(Json &j) {
@@ -610,13 +658,17 @@ namespace Risco {
     if (Estado::tempEscape >= TEMP_ESCAPE_CRITICO)      sev = max(sev, 4);
     else if (Estado::tempEscape >= TEMP_ESCAPE_ATENCAO) sev = max(sev, 2);
 
-    if (!Estado::motorLigado) {
-      // Parada = vigilancia. Qualquer coisa mexendo na maquina e suspeita.
-      if (Estado::vibracaoConfirmada) sev = max(sev, 4);
-      if (Estado::capoAberto)         sev = max(sev, 2);
-      if (Estado::tanqueAberto)       sev = max(sev, 3);
-    } else if (!Estado::operadorAutorizado) {
-      sev = max(sev, 3);              // ligada sem cracha = roubo em andamento
+    // Furto so conta com o sistema ARMADO (sem cracha). Desarmado = operador
+    // legitimo presente, entao capo/tanque/vibracao/partida nao sobem o risco.
+    if (!Estado::operadorAutorizado) {
+      if (!Estado::motorLigado) {
+        // Parada = vigilancia. Qualquer coisa mexendo na maquina e suspeita.
+        if (Estado::vibracaoConfirmada) sev = max(sev, 4);
+        if (Estado::capoAberto)         sev = max(sev, 2);
+        if (Estado::tanqueAberto)       sev = max(sev, 3);
+      } else {
+        sev = max(sev, 3);              // ligada sem cracha = roubo em andamento
+      }
     }
 
     Estado::severidade = sev;
@@ -958,6 +1010,8 @@ void loop() {
     Reed::eventos();
     Chama::eventos();
     Termopar::eventos();
+
+    Alarme::atualizar();   // buzzer continuo enquanto a ameaca estiver presente
   }
 
   if (agora - lento >= INTERVALO_LENTO_MS) {
