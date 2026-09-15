@@ -45,6 +45,7 @@
     <a href="#" data-nav="telemetria" class="flex items-center px-4 py-3 rounded-xl font-semibold transition-colors"><span class="material-symbols-outlined mr-3">sensors</span>Telemetria</a>
     <a href="#" data-nav="alertas"    class="flex items-center px-4 py-3 rounded-xl font-semibold transition-colors"><span class="material-symbols-outlined mr-3">warning</span>Alertas</a>
     <a href="#" data-nav="fazendas"   class="flex items-center px-4 py-3 rounded-xl font-semibold transition-colors"><span class="material-symbols-outlined mr-3">landscape</span>Fazendas</a>
+    <a href="#" data-nav="clientes"   class="flex items-center px-4 py-3 rounded-xl font-semibold transition-colors"><span class="material-symbols-outlined mr-3">group</span>Clientes</a>
   </nav>
   <div class="px-4 py-5 border-t border-outline-variant/40">
     <a href="/logout" class="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl text-on-surface-variant hover:bg-surface-container-high hover:text-primary transition-colors font-semibold">
@@ -91,6 +92,7 @@
     <a href="#" data-nav="telemetria" class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Telemetria</a>
     <a href="#" data-nav="alertas"    class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Alertas</a>
     <a href="#" data-nav="fazendas"   class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Fazendas</a>
+    <a href="#" data-nav="clientes"   class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Clientes</a>
   </div>
 
   <!-- MAIN -->
@@ -239,6 +241,7 @@
           <div class="md:col-span-2">
             <label class="block text-xs font-semibold text-on-surface-variant mb-1">Cliente (dono)</label>
             <select id="fzCliente" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20"></select>
+            <button type="button" id="linkNovoCliente" class="mt-1.5 text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1"><span class="material-symbols-outlined text-[15px]">add</span>Não achou? Cadastrar novo cliente</button>
           </div>
           <div class="md:col-span-2 flex items-center gap-3 flex-wrap">
             <button type="submit" class="inline-flex items-center gap-1.5 bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg shadow-md hover:bg-on-primary-fixed-variant transition-all">
@@ -250,6 +253,48 @@
         </form>
 
         <div id="listaFazendas" class="space-y-2"></div>
+      </section>
+
+      <!-- CLIENTES -->
+      <section data-section="clientes" class="bg-surface-container-lowest rounded-2xl shadow-sm p-6">
+        <div class="flex items-center justify-between mb-5 flex-wrap gap-2">
+          <h2 class="text-lg font-semibold text-on-surface">Clientes cadastrados</h2>
+          <button id="btnNovoCliente" class="inline-flex items-center gap-1.5 bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg shadow-md hover:bg-on-primary-fixed-variant transition-all">
+            <span class="material-symbols-outlined text-[18px]">add</span> Novo cliente
+          </button>
+        </div>
+
+        <form id="formCliente" class="hidden bg-surface-container-low rounded-xl p-5 mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="md:col-span-2">
+            <label class="block text-xs font-semibold text-on-surface-variant mb-1">Nome / Razão social *</label>
+            <input id="clNome" required class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20" placeholder="Ex.: Construtora Andrade Ltda"/>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-on-surface-variant mb-1">CNPJ</label>
+            <input id="clCnpj" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20" placeholder="00.000.000/0001-00"/>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-on-surface-variant mb-1">Telefone</label>
+            <input id="clTel" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20" placeholder="(11) 90000-0000"/>
+          </div>
+          <div class="md:col-span-2">
+            <label class="block text-xs font-semibold text-on-surface-variant mb-1">Endereço</label>
+            <input id="clEnd" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20" placeholder="Av. Paulista, 1000 - São Paulo/SP"/>
+          </div>
+          <div class="md:col-span-2">
+            <label class="block text-xs font-semibold text-on-surface-variant mb-1">E-mail</label>
+            <input id="clEmail" type="email" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20" placeholder="contato@empresa.com.br"/>
+          </div>
+          <div class="md:col-span-2 flex items-center gap-3 flex-wrap">
+            <button type="submit" class="inline-flex items-center gap-1.5 bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg shadow-md hover:bg-on-primary-fixed-variant transition-all">
+              <span class="material-symbols-outlined text-[18px]">save</span> Salvar cliente
+            </button>
+            <button type="button" id="btnCancelarCliente" class="px-4 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors font-semibold">Cancelar</button>
+            <span id="clMsg" class="text-[13px] font-semibold"></span>
+          </div>
+        </form>
+
+        <div id="listaClientes" class="space-y-2"></div>
       </section>
     </div>
 

@@ -294,6 +294,26 @@ def clientes():
         return _erro('falha_na_consulta', exc, 502)
 
 
+@app.post('/clientes')
+def clientes_criar():
+    corpo = request.get_json(silent=True) or {}
+    nome = str(corpo.get('nome', '')).strip()
+    if not nome:
+        return jsonify({'erro': 'nome_obrigatorio'}), 400
+
+    payload: Dict[str, Any] = {'nome': nome}
+    for campo in ('cnpj', 'endereco', 'telefone', 'email'):
+        valor = str(corpo.get(campo, '')).strip()
+        if valor:
+            payload[campo] = valor
+
+    try:
+        criado = inserir_tabela('cliente', payload)
+        return jsonify({'ok': True, 'cliente': criado}), 201
+    except Exception as exc:
+        return _erro('falha_ao_criar_cliente', exc, 502)
+
+
 @app.get('/fazendas')
 def fazendas_listar():
     try:

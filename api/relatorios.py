@@ -84,10 +84,43 @@ def _recomendacoes_por_classificacao(classificacao: str, eixo: str) -> List[str]
     return [f'Risco de {eixo} BAIXO: manter o monitoramento de rotina.']
 
 
+# Rotulos legiveis por tipo de evento (para a quebra na narrativa do fallback).
+_ROTULO_TIPO = {
+    'furto_adulteracao': 'adulteracao/vibracao',
+    'furto_cerca': 'cerca virtual',
+    'furto_capo': 'capo aberto',
+    'furto_tanque': 'tanque aberto',
+    'operador_nao_autorizado': 'partida sem cracha',
+    'sensor_falha': 'sensor de adulteracao removido',
+    'chama_detectada': 'chama detectada',
+    'escape_critico': 'escape critico',
+    'escape_atencao': 'escape em atencao',
+    'fumaca_detectada': 'fumaca',
+}
+
+
+def _quebra_por_tipo(detalhamento: Dict[str, Any], eixo: str) -> str:
+    itens = [(t, v.get('quantidade', 0)) for t, v in detalhamento.items() if v.get('eixo') == eixo]
+    if not itens:
+        return ''
+    partes = [f"{q}x {_ROTULO_TIPO.get(t, t)}" for t, q in itens]
+    return ' Ocorrencias: ' + ', '.join(partes) + '.'
+
+
+def _frase_eixo(nome: str, score: int, classif: str, n: int, dias: int,
+                detalhamento: Dict[str, Any], eixo: str) -> str:
+    if n == 0:
+        return (f"Risco de {nome} {classif} (score {score}/100): nenhum evento de {nome} "
+                f"registrado nos ultimos {dias} dia(s).")
+    return (f"Risco de {nome} {classif} (score {score}/100), a partir de {n} evento(s) de {nome} "
+            f"nos ultimos {dias} dia(s).{_quebra_por_tipo(detalhamento, eixo)}")
+
+
 def montar_fallback(scores: Dict[str, Any], erro: str | None = None) -> Dict[str, Any]:
     n_furto = scores['eventos_considerados']['furto']
     n_incendio = scores['eventos_considerados']['incendio']
     dias = scores['periodo_dias']
+    detalhamento = scores.get('detalhamento', {})
 
     limitacoes = ('Analise gerada por template (sem IA): os numeros sao deterministicos e o '
                   'texto e padronizado.')
@@ -99,13 +132,13 @@ def montar_fallback(scores: Dict[str, Any], erro: str | None = None) -> Dict[str
             limitacoes += f' Provedor de IA indisponivel: {e}'
 
     return {
-        'justificativa_furto': (
-            f"Score de furto {scores['score_furto']} ({scores['classificacao_furto']}), "
-            f"a partir de {n_furto} evento(s) de furto em {dias} dia(s)."
+        'justificativa_furto': _frase_eixo(
+            'furto', scores['score_furto'], scores['classificacao_furto'],
+            n_furto, dias, detalhamento, 'furto',
         ),
-        'justificativa_incendio': (
-            f"Score de incendio {scores['score_incendio']} ({scores['classificacao_incendio']}), "
-            f"a partir de {n_incendio} evento(s) de incendio em {dias} dia(s)."
+        'justificativa_incendio': _frase_eixo(
+            'incendio', scores['score_incendio'], scores['classificacao_incendio'],
+            n_incendio, dias, detalhamento, 'incendio',
         ),
         'recomendacoes': (
             _recomendacoes_por_classificacao(scores['classificacao_furto'], 'furto')
