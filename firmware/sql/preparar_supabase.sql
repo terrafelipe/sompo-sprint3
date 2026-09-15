@@ -124,7 +124,7 @@ revoke update, delete on public.eventos from anon, authenticated;
 do $$
 declare t text;
 begin
-  foreach t in array array['cliente','equipamentos','sinistros','riscos'] loop
+  foreach t in array array['cliente','equipamentos','sinistros','riscos','fazenda'] loop
     if to_regclass('public.' || t) is not null then
       execute format('alter table public.%I enable row level security', t);
       raise notice 'RLS ligado na tabela de negocio: %', t;

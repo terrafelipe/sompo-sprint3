@@ -65,3 +65,38 @@ def consultar_resumo(dispositivo: str, dias: int = 7) -> List[Dict[str, Any]]:
         'dispositivo_id': f'eq.{dispositivo}',
     }
     return consultar_tabela('resumo_diario', filtros=filtros, limite=500, order='dia.desc')
+
+
+# --- Cadastro de negocio (dashboard): clientes e fazendas ---------------------
+
+def consultar_clientes() -> List[Dict[str, Any]]:
+    # Lista enxuta para o dropdown de "dono da fazenda".
+    return consultar_tabela('cliente', select='id_cliente,nome,cnpj', order='nome.asc', limite=200)
+
+
+def consultar_fazendas() -> List[Dict[str, Any]]:
+    # Embed do PostgREST traz o nome do cliente dono junto (cliente(...)).
+    return consultar_tabela(
+        'fazenda',
+        select='*,cliente(nome,cnpj)',
+        order='criado_em.desc',
+        limite=200,
+    )
+
+
+def inserir_tabela(tabela: str, dados: Dict[str, Any]) -> Dict[str, Any]:
+    # POST no PostgREST. 'Prefer: return=representation' devolve a linha criada (com o id gerado).
+    validate_supabase_config()
+    url = f'{BASE_URL}/{tabela}'
+    headers = {**get_supabase_headers(), 'Prefer': 'return=representation'}
+    response = requests.post(url, headers=headers, json=dados, timeout=10)
+    if response.status_code >= 400:
+        detail = response.text[:500]
+        raise RuntimeError(f'Erro ao inserir no Supabase: {response.status_code} - {detail}')
+    try:
+        data = response.json()
+    except ValueError as exc:
+        raise RuntimeError('Resposta inválida do Supabase') from exc
+    if isinstance(data, list):
+        return data[0] if data else {}
+    return data

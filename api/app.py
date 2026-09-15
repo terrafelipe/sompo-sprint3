@@ -33,7 +33,14 @@ from config import (
 )
 from relatorios import montar_relatorio_bruto, montar_relatorio_risco
 from scores import calcular_scores
-from supabase_client import consultar_eventos, consultar_telemetria, consultar_resumo
+from supabase_client import (
+    consultar_clientes,
+    consultar_eventos,
+    consultar_fazendas,
+    consultar_resumo,
+    consultar_telemetria,
+    inserir_tabela,
+)
 
 app = Flask(__name__)
 # Chave para assinar o cookie de sessao do login.
@@ -273,6 +280,61 @@ def relatorio_risco_docx():
         )
     except Exception as exc:
         return _erro('falha_na_geracao_do_documento', exc, 502)
+
+
+# ---------------------------------------------------------------------------
+# Cadastro de fazendas (tela do dashboard). Protegido pelo login do painel.
+# ---------------------------------------------------------------------------
+@app.get('/clientes')
+def clientes():
+    try:
+        dados = consultar_clientes()
+        return jsonify({'total': len(dados), 'dados': dados}), 200
+    except Exception as exc:
+        return _erro('falha_na_consulta', exc, 502)
+
+
+@app.get('/fazendas')
+def fazendas_listar():
+    try:
+        dados = consultar_fazendas()
+        return jsonify({'total': len(dados), 'dados': dados}), 200
+    except Exception as exc:
+        return _erro('falha_na_consulta', exc, 502)
+
+
+@app.post('/fazendas')
+def fazendas_criar():
+    corpo = request.get_json(silent=True) or {}
+    nome = str(corpo.get('nome', '')).strip()
+    if not nome:
+        return jsonify({'erro': 'nome_obrigatorio'}), 400
+
+    payload: Dict[str, Any] = {'nome': nome}
+
+    localizacao = str(corpo.get('localizacao', '')).strip()
+    if localizacao:
+        payload['localizacao'] = localizacao
+
+    area = corpo.get('area_ha')
+    if area not in (None, ''):
+        try:
+            payload['area_ha'] = float(area)
+        except (TypeError, ValueError):
+            return jsonify({'erro': 'area_invalida'}), 400
+
+    cliente_id = corpo.get('fk_cliente_id_cliente')
+    if cliente_id not in (None, ''):
+        try:
+            payload['fk_cliente_id_cliente'] = int(cliente_id)
+        except (TypeError, ValueError):
+            return jsonify({'erro': 'cliente_invalido'}), 400
+
+    try:
+        criado = inserir_tabela('fazenda', payload)
+        return jsonify({'ok': True, 'fazenda': criado}), 201
+    except Exception as exc:
+        return _erro('falha_ao_criar_fazenda', exc, 502)
 
 
 if __name__ == '__main__':
