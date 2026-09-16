@@ -68,7 +68,15 @@
       <span id="saudeDot" class="w-2 h-2 rounded-full bg-outline"></span>
       <span id="saudeTxt">verificando…</span>
     </span>
-    <div class="relative">
+    <span id="perfilBadge" class="hidden inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-full bg-primary/10 text-primary shadow-sm">
+      <span class="material-symbols-outlined text-[16px]">account_circle</span><span id="perfilTxt"></span>
+    </span>
+    <div id="fazendaSelWrap" class="relative hidden">
+      <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant">landscape</span>
+      <select id="fazendaSel" title="Fazenda"
+              class="w-44 bg-surface-container-lowest rounded-full py-2 pl-9 pr-3 text-sm outline-none shadow-sm focus:ring-2 focus:ring-primary/20"></select>
+    </div>
+    <div id="deviceWrap" class="relative">
       <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant">memory</span>
       <input id="dispositivo" value="SOMPO-ESP32" title="ID do dispositivo"
              class="w-36 bg-surface-container-lowest rounded-full py-2 pl-9 pr-3 text-sm outline-none shadow-sm focus:ring-2 focus:ring-primary/20"/>
@@ -305,6 +313,7 @@
 <script>
 const $ = id => document.getElementById(id);
 let dispositivo = 'SOMPO-ESP32';
+let perfilRole = 'sompo';   // definido por /me no init
 
 const RISCO = {ALTO:'#ba1a1a', MEDIO:'#f59e0b', BAIXO:'#10b981'};
 const corRisco = c => RISCO[c] || RISCO.BAIXO;
@@ -602,6 +611,41 @@ async function criarCliente(ev){
   }catch(e){ msg.textContent='Erro ao salvar ('+e.message+').'; msg.style.color='#ba1a1a'; }
 }
 
+/* ---------- Perfil de acesso (role-based) ---------- */
+async function aplicarPerfil(){
+  let me = {role:'sompo'};
+  try{ me = await getJSON('/me'); }catch(e){ /* modo demo/sem login -> sompo */ }
+  perfilRole = me.role || 'sompo';
+
+  if(perfilRole === 'gestor_fazenda'){
+    // Esconde as abas de cadastro (portfolio) - o gestor so ve a propria fazenda.
+    document.querySelectorAll('[data-nav="fazendas"],[data-nav="clientes"]').forEach(a=>a.classList.add('hidden'));
+    if(viewAtual === 'fazendas' || viewAtual === 'clientes') setView('visao');
+    // Trava o dispositivo na fazenda do gestor (o backend tambem forca).
+    if(me.dispositivo){ $('dispositivo').value = me.dispositivo; dispositivo = me.dispositivo; }
+    $('deviceWrap').classList.add('hidden');
+    $('fazendaSelWrap').classList.add('hidden');
+    $('perfilTxt').textContent = 'Gestor da Fazenda ' + (me.fazenda_nome || '—');
+  } else {
+    $('perfilTxt').textContent = me.usuario ? 'Sompo — Visão Geral' : 'Visão Geral';
+    $('deviceWrap').classList.add('hidden');       // o seletor de fazenda substitui o input
+    await carregarSeletorFazendas();
+  }
+  $('perfilBadge').classList.remove('hidden');
+}
+
+async function carregarSeletorFazendas(){
+  // sompo: dropdown de fazendas (cada uma -> seu dispositivo) para trocar a visao.
+  try{
+    const d = await getJSON('/fazendas');
+    const fs = (d.dados||[]).filter(f=>f.dispositivo_id);
+    if(!fs.length){ $('deviceWrap').classList.remove('hidden'); return; }  // sem fazendas: cai no input
+    $('fazendaSel').innerHTML = fs.map(f=>`<option value="${f.dispositivo_id}">${f.nome}</option>`).join('');
+    $('fazendaSelWrap').classList.remove('hidden');
+    $('dispositivo').value = fs[0].dispositivo_id; dispositivo = fs[0].dispositivo_id;
+  }catch(e){ $('deviceWrap').classList.remove('hidden'); }
+}
+
 async function carregarTudo(){
   dispositivo = $('dispositivo').value.trim() || 'SOMPO-ESP32';
   await Promise.all([carregarSaude(), carregarRisco(), carregarTelemetria(), carregarEventos()]);
@@ -634,16 +678,15 @@ $('btnBaixar').addEventListener('click', () => {
   window.location = `/relatorio/risco.docx?dispositivo=${encodeURIComponent(dev)}&dias=7`;
 });
 $('dispositivo').addEventListener('change', carregarTudo);
+$('fazendaSel').addEventListener('change', ()=>{ $('dispositivo').value = $('fazendaSel').value; carregarTudo(); });
 
-// Fazendas: abrir/fechar o form, cadastrar, e carregar a lista uma vez.
+// Fazendas: abrir/fechar o form, cadastrar.
 $('btnNovaFazenda').addEventListener('click', ()=>{
   const f = $('formFazenda'); f.classList.toggle('hidden');
   if(!f.classList.contains('hidden')) $('fzNome').focus();
 });
 $('btnCancelarFazenda').addEventListener('click', ()=>{ $('formFazenda').classList.add('hidden'); $('fzMsg').textContent=''; });
 $('formFazenda').addEventListener('submit', criarFazenda);
-carregarClientes();
-carregarFazendas();
 
 // Clientes: abrir/fechar o form, cadastrar, e o atalho vindo do form de fazenda.
 $('btnNovoCliente').addEventListener('click', ()=>{
@@ -657,10 +700,18 @@ $('linkNovoCliente').addEventListener('click', ()=>{
   $('formCliente').classList.remove('hidden');
   $('clNome').focus();
 });
-carregarListaClientes();
 
-carregarTudo();
-setInterval(carregarTudo, 10000);
+// Init: descobre o perfil, ajusta a UI e SO ENTAO carrega os dados. Cadastro so p/ Sompo.
+(async function init(){
+  await aplicarPerfil();
+  if(perfilRole === 'sompo'){
+    carregarClientes();
+    carregarFazendas();
+    carregarListaClientes();
+  }
+  carregarTudo();
+  setInterval(carregarTudo, 10000);
+})();
 </script>
 </body>
 </html>

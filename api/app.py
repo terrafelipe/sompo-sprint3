@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import hmac
 import os
 import time
@@ -34,6 +35,7 @@ from config import (
 from relatorios import montar_relatorio_bruto, montar_relatorio_risco
 from scores import calcular_scores
 from supabase_client import (
+    buscar_usuario,
     consultar_clientes,
     consultar_eventos,
     consultar_fazendas,
@@ -99,6 +101,30 @@ def _destino_seguro(proximo: str) -> str:
     return url_for('painel')
 
 
+def _autenticar(usuario: str, senha: str) -> Dict[str, Any] | None:
+    # Perfis: 1) tabela `usuario` (role + fazenda vinculada); 2) fallback para a
+    # credencial do env (PAINEL_USUARIO/SENHA) como perfil 'sompo', para nao quebrar
+    # o login ja configurado. Senha em texto plano - demo academica (ver usuarios.sql).
+    try:
+        u = buscar_usuario(usuario)
+    except Exception as exc:
+        app.logger.warning('login: busca de usuario indisponivel: %s', exc)
+        u = None
+    if u and hmac.compare_digest(str(u.get('senha', '')), senha):
+        faz = u.get('fazenda') or {}
+        return {
+            'usuario': usuario,
+            'role': u.get('role', 'sompo'),
+            'fazenda_id': u.get('fk_fazenda_id_fazenda'),
+            'fazenda_nome': faz.get('nome'),
+            'dispositivo_forcado': faz.get('dispositivo_id'),
+        }
+    if PAINEL_USUARIO and hmac.compare_digest(usuario, PAINEL_USUARIO) and hmac.compare_digest(senha, PAINEL_SENHA):
+        return {'usuario': usuario, 'role': 'sompo', 'fazenda_id': None,
+                'fazenda_nome': None, 'dispositivo_forcado': None}
+    return None
+
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     # Login desligado (demo) -> nao ha tela de login; segue para o painel.
@@ -109,11 +135,15 @@ def login():
 
     erro = False
     if request.method == 'POST':
-        usuario = request.form.get('usuario', '')
-        senha = request.form.get('senha', '')
-        if hmac.compare_digest(usuario, PAINEL_USUARIO) and hmac.compare_digest(senha, PAINEL_SENHA):
+        perfil = _autenticar(request.form.get('usuario', ''), request.form.get('senha', ''))
+        if perfil:
             session['logado'] = True
             session['login_em'] = time.time()  # inicio da sessao, para o timeout absoluto
+            session['usuario'] = perfil['usuario']
+            session['role'] = perfil['role']
+            session['fazenda_id'] = perfil['fazenda_id']
+            session['fazenda_nome'] = perfil['fazenda_nome']
+            session['dispositivo_forcado'] = perfil['dispositivo_forcado']
             # "Manter conectado": marcado = cookie persiste (ate SESSAO_HORAS); desmarcado =
             # cai ao fechar o navegador. O timeout de SESSAO_HORAS vale nos dois casos.
             session.permanent = bool(request.form.get('lembrar'))
@@ -143,6 +173,39 @@ def exigir_api_key():
     if not hmac.compare_digest(enviado, SOMPO_API_KEY):
         return jsonify({'erro': 'nao_autorizado', 'detalhe': 'X-API-Key ausente ou invalida'}), 401
     return None
+
+
+# ---------------------------------------------------------------------------
+# Perfis de acesso (role-based). Sem sessao (modo demo) o padrao e 'sompo', o que
+# preserva o comportamento aberto atual do painel.
+# ---------------------------------------------------------------------------
+def _perfil() -> Dict[str, Any]:
+    return {
+        'usuario': session.get('usuario'),
+        'role': session.get('role', 'sompo'),
+        'fazenda_id': session.get('fazenda_id'),
+        'fazenda_nome': session.get('fazenda_nome'),
+        'dispositivo_forcado': session.get('dispositivo_forcado'),
+    }
+
+
+def _dispositivo_para(req_dispositivo: str) -> str:
+    # gestor_fazenda so enxerga o dispositivo da fazenda dele: ignora qualquer valor
+    # recebido na requisicao (nao adianta forcar o parametro na URL).
+    p = _perfil()
+    if p['role'] == 'gestor_fazenda' and p['dispositivo_forcado']:
+        return p['dispositivo_forcado']
+    return req_dispositivo
+
+
+def somente_sompo(view):
+    # Cadastro/portfolio: so o perfil 'sompo'. Qualquer outro -> 403.
+    @functools.wraps(view)
+    def _wrap(*args, **kwargs):
+        if _perfil()['role'] != 'sompo':
+            return jsonify({'erro': 'proibido', 'detalhe': 'acesso restrito ao perfil Sompo'}), 403
+        return view(*args, **kwargs)
+    return _wrap
 
 
 def _parse_int(value: str, default: int, minimum: int | None = None, maximum: int | None = None) -> int:
@@ -183,9 +246,22 @@ def saude():
         return jsonify({'api': 'ok', 'banco': 'falha'}), 502
 
 
+@app.get('/me')
+def me():
+    # Perfil do usuario logado, para o front esconder/mostrar abas e escopar a visao.
+    p = _perfil()
+    return jsonify({
+        'usuario': p['usuario'],
+        'role': p['role'],
+        'fazenda_id': p['fazenda_id'],
+        'fazenda_nome': p['fazenda_nome'],
+        'dispositivo': p['dispositivo_forcado'],
+    }), 200
+
+
 @app.get('/telemetria')
 def telemetria():
-    dispositivo = request.args.get('dispositivo', 'SOMPO-ESP32')
+    dispositivo = _dispositivo_para(request.args.get('dispositivo', 'SOMPO-ESP32'))
     limite = _parse_int(request.args.get('limite', '50'), 50, minimum=1, maximum=500)
 
     try:
@@ -197,7 +273,7 @@ def telemetria():
 
 @app.get('/eventos')
 def eventos():
-    dispositivo = request.args.get('dispositivo', 'SOMPO-ESP32')
+    dispositivo = _dispositivo_para(request.args.get('dispositivo', 'SOMPO-ESP32'))
     dias = _parse_int(request.args.get('dias', '7'), 7, minimum=1)
 
     try:
@@ -209,7 +285,7 @@ def eventos():
 
 @app.get('/resumo')
 def resumo():
-    dispositivo = request.args.get('dispositivo', 'SOMPO-ESP32')
+    dispositivo = _dispositivo_para(request.args.get('dispositivo', 'SOMPO-ESP32'))
     dias = _parse_int(request.args.get('dias', '7'), 7, minimum=1)
 
     try:
@@ -221,7 +297,7 @@ def resumo():
 
 @app.get('/scores')
 def scores():
-    dispositivo = request.args.get('dispositivo', 'SOMPO-ESP32')
+    dispositivo = _dispositivo_para(request.args.get('dispositivo', 'SOMPO-ESP32'))
     dias = _parse_int(request.args.get('dias', '7'), 7, minimum=1)
 
     try:
@@ -233,7 +309,7 @@ def scores():
 
 @app.get('/relatorio/bruto')
 def relatorio_bruto():
-    dispositivo = request.args.get('dispositivo', 'SOMPO-ESP32')
+    dispositivo = _dispositivo_para(request.args.get('dispositivo', 'SOMPO-ESP32'))
     dias = _parse_int(request.args.get('dias', '7'), 7, minimum=1)
 
     try:
@@ -247,7 +323,7 @@ def relatorio_bruto():
 
 @app.get('/relatorio/risco')
 def relatorio_risco():
-    dispositivo = request.args.get('dispositivo', 'SOMPO-ESP32')
+    dispositivo = _dispositivo_para(request.args.get('dispositivo', 'SOMPO-ESP32'))
     dias = _parse_int(request.args.get('dias', '7'), 7, minimum=1)
 
     try:
@@ -262,7 +338,7 @@ def relatorio_risco():
 @app.get('/relatorio/risco.docx')
 def relatorio_risco_docx():
     # Mesmo conteúdo do /relatorio/risco, mas como documento Word (.docx) para download.
-    dispositivo = request.args.get('dispositivo', 'SOMPO-ESP32')
+    dispositivo = _dispositivo_para(request.args.get('dispositivo', 'SOMPO-ESP32'))
     dias = _parse_int(request.args.get('dias', '7'), 7, minimum=1)
 
     try:
@@ -286,6 +362,7 @@ def relatorio_risco_docx():
 # Cadastro de fazendas (tela do dashboard). Protegido pelo login do painel.
 # ---------------------------------------------------------------------------
 @app.get('/clientes')
+@somente_sompo
 def clientes():
     try:
         dados = consultar_clientes()
@@ -295,6 +372,7 @@ def clientes():
 
 
 @app.post('/clientes')
+@somente_sompo
 def clientes_criar():
     corpo = request.get_json(silent=True) or {}
     nome = str(corpo.get('nome', '')).strip()
@@ -315,6 +393,7 @@ def clientes_criar():
 
 
 @app.get('/fazendas')
+@somente_sompo
 def fazendas_listar():
     try:
         dados = consultar_fazendas()
@@ -324,6 +403,7 @@ def fazendas_listar():
 
 
 @app.post('/fazendas')
+@somente_sompo
 def fazendas_criar():
     corpo = request.get_json(silent=True) or {}
     nome = str(corpo.get('nome', '')).strip()

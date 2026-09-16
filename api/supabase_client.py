@@ -84,6 +84,18 @@ def consultar_fazendas() -> List[Dict[str, Any]]:
     )
 
 
+def buscar_usuario(usuario: str) -> Optional[Dict[str, Any]]:
+    # Login por perfil: busca 1 usuario pelo nome, com a fazenda vinculada embutida
+    # (nome + dispositivo_id) para escopar a telemetria do gestor_fazenda.
+    linhas = consultar_tabela(
+        'usuario',
+        filtros={'usuario': f'eq.{usuario}'},
+        select='*,fazenda(nome,dispositivo_id)',
+        limite=1,
+    )
+    return linhas[0] if linhas else None
+
+
 def inserir_tabela(tabela: str, dados: Dict[str, Any]) -> Dict[str, Any]:
     # POST no PostgREST. 'Prefer: return=representation' devolve a linha criada (com o id gerado).
     validate_supabase_config()

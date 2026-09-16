@@ -14,8 +14,12 @@ create table if not exists public.fazenda (
   localizacao           text,
   area_ha               numeric,                 -- area em hectares (base p/ GPS/cerca virtual)
   fk_cliente_id_cliente bigint      references public.cliente(id_cliente),
+  dispositivo_id        text,                    -- ESP32 que monitora esta fazenda (elo com a telemetria)
   criado_em             timestamptz not null default now()
 );
+
+-- Migracao p/ quem ja tinha a tabela: liga a fazenda a um dispositivo (perfil gestor_fazenda).
+alter table public.fazenda add column if not exists dispositivo_id text;
 
 create index if not exists idx_fazenda_cliente on public.fazenda (fk_cliente_id_cliente);
 

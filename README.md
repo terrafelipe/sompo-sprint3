@@ -84,7 +84,7 @@ Guia completo em [`docs/COMO_TESTAR.md`](docs/COMO_TESTAR.md). Resumo:
 cd api
 python -m venv venv
 venv\Scripts\python.exe -m pip install -r requirements.txt
-venv\Scripts\python.exe -m pytest          # 32 testes, sem rede
+venv\Scripts\python.exe -m pytest          # 46 testes, sem rede
 venv\Scripts\python.exe app.py             # sobe a API em localhost:5000
 ```
 Configuração em `.env` (copie de `.env.example`): URL/secret do Supabase e a chave do Gemini.
@@ -105,6 +105,36 @@ login (Docker + Render), veja [`docs/DEPLOY.md`](docs/DEPLOY.md).
 | `GET /relatorio/bruto` | Relatório factual |
 | `GET /relatorio/risco` | Relatório interpretado pela IA (com fallback gracioso) |
 | `GET /relatorio/risco.docx` | O mesmo relatório como documento Word para download |
+| `GET /me` | Perfil do usuário logado (role + fazenda vinculada) |
+| `GET/POST /clientes` | Lista/cadastra clientes — **só perfil Sompo** (403 para gestor) |
+| `GET/POST /fazendas` | Lista/cadastra fazendas — **só perfil Sompo** (403 para gestor) |
+
+## Perfis de acesso (role-based)
+
+O painel tem **dois perfis** logando no mesmo sistema, com telas e dados diferentes (demonstração
+acadêmica — dados simulados, sem hashing de senha):
+
+- **Sompo** (subscritor): vê o portfólio inteiro, cadastra fazendas/clientes e troca entre as
+  fazendas por um seletor no topo.
+- **Gestor de Fazenda**: vê só a telemetria/risco da **própria** fazenda; as abas de cadastro
+  ficam ocultas. O backend força o filtro por dispositivo — nem passando `?dispositivo=` na URL o
+  gestor lê outra fazenda, e as rotas de cadastro respondem `403`.
+
+O perfil vem da tabela `usuario` (role + fazenda vinculada). Rode os SQLs no Supabase, uma vez, nesta
+ordem: `preparar_supabase.sql` → `dados_exemplo.sql` → `fazenda.sql` → **`usuarios.sql`** (cria a
+tabela `usuario` e semeia os logins de teste).
+
+**Credenciais de teste:**
+
+| Usuário | Senha | Perfil | Enxerga |
+|---|---|---|---|
+| `sompo` | `sompo123` | Sompo | todas as fazendas + abas de cadastro |
+| `fazenda1` | `fazenda123` | Gestor de Fazenda | só a Fazenda Santa Rita (`SOMPO-ESP32`) |
+| `fazenda2` | `fazenda123` | Gestor de Fazenda | só a Fazenda Vale Verde (`SOMPO-ESP32-SIM`) |
+
+> Para demonstrar a troca de perfis ao vivo, o login precisa estar ligado (`PAINEL_SENHA` definida
+> no `.env`/Render). A credencial antiga (`PAINEL_USUARIO`/`PAINEL_SENHA`) continua valendo como um
+> login Sompo de reserva. Senhas em texto plano são intencionais aqui (demo); não use em produção.
 
 ## Segurança
 
