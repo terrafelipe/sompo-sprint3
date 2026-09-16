@@ -114,7 +114,8 @@
 #define INTERVALO_CICLO_MS      100    // amostragem dos sensores rapidos
 #define INTERVALO_SERIAL_MS     2000   // retrato periodico no Monitor Serial
 #define INTERVALO_LENTO_MS      2000   // AHT10 e MAX6675 (conversao lenta)
-#define INTERVALO_TELEMETRIA_MS 30000  // amostra gravada no Supabase
+#define INTERVALO_TELEMETRIA_MS 10000  // amostra gravada no Supabase (10s: casa com o refresh de 5s
+                                       // do painel; gera ~3x mais linhas na tabela telemetria - ok p/ demo)
 #define INTERVALO_SAUDE_MPU_MS  5000   // reconferencia do MPU no barramento
 
 #define LIMIAR_POT_MOTOR_DESLIGADO 2000  // pot (0-4095) abaixo disso = desligado
@@ -204,6 +205,24 @@ namespace Alarme {
   void parar() { noTone(BUZZER_PIN); }
   void autoteste() { Serial.println("Buzzer - bipe de teste"); beep(BUZZER_FREQ_FURTO, 200); delay(300); }
 
+  // --- Bipes curtos de FEEDBACK (cracha/ima), distintos do alarme continuo. ---
+  // Bloqueiam ~80-520 ms DE PROPOSITO (mesmo padrao do autoteste). Sao chamados nos
+  // ler() ANTES de Alarme::atualizar() no mesmo ciclo, entao o bipe completa e o
+  // alarme continuo (se houver ameaca) e reavaliado logo depois - fogo tem prioridade.
+  void bipeConfirma() {                 // cracha AUTORIZADO: 2 bipes curtos ascendentes
+    beep(1500, 120); delay(150);
+    beep(2500, 120); delay(150);
+    noTone(BUZZER_PIN);
+  }
+  void bipeNega() {                     // cracha NAO autorizado: 1 bipe longo grave
+    beep(400, 500); delay(520);
+    noTone(BUZZER_PIN);
+  }
+  void bipeToque() {                    // ima encostado/retirado do reed: 1 bipe curtinho
+    beep(1200, 80); delay(90);
+    noTone(BUZZER_PIN);
+  }
+
   // Alarme CONTINUO: enquanto houver ameaca ativa o buzzer nao para; sem ameaca,
   // silencia. Chamado todo ciclo (100 ms) no loop(). Fogo tem prioridade e tom proprio.
   void atualizar() {
@@ -225,6 +244,9 @@ namespace Alarme {
   inline void parar() {}
   inline void autoteste() {}
   inline void atualizar() {}
+  inline void bipeConfirma() {}
+  inline void bipeNega() {}
+  inline void bipeToque() {}
 #endif
 }
 
@@ -450,9 +472,15 @@ namespace Rfid {
         Estado::operadorAutorizado = !Estado::operadorAutorizado;
         Serial.println(Estado::operadorAutorizado ? "  -> AUTORIZADO (sistema desarmado)"
                                                    : "  -> REARMADO (aguardando cracha)");
+        Alarme::bipeConfirma();   // 2 bipes curtos ascendentes = confirmacao
       }
     } else {
-      Serial.println("  -> nao autorizado");
+      // Mesmo anti-repique: um cartao estranho encostado nao fica bipando em loop.
+      if (millis() - ultimoToque > 1500) {
+        ultimoToque = millis();
+        Serial.println("  -> nao autorizado");
+        Alarme::bipeNega();       // 1 bipe longo grave = negacao (distinto do alarme)
+      }
     }
     dev.PICC_HaltA();
   }
@@ -517,6 +545,7 @@ namespace Termopar {
 namespace Reed {
 #if USAR_REED_CAPO || USAR_REED_TANQUE
   bool capoAnterior = false, tanqueAnterior = false;
+  bool capoBeepAnt = false, tanqueBeepAnt = false;   // estado anterior SO p/ o bipe de feedback
 
   void iniciar() {
 #if USAR_REED_CAPO
@@ -529,9 +558,12 @@ namespace Reed {
   void ler() {
 #if USAR_REED_CAPO
     Estado::capoAberto = digitalRead(REED_CAPO) == HIGH;    // HIGH = contato aberto
+    // Bipe curto a cada troca de estado (ima encostado/retirado no reed do capo).
+    if (Estado::capoAberto != capoBeepAnt) { Alarme::bipeToque(); capoBeepAnt = Estado::capoAberto; }
 #endif
 #if USAR_REED_TANQUE
     Estado::tanqueAberto = digitalRead(REED_TANQUE) == HIGH;
+    if (Estado::tanqueAberto != tanqueBeepAnt) { Alarme::bipeToque(); tanqueBeepAnt = Estado::tanqueAberto; }
 #endif
   }
   void eventos() {

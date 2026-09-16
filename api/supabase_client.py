@@ -70,16 +70,28 @@ def consultar_resumo(dispositivo: str, dias: int = 7) -> List[Dict[str, Any]]:
 # --- Cadastro de negocio (dashboard): clientes e fazendas ---------------------
 
 def consultar_clientes() -> List[Dict[str, Any]]:
-    # Lista enxuta para o dropdown de "dono da fazenda".
-    return consultar_tabela('cliente', select='id_cliente,nome,cnpj', order='nome.asc', limite=200)
+    # Traz tambem os dados de contato, para o modal de detalhe do cliente no painel.
+    # O dropdown de "dono da fazenda" usa so id+nome; os campos extras nao atrapalham.
+    return consultar_tabela('cliente', select='id_cliente,nome,cnpj,telefone,endereco,email', order='nome.asc', limite=200)
 
 
 def consultar_fazendas() -> List[Dict[str, Any]]:
-    # Embed do PostgREST traz o nome do cliente dono junto (cliente(...)).
+    # Embed do PostgREST traz os dados do cliente dono junto (cliente(...)), usados no
+    # modal de detalhe da fazenda.
     return consultar_tabela(
         'fazenda',
-        select='*,cliente(nome,cnpj)',
+        select='*,cliente(nome,cnpj,telefone,email)',
         order='criado_em.desc',
+        limite=200,
+    )
+
+
+def consultar_usuarios() -> List[Dict[str, Any]]:
+    # Lista de logins do painel SEM a senha, com o nome da fazenda vinculada embutido.
+    return consultar_tabela(
+        'usuario',
+        select='id_usuario,usuario,role,fk_fazenda_id_fazenda,fazenda(nome)',
+        order='usuario.asc',
         limite=200,
     )
 

@@ -66,6 +66,7 @@
     <a href="#" data-nav="alertas"    class="flex items-center px-4 py-3 rounded-xl font-semibold transition-colors"><span class="material-symbols-outlined mr-3">warning</span>Alertas</a>
     <a href="#" data-nav="fazendas"   class="flex items-center px-4 py-3 rounded-xl font-semibold transition-colors"><span class="material-symbols-outlined mr-3">landscape</span>Fazendas</a>
     <a href="#" data-nav="clientes"   class="flex items-center px-4 py-3 rounded-xl font-semibold transition-colors"><span class="material-symbols-outlined mr-3">group</span>Clientes</a>
+    <a href="#" data-nav="usuarios"   class="flex items-center px-4 py-3 rounded-xl font-semibold transition-colors"><span class="material-symbols-outlined mr-3">manage_accounts</span>Usuários</a>
   </nav>
   <div class="px-4 py-5 border-t border-outline-variant/40">
     <a href="/logout" class="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl text-on-surface-variant hover:bg-surface-container-high hover:text-primary transition-colors font-semibold">
@@ -92,9 +93,10 @@
       <span class="material-symbols-outlined text-[16px]">account_circle</span><span id="perfilTxt"></span>
     </span>
     <div id="fazendaSelWrap" class="relative hidden">
-      <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant">landscape</span>
+      <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant pointer-events-none">landscape</span>
       <select id="fazendaSel" title="Fazenda"
-              class="w-44 bg-surface-container-lowest rounded-full py-2 pl-9 pr-3 text-sm outline-none shadow-sm focus:ring-2 focus:ring-primary/20"></select>
+              class="appearance-none w-48 bg-surface-container-lowest rounded-full py-2 pl-9 pr-9 text-sm text-on-surface font-medium outline-none shadow-sm cursor-pointer focus:ring-2 focus:ring-primary/20"></select>
+      <span class="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant pointer-events-none">expand_more</span>
     </div>
     <div id="deviceWrap" class="relative">
       <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant">memory</span>
@@ -121,6 +123,7 @@
     <a href="#" data-nav="alertas"    class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Alertas</a>
     <a href="#" data-nav="fazendas"   class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Fazendas</a>
     <a href="#" data-nav="clientes"   class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Clientes</a>
+    <a href="#" data-nav="usuarios"   class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Usuários</a>
   </div>
 
   <!-- MAIN -->
@@ -130,7 +133,7 @@
         <h1 id="tituloView" class="text-2xl lg:text-3xl font-bold text-on-background mb-1">Visão Geral</h1>
         <p class="text-on-surface-variant">Monitoramento de furto e incêndio em máquinas agrícolas.</p>
       </div>
-      <div class="text-xs text-on-surface-variant">Atualizado às <span id="ultima" class="font-semibold text-on-surface">–</span> · auto-refresh 10s</div>
+      <div class="text-xs text-on-surface-variant">Atualizado às <span id="ultima" class="font-semibold text-on-surface">–</span> · auto-refresh 5s</div>
     </div>
 
     <!-- KPI CARDS (só na Visão Geral) -->
@@ -235,6 +238,7 @@
                 <th class="py-3 px-5">Vibração</th>
                 <th class="py-3 px-5">Motor</th>
                 <th class="py-3 px-5">Capô</th>
+                <th class="py-3 px-5">Tanque</th>
                 <th class="py-3 px-5">Chama</th>
               </tr>
             </thead>
@@ -270,6 +274,11 @@
             <label class="block text-xs font-semibold text-on-surface-variant mb-1">Cliente (dono) *</label>
             <select id="fzCliente" required class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20"></select>
             <button type="button" id="linkNovoCliente" class="mt-1.5 text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1"><span class="material-symbols-outlined text-[15px]">add</span>Não achou? Cadastrar novo cliente</button>
+          </div>
+          <div class="md:col-span-2">
+            <label class="block text-xs font-semibold text-on-surface-variant mb-1">Dispositivo (ESP32) vinculado</label>
+            <input id="fzDispositivo" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20" placeholder="Ex.: SOMPO-ESP32 (deixe em branco se ainda não houver)"/>
+            <p class="mt-1.5 text-xs text-on-surface-variant">Só a fazenda com o ID do ESP32 real (<span class="font-semibold">SOMPO-ESP32</span>) recebe dado ao vivo — há um aparelho físico. As demais aparecem no seletor, mas sem telemetria.</p>
           </div>
           <div class="md:col-span-2 flex items-center gap-3 flex-wrap">
             <button type="submit" class="inline-flex items-center gap-1.5 bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg shadow-md hover:bg-on-primary-fixed-variant transition-all">
@@ -324,6 +333,47 @@
 
         <div id="listaClientes" class="space-y-2"></div>
       </section>
+
+      <!-- USUARIOS (logins do painel) -->
+      <section data-section="usuarios" class="bg-surface-container-lowest rounded-2xl shadow-sm p-6">
+        <div class="flex items-center justify-between mb-5 flex-wrap gap-2">
+          <h2 class="text-lg font-semibold text-on-surface">Usuários do painel</h2>
+          <button id="btnNovoUsuario" class="inline-flex items-center gap-1.5 bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg shadow-md hover:bg-on-primary-fixed-variant transition-all">
+            <span class="material-symbols-outlined text-[18px]">add</span> Novo usuário
+          </button>
+        </div>
+
+        <form id="formUsuario" class="hidden bg-surface-container-low rounded-xl p-5 mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-on-surface-variant mb-1">Nome de usuário (login) *</label>
+            <input id="usUsuario" required autocomplete="off" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20" placeholder="Ex.: gestor.santarita"/>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-on-surface-variant mb-1">Senha *</label>
+            <input id="usSenha" required autocomplete="new-password" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20" placeholder="senha de acesso"/>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-on-surface-variant mb-1">Perfil *</label>
+            <select id="usRole" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20">
+              <option value="gestor_fazenda">Gestor da fazenda (vê só a fazenda dele)</option>
+              <option value="sompo">Sompo (vê tudo e cadastra)</option>
+            </select>
+          </div>
+          <div id="usFazendaWrap">
+            <label class="block text-xs font-semibold text-on-surface-variant mb-1">Fazenda vinculada *</label>
+            <select id="usFazenda" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20"></select>
+          </div>
+          <div class="md:col-span-2 flex items-center gap-3 flex-wrap">
+            <button type="submit" class="inline-flex items-center gap-1.5 bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg shadow-md hover:bg-on-primary-fixed-variant transition-all">
+              <span class="material-symbols-outlined text-[18px]">save</span> Salvar usuário
+            </button>
+            <button type="button" id="btnCancelarUsuario" class="px-4 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors font-semibold">Cancelar</button>
+            <span id="usMsg" class="text-[13px] font-semibold"></span>
+          </div>
+        </form>
+
+        <div id="listaUsuarios" class="space-y-2"></div>
+      </section>
     </div>
 
     <p class="text-xs text-on-surface-variant"><span id="fonteBanco"></span></p>
@@ -351,11 +401,31 @@
   </div>
 </div>
 
+<!-- Modal de detalhes de cliente / fazenda (clique num card) -->
+<div id="modalDetalhe" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+  <div class="bg-surface-container-lowest rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[85vh] overflow-y-auto">
+    <div class="flex items-start justify-between mb-4">
+      <div class="flex items-center gap-3">
+        <div id="detIcone" class="w-11 h-11 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
+          <span class="material-symbols-outlined">info</span>
+        </div>
+        <h3 id="detTitulo" class="text-lg font-bold text-on-surface leading-tight"></h3>
+      </div>
+      <button id="detFechar" class="text-on-surface-variant hover:text-primary transition-colors" aria-label="Fechar">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <div id="detCorpo" class="text-sm"></div>
+  </div>
+</div>
+
 <script>
 const $ = id => document.getElementById(id);
 let dispositivo = 'SOMPO-ESP32';
 let perfilRole = 'sompo';   // definido por /me no init
 let eventosCache = [];      // eventos renderizados no feed (para o modal de detalhes)
+let clientesCache = [];     // clientes renderizados (para o modal de detalhe do cliente)
+let fazendasCache = [];     // fazendas renderizadas (para o modal de detalhe da fazenda)
 
 const RISCO = {ALTO:'#ba1a1a', MEDIO:'#f59e0b', BAIXO:'#10b981'};
 const corRisco = c => RISCO[c] || RISCO.BAIXO;
@@ -371,7 +441,7 @@ const NAV_ON = ' bg-primary text-on-primary';
 const NAV_OFF = ' text-on-surface-variant hover:bg-surface-container-high';
 const CHIP_ON = ' bg-primary text-on-primary';
 const CHIP_OFF = ' bg-surface-container text-on-surface-variant';
-const TITULOS = {visao:'Visão Geral', risco:'Análise de Risco', telemetria:'Telemetria', alertas:'Alertas', fazendas:'Fazendas', clientes:'Clientes'};
+const TITULOS = {visao:'Visão Geral', risco:'Análise de Risco', telemetria:'Telemetria', alertas:'Alertas', fazendas:'Fazendas', clientes:'Clientes', usuarios:'Usuários'};
 // Para cada view, quais seções aparecem e com qual largura (colunas de 12).
 const VIEWS = {
   visao:      {kpis:true, risco:12, telemetria:8, alertas:4, tabela:12},
@@ -380,6 +450,7 @@ const VIEWS = {
   alertas:    {alertas:12},
   fazendas:   {fazendas:12},
   clientes:   {clientes:12},
+  usuarios:   {usuarios:12},
 };
 
 let viewAtual = 'visao';
@@ -517,7 +588,7 @@ async function carregarTelemetria(){
       $('kpiRisco').textContent = '–';
       $('cardRisco').dataset.risco = 'seguro';   // sem dado -> sem feixe
       $('sparkTemp').innerHTML = graficoTemp([]);
-      $('tabelaTelemetria').innerHTML = '<tr><td colspan="8" class="py-6 px-5 text-on-surface-variant italic">Nenhuma leitura recebida.</td></tr>';
+      $('tabelaTelemetria').innerHTML = '<tr><td colspan="9" class="py-6 px-5 text-on-surface-variant italic">Nenhuma leitura recebida.</td></tr>';
       return;
     }
 
@@ -537,6 +608,7 @@ async function carregarTelemetria(){
       kpi('water_drop','Umidade', (t.umidade_ar ?? '–')+' %') +
       kpi('vibration','Vibração', (t.vibracao ?? '–')+' g') +
       kpi('car_crash','Capô', bool(t.capo_aberto)) +
+      kpi('propane_tank','Tanque', bool(t.tanque_aberto)) +
       kpi('local_fire_department','Chama', bool(t.chama_detectada));
 
     $('sparkTemp').innerHTML = graficoTemp(linhas.map(x=>({t:x.temp_escape, h:x.criado_em})).reverse());
@@ -551,6 +623,7 @@ async function carregarTelemetria(){
         <td class="py-3 px-5">${x.vibracao ?? '–'} g</td>
         <td class="py-3 px-5">${bool(x.motor_ligado)}</td>
         <td class="py-3 px-5">${bool(x.capo_aberto)}</td>
+        <td class="py-3 px-5">${bool(x.tanque_aberto)}</td>
         <td class="py-3 px-5">${bool(x.chama_detectada)}</td>
       </tr>`;
     }).join('');
@@ -635,6 +708,54 @@ function abrirEvento(e){
 }
 const fecharEvento = ()=> $('modalEvento').classList.add('hidden');
 
+/* ---------- Detalhe de cliente / fazenda (modal) ---------- */
+function abrirDetalhe(titulo, icone, corpoHTML){
+  $('detTitulo').textContent = titulo;
+  $('detIcone').querySelector('span').textContent = icone;
+  $('detCorpo').innerHTML = corpoHTML;
+  $('modalDetalhe').classList.remove('hidden');
+}
+const fecharDetalhe = ()=> $('modalDetalhe').classList.add('hidden');
+
+function abrirCliente(c){
+  if(!c) return;
+  let html = linhaDet('Nome / Razão social', c.nome || '—')
+           + linhaDet('CNPJ', c.cnpj || '—')
+           + linhaDet('Telefone', c.telefone || '—')
+           + linhaDet('E-mail', c.email || '—')
+           + linhaDet('Endereço', c.endereco || '—');
+  const doCliente = fazendasCache.filter(f => Number(f.fk_cliente_id_cliente) === Number(c.id_cliente));
+  if(doCliente.length){
+    html += `<div class="mt-4 mb-1 text-xs font-semibold uppercase tracking-wide text-on-surface-variant">Fazendas (${doCliente.length})</div>`;
+    html += doCliente.map(f=>`<div class="flex items-center gap-2 py-2 border-b border-outline-variant/20 last:border-0">
+        <span class="material-symbols-outlined text-[18px] text-primary">landscape</span>
+        <span class="font-semibold text-on-surface">${f.nome||'(sem nome)'}</span>
+        ${f.localizacao?`<span class="text-on-surface-variant text-[13px]">· ${f.localizacao}</span>`:''}
+      </div>`).join('');
+  } else {
+    html += `<div class="mt-4 text-[13px] text-on-surface-variant italic">Nenhuma fazenda vinculada a este cliente.</div>`;
+  }
+  abrirDetalhe(c.nome || 'Cliente', 'person', html);
+}
+
+function abrirFazenda(f){
+  if(!f) return;
+  const dono = f.cliente || {};
+  let html = linhaDet('Fazenda', f.nome || '—')
+           + linhaDet('Localização', f.localizacao || '—')
+           + linhaDet('Área', fmtArea(f.area_ha) || '—')
+           + linhaDet('Dono', dono.nome || '—')
+           + (dono.cnpj ? linhaDet('CNPJ do dono', dono.cnpj) : '')
+           + (dono.telefone ? linhaDet('Telefone', dono.telefone) : '')
+           + (dono.email ? linhaDet('E-mail', dono.email) : '')
+           + linhaDet('Dispositivo', f.dispositivo_id || '— (sem dispositivo)');
+  const botao = f.dispositivo_id
+    ? `<button data-vertelemetria="${f.dispositivo_id}" class="mt-4 inline-flex items-center gap-1.5 bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg shadow-md hover:bg-on-primary-fixed-variant transition-all">
+        <span class="material-symbols-outlined text-[18px]">sensors</span> Ver telemetria</button>`
+    : '';
+  abrirDetalhe(f.nome || 'Fazenda', 'landscape', html + botao);
+}
+
 /* ---------- Fazendas (cadastro) ---------- */
 async function carregarClientes(){
   try{
@@ -650,11 +771,12 @@ async function carregarFazendas(){
   try{
     const d = await getJSON('/fazendas');
     const fs = d.dados||[];
+    fazendasCache = fs;
     if(!fs.length){ $('listaFazendas').innerHTML = '<div class="text-on-surface-variant italic text-sm py-4">Nenhuma fazenda cadastrada ainda.</div>'; return; }
-    $('listaFazendas').innerHTML = fs.map(f=>{
+    $('listaFazendas').innerHTML = fs.map((f,i)=>{
       const dono = f.cliente ? f.cliente.nome : '—';
       const area = fmtArea(f.area_ha);
-      return `<div class="flex items-start gap-3 p-4 rounded-xl bg-surface-container-low">
+      return `<div data-faz="${i}" title="Ver detalhes" class="flex items-start gap-3 p-4 rounded-xl bg-surface-container-low hover:bg-surface-container transition-colors cursor-pointer">
         <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
           <span class="material-symbols-outlined text-primary">landscape</span>
         </div>
@@ -680,7 +802,8 @@ async function criarFazenda(ev){
     nome,
     localizacao: $('fzLocal').value.trim(),
     area_ha: $('fzArea').value,
-    fk_cliente_id_cliente: $('fzCliente').value
+    fk_cliente_id_cliente: $('fzCliente').value,
+    dispositivo_id: $('fzDispositivo').value.trim()
   };
   msg.textContent='Salvando…'; msg.style.color='#545f73';
   try{
@@ -688,7 +811,7 @@ async function criarFazenda(ev){
     if(!r.ok) throw new Error('HTTP '+r.status);
     msg.textContent='Fazenda cadastrada! ✓'; msg.style.color='#10b981';
     $('formFazenda').reset();
-    await carregarFazendas();
+    await Promise.all([carregarFazendas(), carregarSeletorFazendas()]);  // atualiza a lista E o seletor da barra
     setTimeout(()=>{ $('formFazenda').classList.add('hidden'); msg.textContent=''; }, 1200);
   }catch(e){ msg.textContent='Erro ao salvar ('+e.message+').'; msg.style.color='#ba1a1a'; }
 }
@@ -698,8 +821,9 @@ async function carregarListaClientes(){
   try{
     const d = await getJSON('/clientes');
     const cs = d.dados||[];
+    clientesCache = cs;
     if(!cs.length){ $('listaClientes').innerHTML = '<div class="text-on-surface-variant italic text-sm py-4">Nenhum cliente cadastrado ainda.</div>'; return; }
-    $('listaClientes').innerHTML = cs.map(c=>`<div class="flex items-start gap-3 p-4 rounded-xl bg-surface-container-low">
+    $('listaClientes').innerHTML = cs.map((c,i)=>`<div data-cli="${i}" title="Ver detalhes" class="flex items-start gap-3 p-4 rounded-xl bg-surface-container-low hover:bg-surface-container transition-colors cursor-pointer">
       <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
         <span class="material-symbols-outlined text-primary">person</span>
       </div>
@@ -734,6 +858,74 @@ async function criarCliente(ev){
   }catch(e){ msg.textContent='Erro ao salvar ('+e.message+').'; msg.style.color='#ba1a1a'; }
 }
 
+/* ---------- Usuários (logins do painel) ---------- */
+const ROLE_ROTULO = {sompo:'Sompo', gestor_fazenda:'Gestor da fazenda'};
+const ERRO_USUARIO = {
+  usuario_obrigatorio:'Informe o nome de usuário.', senha_obrigatoria:'Informe a senha.',
+  role_invalida:'Selecione um perfil.', fazenda_obrigatoria:'Selecione a fazenda do gestor.',
+  fazenda_invalida:'Fazenda inválida.', usuario_ja_existe:'Já existe um usuário com esse nome.'
+};
+
+async function carregarUsuariosFazendaSelect(){
+  try{
+    const d = await getJSON('/fazendas');
+    const fs = d.dados||[];
+    $('usFazenda').innerHTML = '<option value="">— selecione a fazenda —</option>' +
+      fs.map(f=>`<option value="${f.id_fazenda}">${f.nome}</option>`).join('');
+  }catch(e){ $('usFazenda').innerHTML = '<option value="">(fazendas indisponíveis)</option>'; }
+}
+
+async function carregarUsuarios(){
+  try{
+    const d = await getJSON('/usuarios');
+    const us = d.dados||[];
+    if(!us.length){ $('listaUsuarios').innerHTML = '<div class="text-on-surface-variant italic text-sm py-4">Nenhum usuário cadastrado ainda.</div>'; return; }
+    $('listaUsuarios').innerHTML = us.map(u=>{
+      const faz = u.fazenda ? u.fazenda.nome : null;
+      const role = ROLE_ROTULO[u.role] || u.role;
+      return `<div class="flex items-start gap-3 p-4 rounded-xl bg-surface-container-low">
+        <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+          <span class="material-symbols-outlined text-primary">${u.role==='sompo'?'shield_person':'account_circle'}</span>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="font-semibold text-on-surface">${u.usuario}</div>
+          <div class="text-[13px] text-on-surface-variant flex flex-wrap gap-x-4 gap-y-0.5 mt-0.5">
+            <span class="inline-flex items-center gap-1"><span class="material-symbols-outlined text-[15px]">badge</span>${role}</span>
+            ${faz?`<span class="inline-flex items-center gap-1"><span class="material-symbols-outlined text-[15px]">landscape</span>${faz}</span>`:''}
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }catch(e){ $('listaUsuarios').innerHTML = '<div class="text-on-surface-variant italic text-sm py-4">Lista de usuários indisponível.</div>'; }
+}
+
+// A fazenda vinculada só faz sentido para gestor_fazenda; some para o perfil Sompo.
+function atualizarCampoFazendaUsuario(){
+  $('usFazendaWrap').style.display = ($('usRole').value === 'gestor_fazenda') ? '' : 'none';
+}
+
+async function criarUsuario(ev){
+  ev.preventDefault();
+  const msg = $('usMsg');
+  const usuario = $('usUsuario').value.trim();
+  const senha = $('usSenha').value.trim();
+  const role = $('usRole').value;
+  if(!usuario){ msg.textContent='Informe o nome de usuário.'; msg.style.color='#ba1a1a'; return; }
+  if(!senha){ msg.textContent='Informe a senha.'; msg.style.color='#ba1a1a'; return; }
+  const payload = {usuario, senha, role};
+  if(role === 'gestor_fazenda') payload.fk_fazenda_id_fazenda = $('usFazenda').value;
+  msg.textContent='Salvando…'; msg.style.color='#545f73';
+  try{
+    const r = await fetch('/usuarios', {method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json'}, body: JSON.stringify(payload)});
+    const data = await r.json().catch(()=>({}));
+    if(!r.ok){ msg.textContent = ERRO_USUARIO[data.erro] || ('Erro ao salvar ('+(data.erro || ('HTTP '+r.status))+').'); msg.style.color='#ba1a1a'; return; }
+    msg.textContent='Usuário criado! ✓'; msg.style.color='#10b981';
+    $('formUsuario').reset(); atualizarCampoFazendaUsuario();
+    await carregarUsuarios();
+    setTimeout(()=>{ $('formUsuario').classList.add('hidden'); msg.textContent=''; }, 1200);
+  }catch(e){ msg.textContent='Erro ao salvar ('+e.message+').'; msg.style.color='#ba1a1a'; }
+}
+
 /* ---------- Perfil de acesso (role-based) ---------- */
 async function aplicarPerfil(){
   let me = {role:'sompo'};
@@ -742,8 +934,8 @@ async function aplicarPerfil(){
 
   if(perfilRole === 'gestor_fazenda'){
     // Esconde as abas de cadastro (portfolio) - o gestor so ve a propria fazenda.
-    document.querySelectorAll('[data-nav="fazendas"],[data-nav="clientes"]').forEach(a=>a.classList.add('hidden'));
-    if(viewAtual === 'fazendas' || viewAtual === 'clientes') setView('visao');
+    document.querySelectorAll('[data-nav="fazendas"],[data-nav="clientes"],[data-nav="usuarios"]').forEach(a=>a.classList.add('hidden'));
+    if(['fazendas','clientes','usuarios'].includes(viewAtual)) setView('visao');
     // Trava o dispositivo na fazenda do gestor (o backend tambem forca).
     if(me.dispositivo){ $('dispositivo').value = me.dispositivo; dispositivo = me.dispositivo; }
     $('deviceWrap').classList.add('hidden');
@@ -758,19 +950,46 @@ async function aplicarPerfil(){
 }
 
 async function carregarSeletorFazendas(){
-  // sompo: dropdown de fazendas (cada uma -> seu dispositivo) para trocar a visao.
+  // sompo: dropdown com TODAS as fazendas para trocar a visao. Cada uma aponta para
+  // seu dispositivo; fazenda sem dispositivo aparece marcada, mas sem telemetria.
   try{
     const d = await getJSON('/fazendas');
-    const fs = (d.dados||[]).filter(f=>f.dispositivo_id);
+    const fs = d.dados||[];
     if(!fs.length){ $('deviceWrap').classList.remove('hidden'); return; }  // sem fazendas: cai no input
-    $('fazendaSel').innerHTML = fs.map(f=>`<option value="${f.dispositivo_id}">${f.nome}</option>`).join('');
+    $('fazendaSel').innerHTML = fs.map(f=>{
+      const dev = f.dispositivo_id || '';
+      const rotulo = dev ? f.nome : (f.nome + ' (sem dispositivo)');
+      return `<option value="${dev}">${rotulo}</option>`;
+    }).join('');
     $('fazendaSelWrap').classList.remove('hidden');
-    $('dispositivo').value = fs[0].dispositivo_id; dispositivo = fs[0].dispositivo_id;
+    $('deviceWrap').classList.add('hidden');
+    // Padrao: a primeira fazenda COM dispositivo (a que tem dado ao vivo).
+    const comDev = fs.find(f=>f.dispositivo_id);
+    const escolhido = comDev ? comDev.dispositivo_id : '';
+    $('fazendaSel').value = escolhido;
+    $('dispositivo').value = escolhido; dispositivo = escolhido;
   }catch(e){ $('deviceWrap').classList.remove('hidden'); }
 }
 
+// Estado amigavel quando a fazenda selecionada nao tem dispositivo vinculado.
+function mostrarSemDispositivo(){
+  carregarSaude();
+  const aviso = 'Esta fazenda ainda não tem um dispositivo (ESP32) vinculado.';
+  $('kpis').innerHTML = `<div class="col-span-full text-on-surface-variant italic text-sm py-2">${aviso}</div>`;
+  $('kpiRisco').textContent = '–'; $('cardRisco').dataset.risco = 'seguro';
+  $('kpiAlertas').textContent = '0'; $('kpiFurto').textContent = '–'; $('kpiIncendio').textContent = '–';
+  $('sparkTemp').innerHTML = graficoTemp([]);
+  $('tabelaTelemetria').innerHTML = `<tr><td colspan="9" class="py-6 px-5 text-on-surface-variant italic">${aviso}</td></tr>`;
+  $('eventos').innerHTML = `<div class="text-on-surface-variant italic text-sm p-3">${aviso}</div>`;
+  $('alertasBadge').textContent = '0';
+  $('ultima').textContent = new Date().toLocaleTimeString('pt-BR');
+}
+
 async function carregarTudo(){
-  dispositivo = $('dispositivo').value.trim() || 'SOMPO-ESP32';
+  const bruto = $('dispositivo').value.trim();
+  // Seletor de fazenda pode apontar para uma fazenda sem dispositivo: avisa e nao busca dado.
+  if(!bruto && !$('fazendaSelWrap').classList.contains('hidden')){ mostrarSemDispositivo(); return; }
+  dispositivo = bruto || 'SOMPO-ESP32';
   await Promise.all([carregarSaude(), carregarRisco(), carregarTelemetria(), carregarEventos()]);
   $('ultima').textContent = new Date().toLocaleTimeString('pt-BR');
 }
@@ -807,7 +1026,22 @@ $('fazendaSel').addEventListener('change', ()=>{ $('dispositivo').value = $('faz
 $('eventos').addEventListener('click', e=>{ const c = e.target.closest('[data-ev]'); if(c) abrirEvento(eventosCache[+c.dataset.ev]); });
 $('mevFechar').addEventListener('click', fecharEvento);
 $('modalEvento').addEventListener('click', e=>{ if(e.target === $('modalEvento')) fecharEvento(); });
-document.addEventListener('keydown', e=>{ if(e.key === 'Escape') fecharEvento(); });
+
+// Cards de cliente/fazenda clicaveis -> modal de detalhe.
+$('listaClientes').addEventListener('click', e=>{ const c = e.target.closest('[data-cli]'); if(c) abrirCliente(clientesCache[+c.dataset.cli]); });
+$('listaFazendas').addEventListener('click', e=>{ const c = e.target.closest('[data-faz]'); if(c) abrirFazenda(fazendasCache[+c.dataset.faz]); });
+$('detFechar').addEventListener('click', fecharDetalhe);
+$('modalDetalhe').addEventListener('click', e=>{ if(e.target === $('modalDetalhe')) fecharDetalhe(); });
+// "Ver telemetria" no modal da fazenda -> aponta o seletor e abre a Telemetria.
+$('detCorpo').addEventListener('click', e=>{
+  const b = e.target.closest('[data-vertelemetria]'); if(!b) return;
+  const dev = b.dataset.vertelemetria;
+  if(!$('fazendaSelWrap').classList.contains('hidden')) $('fazendaSel').value = dev;
+  $('dispositivo').value = dev; dispositivo = dev;
+  fecharDetalhe(); setView('telemetria'); carregarTudo();
+});
+
+document.addEventListener('keydown', e=>{ if(e.key === 'Escape'){ fecharEvento(); fecharDetalhe(); } });
 
 // Fazendas: abrir/fechar o form, cadastrar.
 $('btnNovaFazenda').addEventListener('click', ()=>{
@@ -830,6 +1064,15 @@ $('linkNovoCliente').addEventListener('click', ()=>{
   $('clNome').focus();
 });
 
+// Usuarios: abrir/fechar o form, alternar o campo de fazenda, cadastrar.
+$('btnNovoUsuario').addEventListener('click', ()=>{
+  const f = $('formUsuario'); f.classList.toggle('hidden');
+  if(!f.classList.contains('hidden')){ atualizarCampoFazendaUsuario(); $('usUsuario').focus(); }
+});
+$('btnCancelarUsuario').addEventListener('click', ()=>{ $('formUsuario').classList.add('hidden'); $('usMsg').textContent=''; });
+$('usRole').addEventListener('change', atualizarCampoFazendaUsuario);
+$('formUsuario').addEventListener('submit', criarUsuario);
+
 // Init: descobre o perfil, ajusta a UI e SO ENTAO carrega os dados. Cadastro so p/ Sompo.
 (async function init(){
   await aplicarPerfil();
@@ -837,9 +1080,11 @@ $('linkNovoCliente').addEventListener('click', ()=>{
     carregarClientes();
     carregarFazendas();
     carregarListaClientes();
+    carregarUsuarios();
+    carregarUsuariosFazendaSelect();
   }
   carregarTudo();
-  setInterval(carregarTudo, 10000);
+  setInterval(carregarTudo, 5000);
 })();
 </script>
 </body>

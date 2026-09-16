@@ -41,6 +41,7 @@ from supabase_client import (
     consultar_fazendas,
     consultar_resumo,
     consultar_telemetria,
+    consultar_usuarios,
     inserir_tabela,
 )
 
@@ -435,11 +436,73 @@ def fazendas_criar():
         'nome': nome, 'localizacao': localizacao,
         'area_ha': area, 'fk_cliente_id_cliente': cliente_id,
     }
+    # Dispositivo (ESP32) que monitora esta fazenda. Opcional: uma fazenda pode ser
+    # cadastrada antes de ter um aparelho vinculado. So aparece com dado ao vivo a
+    # fazenda cujo dispositivo_id bate com o que o ESP32 envia (hoje "SOMPO-ESP32").
+    dispositivo_id = str(corpo.get('dispositivo_id', '')).strip()
+    if dispositivo_id:
+        payload['dispositivo_id'] = dispositivo_id
+
     try:
         criado = inserir_tabela('fazenda', payload)
         return jsonify({'ok': True, 'fazenda': criado}), 201
     except Exception as exc:
         return _erro('falha_ao_criar_fazenda', exc, 502)
+
+
+# ---------------------------------------------------------------------------
+# Cadastro de usuarios/logins do painel (aba "Usuarios"). So o perfil Sompo.
+# Senha em texto plano - demo academica, mesmo padrao de usuarios.sql.
+# ---------------------------------------------------------------------------
+_ROLES_VALIDAS = {'sompo', 'gestor_fazenda'}
+
+
+@app.get('/usuarios')
+@somente_sompo
+def usuarios_listar():
+    try:
+        dados = consultar_usuarios()
+        return jsonify({'total': len(dados), 'dados': dados}), 200
+    except Exception as exc:
+        return _erro('falha_na_consulta', exc, 502)
+
+
+@app.post('/usuarios')
+@somente_sompo
+def usuarios_criar():
+    corpo = request.get_json(silent=True) or {}
+    usuario = str(corpo.get('usuario', '')).strip()
+    if not usuario:
+        return jsonify({'erro': 'usuario_obrigatorio'}), 400
+    senha = str(corpo.get('senha', '')).strip()
+    if not senha:
+        return jsonify({'erro': 'senha_obrigatoria'}), 400
+    role = str(corpo.get('role', '')).strip()
+    if role not in _ROLES_VALIDAS:
+        return jsonify({'erro': 'role_invalida'}), 400
+
+    payload: Dict[str, Any] = {'usuario': usuario, 'senha': senha, 'role': role}
+    # gestor_fazenda tem de estar vinculado a uma fazenda (e o que escopa a visao dele).
+    if role == 'gestor_fazenda':
+        fazenda_id = corpo.get('fk_fazenda_id_fazenda')
+        if fazenda_id in (None, ''):
+            return jsonify({'erro': 'fazenda_obrigatoria'}), 400
+        try:
+            payload['fk_fazenda_id_fazenda'] = int(fazenda_id)
+        except (TypeError, ValueError):
+            return jsonify({'erro': 'fazenda_invalida'}), 400
+
+    try:
+        criado = inserir_tabela('usuario', payload)
+        if isinstance(criado, dict):
+            criado.pop('senha', None)   # nunca ecoa a senha de volta
+        return jsonify({'ok': True, 'usuario': criado}), 201
+    except Exception as exc:
+        # Usuario ja existe (unique violation 23505 do Postgres) -> mensagem amigavel.
+        texto = str(exc).lower()
+        if '23505' in texto or 'duplicate' in texto:
+            return jsonify({'erro': 'usuario_ja_existe'}), 409
+        return _erro('falha_ao_criar_usuario', exc, 502)
 
 
 if __name__ == '__main__':
