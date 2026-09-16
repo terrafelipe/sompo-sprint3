@@ -27,13 +27,13 @@ api/
 ├── .env / .env.example  # segredos (o .env fica local, gitignorado)
 ├── .gitignore
 ├── README.md
-├── Dockerfile           # imagem de producao (waitress; docker compose troca por gunicorn)
+├── Dockerfile           # imagem de producao (waitress) usada pelo Render
 ├── .dockerignore
 ├── static/
 │   └── index.html       # painel (dashboard) HTML
 ├── templates/
 │   └── login.html       # tela de login (sessao)
-└── tests/               # 32 testes (sem rede)
+└── tests/               # 48 testes (sem rede)
     ├── __init__.py
     ├── conftest.py
     ├── test_health.py
@@ -44,11 +44,13 @@ api/
     ├── test_relatorios.py
     ├── test_relatorio_risco_origens.py
     ├── test_documento.py
+    ├── test_fazendas.py            # cadastro de fazenda/cliente
+    ├── test_perfis.py              # controle de acesso por perfil (sompo x gestor)
     └── test_contrato_firmware.py   # firmware (.ino) x schema (.sql) x scores.py
 ```
 
-> Os guias (COMO_TESTAR, SEGURANCA, DEPLOY) ficam em [`../docs/`](../docs). Os arquivos de deploy
-> (`docker-compose*.yml`, `nginx/`, `render.yaml`) ficam na raiz do repo.
+> Os guias (COMO_TESTAR, SEGURANCA, DEPLOY) ficam em [`../docs/`](../docs). O arquivo de deploy
+> (`render.yaml`) fica na raiz do repo.
 
 ## Instalação
 

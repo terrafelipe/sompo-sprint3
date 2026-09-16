@@ -116,8 +116,8 @@ telemetria, eventos e o relatório de risco montados. O botão **📄 Exportar W
 risco como documento `.docx` (abre no Word/Google Docs), com os horários já em **Brasília**.
 
 > 🔐 **Login opcional:** com `PAINEL_SENHA` definida no `.env`, o painel pede usuário/senha em
-> `/login` (vazia = aberto, modo demo). Para publicar o painel na internet (Docker + Nginx, ou
-> Render), veja [`DEPLOY.md`](DEPLOY.md).
+> `/login` (vazia = aberto, modo demo). Para publicar o painel na internet (**Render**), veja
+> [`DEPLOY.md`](DEPLOY.md).
 
 Para parar a API: `Ctrl+C` no terminal dela.
 
