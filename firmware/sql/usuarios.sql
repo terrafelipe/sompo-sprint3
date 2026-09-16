@@ -1,9 +1,9 @@
 -- SOMPO - Perfis de acesso (role-based) do painel.
 --
 -- Cria a tabela `usuario` (login com role + fazenda vinculada) e semeia 3 logins de teste:
---   sompo    -> role 'sompo'          (subscritor: ve tudo, cadastra fazendas/clientes)
---   fazenda1 -> role 'gestor_fazenda' (ve so a Fazenda Santa Rita)
---   fazenda2 -> role 'gestor_fazenda' (ve so a Fazenda Vale Verde)
+--   sompo            -> role 'sompo'          (subscritor: ve tudo, cadastra fazendas/clientes)
+--   gestor.santarita -> role 'gestor_fazenda' (ve so a Fazenda Santa Rita)
+--   gestor.valeverde -> role 'gestor_fazenda' (ve so a Fazenda Vale Verde)
 --
 -- ATENCAO: senha em TEXTO PLANO de proposito - e uma demo academica (dados simulados, sem
 -- seguranca de producao). Nao use este padrao em producao. O RLS impede a chave anon (ESP32)
@@ -52,15 +52,19 @@ insert into public.usuario (usuario, senha, role, fk_fazenda_id_fazenda)
 select 'sompo', 'sompo123', 'sompo', null
 where not exists (select 1 from public.usuario where usuario = 'sompo');
 
-insert into public.usuario (usuario, senha, role, fk_fazenda_id_fazenda)
-select 'fazenda1', 'fazenda123', 'gestor_fazenda',
-       (select id_fazenda from public.fazenda where nome = 'Fazenda Santa Rita')
-where not exists (select 1 from public.usuario where usuario = 'fazenda1');
+-- Renomeia os logins antigos (fazenda1/fazenda2), se ja existirem, para os nomes didaticos.
+update public.usuario set usuario = 'gestor.santarita', senha = 'santarita123' where usuario = 'fazenda1';
+update public.usuario set usuario = 'gestor.valeverde', senha = 'valeverde123' where usuario = 'fazenda2';
 
 insert into public.usuario (usuario, senha, role, fk_fazenda_id_fazenda)
-select 'fazenda2', 'fazenda123', 'gestor_fazenda',
+select 'gestor.santarita', 'santarita123', 'gestor_fazenda',
+       (select id_fazenda from public.fazenda where nome = 'Fazenda Santa Rita')
+where not exists (select 1 from public.usuario where usuario = 'gestor.santarita');
+
+insert into public.usuario (usuario, senha, role, fk_fazenda_id_fazenda)
+select 'gestor.valeverde', 'valeverde123', 'gestor_fazenda',
        (select id_fazenda from public.fazenda where nome = 'Fazenda Vale Verde')
-where not exists (select 1 from public.usuario where usuario = 'fazenda2');
+where not exists (select 1 from public.usuario where usuario = 'gestor.valeverde');
 
 -- ==========================================================================
 -- 4. Telemetria/eventos simulados para o 2o dispositivo (para o gestor2 ver dado distinto)

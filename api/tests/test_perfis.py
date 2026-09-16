@@ -49,7 +49,9 @@ def test_sompo_cadastra_fazenda():
     client = app.test_client()
     _login_como(client, 'sompo')
     with patch('app.inserir_tabela', return_value={'id_fazenda': 1, 'nome': 'Nova'}):
-        response = client.post('/fazendas', json={'nome': 'Nova'})
+        response = client.post('/fazendas', json={
+            'nome': 'Nova', 'localizacao': 'SP', 'area_ha': '100', 'fk_cliente_id_cliente': '1',
+        })
     assert response.status_code == 201
 
 

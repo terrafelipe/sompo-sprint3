@@ -129,8 +129,8 @@ tabela `usuario` e semeia os logins de teste).
 | Usuário | Senha | Perfil | Enxerga |
 |---|---|---|---|
 | `sompo` | `sompo123` | Sompo | todas as fazendas + abas de cadastro |
-| `fazenda1` | `fazenda123` | Gestor de Fazenda | só a Fazenda Santa Rita (`SOMPO-ESP32`) |
-| `fazenda2` | `fazenda123` | Gestor de Fazenda | só a Fazenda Vale Verde (`SOMPO-ESP32-SIM`) |
+| `gestor.santarita` | `santarita123` | Gestor de Fazenda | só a Fazenda Santa Rita (`SOMPO-ESP32`) |
+| `gestor.valeverde` | `valeverde123` | Gestor de Fazenda | só a Fazenda Vale Verde (`SOMPO-ESP32-SIM`) |
 
 > Para demonstrar a troca de perfis ao vivo, o login precisa estar ligado (`PAINEL_SENHA` definida
 > no `.env`/Render). A credencial antiga (`PAINEL_USUARIO`/`PAINEL_SENHA`) continua valendo como um

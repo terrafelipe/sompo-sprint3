@@ -375,15 +375,16 @@ def clientes():
 @somente_sompo
 def clientes_criar():
     corpo = request.get_json(silent=True) or {}
-    nome = str(corpo.get('nome', '')).strip()
-    if not nome:
-        return jsonify({'erro': 'nome_obrigatorio'}), 400
-
-    payload: Dict[str, Any] = {'nome': nome}
-    for campo in ('cnpj', 'endereco', 'telefone', 'email'):
+    payload: Dict[str, Any] = {}
+    # Obrigatorios (para poder entrar em contato); o e-mail fica opcional.
+    for campo in ('nome', 'cnpj', 'telefone', 'endereco'):
         valor = str(corpo.get(campo, '')).strip()
-        if valor:
-            payload[campo] = valor
+        if not valor:
+            return jsonify({'erro': f'{campo}_obrigatorio'}), 400
+        payload[campo] = valor
+    email = str(corpo.get('email', '')).strip()
+    if email:
+        payload['email'] = email
 
     try:
         criado = inserir_tabela('cliente', payload)
@@ -410,26 +411,30 @@ def fazendas_criar():
     if not nome:
         return jsonify({'erro': 'nome_obrigatorio'}), 400
 
-    payload: Dict[str, Any] = {'nome': nome}
-
     localizacao = str(corpo.get('localizacao', '')).strip()
-    if localizacao:
-        payload['localizacao'] = localizacao
+    if not localizacao:
+        return jsonify({'erro': 'localizacao_obrigatoria'}), 400
 
     area = corpo.get('area_ha')
-    if area not in (None, ''):
-        try:
-            payload['area_ha'] = float(area)
-        except (TypeError, ValueError):
-            return jsonify({'erro': 'area_invalida'}), 400
+    if area in (None, ''):
+        return jsonify({'erro': 'area_obrigatoria'}), 400
+    try:
+        area = float(area)
+    except (TypeError, ValueError):
+        return jsonify({'erro': 'area_invalida'}), 400
 
     cliente_id = corpo.get('fk_cliente_id_cliente')
-    if cliente_id not in (None, ''):
-        try:
-            payload['fk_cliente_id_cliente'] = int(cliente_id)
-        except (TypeError, ValueError):
-            return jsonify({'erro': 'cliente_invalido'}), 400
+    if cliente_id in (None, ''):
+        return jsonify({'erro': 'cliente_obrigatorio'}), 400
+    try:
+        cliente_id = int(cliente_id)
+    except (TypeError, ValueError):
+        return jsonify({'erro': 'cliente_invalido'}), 400
 
+    payload: Dict[str, Any] = {
+        'nome': nome, 'localizacao': localizacao,
+        'area_ha': area, 'fk_cliente_id_cliente': cliente_id,
+    }
     try:
         criado = inserir_tabela('fazenda', payload)
         return jsonify({'ok': True, 'fazenda': criado}), 201

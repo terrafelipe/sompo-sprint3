@@ -259,16 +259,16 @@
             <input id="fzNome" required class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20" placeholder="Ex.: Fazenda Santa Rita"/>
           </div>
           <div>
-            <label class="block text-xs font-semibold text-on-surface-variant mb-1">Localização</label>
-            <input id="fzLocal" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20" placeholder="Ex.: Ribeirão Preto/SP"/>
+            <label class="block text-xs font-semibold text-on-surface-variant mb-1">Localização *</label>
+            <input id="fzLocal" required class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20" placeholder="Ex.: Ribeirão Preto/SP"/>
           </div>
           <div>
-            <label class="block text-xs font-semibold text-on-surface-variant mb-1">Área (hectares)</label>
-            <input id="fzArea" type="number" step="0.01" min="0" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20" placeholder="Ex.: 1200"/>
+            <label class="block text-xs font-semibold text-on-surface-variant mb-1">Área (hectares) *</label>
+            <input id="fzArea" type="number" step="0.01" min="0" required class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20" placeholder="Ex.: 1200"/>
           </div>
           <div class="md:col-span-2">
-            <label class="block text-xs font-semibold text-on-surface-variant mb-1">Cliente (dono)</label>
-            <select id="fzCliente" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20"></select>
+            <label class="block text-xs font-semibold text-on-surface-variant mb-1">Cliente (dono) *</label>
+            <select id="fzCliente" required class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20"></select>
             <button type="button" id="linkNovoCliente" class="mt-1.5 text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1"><span class="material-symbols-outlined text-[15px]">add</span>Não achou? Cadastrar novo cliente</button>
           </div>
           <div class="md:col-span-2 flex items-center gap-3 flex-wrap">
@@ -298,16 +298,16 @@
             <input id="clNome" required class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20" placeholder="Ex.: Construtora Andrade Ltda"/>
           </div>
           <div>
-            <label class="block text-xs font-semibold text-on-surface-variant mb-1">CNPJ</label>
-            <input id="clCnpj" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20" placeholder="00.000.000/0001-00"/>
+            <label class="block text-xs font-semibold text-on-surface-variant mb-1">CNPJ *</label>
+            <input id="clCnpj" required class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20" placeholder="00.000.000/0001-00"/>
           </div>
           <div>
-            <label class="block text-xs font-semibold text-on-surface-variant mb-1">Telefone</label>
-            <input id="clTel" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20" placeholder="(11) 90000-0000"/>
+            <label class="block text-xs font-semibold text-on-surface-variant mb-1">Telefone *</label>
+            <input id="clTel" required class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20" placeholder="(11) 90000-0000"/>
           </div>
           <div class="md:col-span-2">
-            <label class="block text-xs font-semibold text-on-surface-variant mb-1">Endereço</label>
-            <input id="clEnd" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20" placeholder="Av. Paulista, 1000 - São Paulo/SP"/>
+            <label class="block text-xs font-semibold text-on-surface-variant mb-1">Endereço *</label>
+            <input id="clEnd" required class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20" placeholder="Av. Paulista, 1000 - São Paulo/SP"/>
           </div>
           <div class="md:col-span-2">
             <label class="block text-xs font-semibold text-on-surface-variant mb-1">E-mail</label>
@@ -330,10 +330,32 @@
   </main>
 </div>
 
+<!-- Modal de detalhes do alerta (clique num evento do feed) -->
+<div id="modalEvento" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+  <div class="bg-surface-container-lowest rounded-2xl shadow-xl w-full max-w-md p-6">
+    <div class="flex items-start justify-between mb-4">
+      <div class="flex items-center gap-3">
+        <div id="mevIcone" class="w-11 h-11 rounded-full flex items-center justify-center shrink-0">
+          <span class="material-symbols-outlined">warning</span>
+        </div>
+        <div>
+          <h3 id="mevTitulo" class="text-lg font-bold text-on-surface leading-tight"></h3>
+          <span id="mevSev" class="text-[11px] font-bold px-2 py-0.5 rounded inline-block mt-1"></span>
+        </div>
+      </div>
+      <button id="mevFechar" class="text-on-surface-variant hover:text-primary transition-colors" aria-label="Fechar">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <dl id="mevCorpo" class="text-sm"></dl>
+  </div>
+</div>
+
 <script>
 const $ = id => document.getElementById(id);
 let dispositivo = 'SOMPO-ESP32';
 let perfilRole = 'sompo';   // definido por /me no init
+let eventosCache = [];      // eventos renderizados no feed (para o modal de detalhes)
 
 const RISCO = {ALTO:'#ba1a1a', MEDIO:'#f59e0b', BAIXO:'#10b981'};
 const corRisco = c => RISCO[c] || RISCO.BAIXO;
@@ -515,9 +537,10 @@ async function carregarEventos(){
     $('kpiAlertas').textContent = evs.length;
     if(!evs.length){ $('eventos').innerHTML = '<div class="text-on-surface-variant italic text-sm p-3">Nenhum evento no período. 🎉</div>'; return; }
     const icone = t => { t=String(t||'').toLowerCase(); if(t.includes('chama')||t.includes('escape')||t.includes('incend'))return 'local_fire_department'; if(t.includes('movimento')||t.includes('furto'))return 'directions_run'; if(t.includes('autoriz')||t.includes('operador'))return 'badge'; return 'warning'; };
-    $('eventos').innerHTML = evs.slice(0,20).map(e=>{
+    eventosCache = evs.slice(0,20);
+    $('eventos').innerHTML = eventosCache.map((e,i)=>{
       const s = e.severidade ?? 0, cor = sevCor(s);
-      return `<div class="flex gap-3 p-3 rounded-lg hover:bg-surface-container-low/60 transition-colors">
+      return `<div data-ev="${i}" title="Ver detalhes" class="flex gap-3 p-3 rounded-lg hover:bg-surface-container-low/60 transition-colors cursor-pointer">
         <div class="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style="background:${cor}1a">
           <span class="material-symbols-outlined text-[18px]" style="color:${cor}">${icone(e.tipo)}</span>
         </div>
@@ -534,6 +557,41 @@ async function carregarEventos(){
     $('eventos').innerHTML = '<div class="text-on-surface-variant italic text-sm p-3">Eventos indisponíveis.</div>';
   }
 }
+
+/* ---------- Detalhe do alerta (modal) ---------- */
+const TITULO_TIPO = {
+  chama_detectada:'Chama detectada', escape_critico:'Escape crítico', escape_atencao:'Escape em atenção',
+  furto_adulteracao:'Adulteração / vibração', furto_capo:'Capô aberto', furto_tanque:'Tanque aberto',
+  operador_nao_autorizado:'Partida sem crachá', sensor_falha:'Sensor de adulteração removido'
+};
+const ROTULO_DET = {
+  vibracao_g:'Vibração (g)', limiar_ms2:'Limiar (m/s²)', limiar_c:'Limiar (°C)',
+  sensor:'Sensor', a0:'Leitura A0 (raw)', origem:'Origem'
+};
+const linhaDet = (rot,val)=>`<div class="flex justify-between gap-4 py-2 border-b border-outline-variant/20 last:border-0"><dt class="text-on-surface-variant">${rot}</dt><dd class="font-semibold text-on-surface text-right break-all">${val}</dd></div>`;
+
+function abrirEvento(e){
+  if(!e) return;
+  const s = e.severidade ?? 0, cor = sevCor(s);
+  const ic = $('mevIcone').querySelector('span');
+  const tl = String(e.tipo||'').toLowerCase();
+  ic.textContent = (tl.includes('chama')||tl.includes('escape')||tl.includes('incend')) ? 'local_fire_department'
+                 : (tl.includes('furto')||tl.includes('operador')) ? 'lock' : 'warning';
+  ic.style.color = cor;
+  $('mevIcone').style.background = cor+'1a';
+  $('mevTitulo').textContent = TITULO_TIPO[e.tipo] || (e.tipo || 'Evento');
+  $('mevSev').textContent = 'Severidade ' + s;
+  $('mevSev').style.background = cor+'1a'; $('mevSev').style.color = cor;
+
+  let det = e.detalhes;
+  if(typeof det === 'string'){ try{ det = JSON.parse(det); }catch(_){ det = {texto:det}; } }
+  let html = linhaDet('Quando', fmtHora(e.criado_em)) + linhaDet('Dispositivo', e.dispositivo_id || '—');
+  if(e.temp_escape != null) html += linhaDet('Temp. de escape', e.temp_escape + ' °C');
+  if(det && typeof det === 'object') for(const [k,v] of Object.entries(det)) html += linhaDet(ROTULO_DET[k] || k, String(v));
+  $('mevCorpo').innerHTML = html;
+  $('modalEvento').classList.remove('hidden');
+}
+const fecharEvento = ()=> $('modalEvento').classList.add('hidden');
 
 /* ---------- Fazendas (cadastro) ---------- */
 async function carregarClientes(){
@@ -702,6 +760,12 @@ $('btnBaixar').addEventListener('click', () => {
 });
 $('dispositivo').addEventListener('change', carregarTudo);
 $('fazendaSel').addEventListener('change', ()=>{ $('dispositivo').value = $('fazendaSel').value; carregarTudo(); });
+
+// Feed de alertas clicavel -> modal com os detalhes do evento.
+$('eventos').addEventListener('click', e=>{ const c = e.target.closest('[data-ev]'); if(c) abrirEvento(eventosCache[+c.dataset.ev]); });
+$('mevFechar').addEventListener('click', fecharEvento);
+$('modalEvento').addEventListener('click', e=>{ if(e.target === $('modalEvento')) fecharEvento(); });
+document.addEventListener('keydown', e=>{ if(e.key === 'Escape') fecharEvento(); });
 
 // Fazendas: abrir/fechar o form, cadastrar.
 $('btnNovaFazenda').addEventListener('click', ()=>{

@@ -29,6 +29,8 @@ def test_criar_cliente_sucesso():
         response = client.post('/clientes', json={
             'nome': '  Fazendas Reunidas  ',
             'cnpj': '11.111.111/0001-11',
+            'telefone': '(11) 90000-0000',
+            'endereco': 'Rua X, 1 - SP',
             'email': '',
         })
     assert response.status_code == 201
@@ -39,7 +41,16 @@ def test_criar_cliente_sucesso():
     assert tabela == 'cliente'
     assert payload['nome'] == 'Fazendas Reunidas'      # sem espaços
     assert payload['cnpj'] == '11.111.111/0001-11'
-    assert 'email' not in payload                       # campo vazio é omitido
+    assert 'email' not in payload                       # campo vazio (opcional) é omitido
+
+
+def test_criar_cliente_sem_telefone_da_400():
+    client = app.test_client()
+    with patch('app.inserir_tabela') as mock_inserir:
+        response = client.post('/clientes', json={'nome': 'X', 'cnpj': '1', 'endereco': 'Rua Y'})
+    assert response.status_code == 400
+    assert response.get_json()['erro'] == 'telefone_obrigatorio'
+    mock_inserir.assert_not_called()
 
 
 def test_criar_cliente_sem_nome_da_400():
@@ -85,7 +96,18 @@ def test_criar_fazenda_sem_nome_da_400():
 def test_criar_fazenda_area_invalida_da_400():
     client = app.test_client()
     with patch('app.inserir_tabela') as mock_inserir:
-        response = client.post('/fazendas', json={'nome': 'X', 'area_ha': 'abc'})
+        response = client.post('/fazendas', json={
+            'nome': 'X', 'localizacao': 'SP', 'area_ha': 'abc', 'fk_cliente_id_cliente': '1',
+        })
     assert response.status_code == 400
     assert response.get_json()['erro'] == 'area_invalida'
+    mock_inserir.assert_not_called()
+
+
+def test_criar_fazenda_sem_localizacao_da_400():
+    client = app.test_client()
+    with patch('app.inserir_tabela') as mock_inserir:
+        response = client.post('/fazendas', json={'nome': 'X'})
+    assert response.status_code == 400
+    assert response.get_json()['erro'] == 'localizacao_obrigatoria'
     mock_inserir.assert_not_called()
