@@ -22,6 +22,35 @@ def test_listar_clientes():
     assert response.get_json()['total'] == 1
 
 
+def test_criar_cliente_sucesso():
+    client = app.test_client()
+    criado = {'id_cliente': 3, 'nome': 'Fazendas Reunidas', 'cnpj': '11.111.111/0001-11'}
+    with patch('app.inserir_tabela', return_value=criado) as mock_inserir:
+        response = client.post('/clientes', json={
+            'nome': '  Fazendas Reunidas  ',
+            'cnpj': '11.111.111/0001-11',
+            'email': '',
+        })
+    assert response.status_code == 201
+    data = response.get_json()
+    assert data['ok'] is True
+    assert data['cliente']['id_cliente'] == 3
+    tabela, payload = mock_inserir.call_args.args
+    assert tabela == 'cliente'
+    assert payload['nome'] == 'Fazendas Reunidas'      # sem espaços
+    assert payload['cnpj'] == '11.111.111/0001-11'
+    assert 'email' not in payload                       # campo vazio é omitido
+
+
+def test_criar_cliente_sem_nome_da_400():
+    client = app.test_client()
+    with patch('app.inserir_tabela') as mock_inserir:
+        response = client.post('/clientes', json={'cnpj': '00.000.000/0001-00'})
+    assert response.status_code == 400
+    assert response.get_json()['erro'] == 'nome_obrigatorio'
+    mock_inserir.assert_not_called()
+
+
 def test_criar_fazenda_sucesso():
     client = app.test_client()
     criado = {'id_fazenda': 7, 'nome': 'Santa Rita', 'area_ha': 1200.0, 'fk_cliente_id_cliente': 1}

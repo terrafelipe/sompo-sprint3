@@ -319,7 +319,7 @@ const NAV_ON = ' bg-primary text-on-primary';
 const NAV_OFF = ' text-on-surface-variant hover:bg-surface-container-high';
 const CHIP_ON = ' bg-primary text-on-primary';
 const CHIP_OFF = ' bg-surface-container text-on-surface-variant';
-const TITULOS = {visao:'Visão Geral', risco:'Análise de Risco', telemetria:'Telemetria', alertas:'Alertas', fazendas:'Fazendas'};
+const TITULOS = {visao:'Visão Geral', risco:'Análise de Risco', telemetria:'Telemetria', alertas:'Alertas', fazendas:'Fazendas', clientes:'Clientes'};
 // Para cada view, quais seções aparecem e com qual largura (colunas de 12).
 const VIEWS = {
   visao:      {kpis:true, risco:12, telemetria:8, alertas:4, tabela:12},
@@ -327,6 +327,7 @@ const VIEWS = {
   telemetria: {telemetria:12, tabela:12},
   alertas:    {alertas:12},
   fazendas:   {fazendas:12},
+  clientes:   {clientes:12},
 };
 
 let viewAtual = 'visao';
@@ -369,10 +370,20 @@ function sparkline(values){
   const w=320,h=64,pad=6, min=Math.min(...nums), max=Math.max(...nums), range=(max-min)||1, step=w/(nums.length-1);
   const pts = nums.map((v,i)=>`${(i*step).toFixed(1)},${(h - pad - ((v-min)/range)*(h-2*pad)).toFixed(1)}`);
   const line = pts.join(' ');
-  return `<svg viewBox="0 0 ${w} ${h}" class="w-full h-16" preserveAspectRatio="none">
-    <polygon points="0,${h} ${line} ${w},${h}" fill="rgba(183,1,0,0.07)"/>
-    <polyline points="${line}" fill="none" stroke="#b70100" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-  </svg>`;
+  const last = nums[nums.length-1];
+  const r1 = v => (Math.round(v*10)/10);
+  // Rotulos como HTML (fora do SVG): dentro dele o preserveAspectRatio="none" distorceria o texto.
+  return `<div>
+    <div class="flex justify-between items-baseline text-[11px] text-on-surface-variant mb-1">
+      <span>máx <b class="text-on-surface">${r1(max)} °C</b></span>
+      <span>atual <b class="text-primary">${r1(last)} °C</b></span>
+      <span>mín <b class="text-on-surface">${r1(min)} °C</b></span>
+    </div>
+    <svg viewBox="0 0 ${w} ${h}" class="w-full h-16" preserveAspectRatio="none">
+      <polygon points="0,${h} ${line} ${w},${h}" fill="rgba(183,1,0,0.07)"/>
+      <polyline points="${line}" fill="none" stroke="#b70100" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    </svg>
+  </div>`;
 }
 
 async function carregarSaude(){
@@ -550,6 +561,47 @@ async function criarFazenda(ev){
   }catch(e){ msg.textContent='Erro ao salvar ('+e.message+').'; msg.style.color='#ba1a1a'; }
 }
 
+/* ---------- Clientes (cadastro) ---------- */
+async function carregarListaClientes(){
+  try{
+    const d = await getJSON('/clientes');
+    const cs = d.dados||[];
+    if(!cs.length){ $('listaClientes').innerHTML = '<div class="text-on-surface-variant italic text-sm py-4">Nenhum cliente cadastrado ainda.</div>'; return; }
+    $('listaClientes').innerHTML = cs.map(c=>`<div class="flex items-start gap-3 p-4 rounded-xl bg-surface-container-low">
+      <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+        <span class="material-symbols-outlined text-primary">person</span>
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="font-semibold text-on-surface">${c.nome||'(sem nome)'}</div>
+        ${c.cnpj?`<div class="text-[13px] text-on-surface-variant mt-0.5 inline-flex items-center gap-1"><span class="material-symbols-outlined text-[15px]">badge</span>${c.cnpj}</div>`:''}
+      </div>
+    </div>`).join('');
+  }catch(e){ $('listaClientes').innerHTML = '<div class="text-on-surface-variant italic text-sm py-4">Lista de clientes indisponível.</div>'; }
+}
+
+async function criarCliente(ev){
+  ev.preventDefault();
+  const msg = $('clMsg');
+  const nome = $('clNome').value.trim();
+  if(!nome){ msg.textContent='Informe o nome.'; msg.style.color='#ba1a1a'; return; }
+  const payload = {
+    nome,
+    cnpj: $('clCnpj').value.trim(),
+    telefone: $('clTel').value.trim(),
+    endereco: $('clEnd').value.trim(),
+    email: $('clEmail').value.trim()
+  };
+  msg.textContent='Salvando…'; msg.style.color='#545f73';
+  try{
+    const r = await fetch('/clientes', {method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json'}, body: JSON.stringify(payload)});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    msg.textContent='Cliente cadastrado! ✓'; msg.style.color='#10b981';
+    $('formCliente').reset();
+    await Promise.all([carregarListaClientes(), carregarClientes()]);  // atualiza a lista E o dropdown de fazenda
+    setTimeout(()=>{ $('formCliente').classList.add('hidden'); msg.textContent=''; }, 1200);
+  }catch(e){ msg.textContent='Erro ao salvar ('+e.message+').'; msg.style.color='#ba1a1a'; }
+}
+
 async function carregarTudo(){
   dispositivo = $('dispositivo').value.trim() || 'SOMPO-ESP32';
   await Promise.all([carregarSaude(), carregarRisco(), carregarTelemetria(), carregarEventos()]);
@@ -592,6 +644,20 @@ $('btnCancelarFazenda').addEventListener('click', ()=>{ $('formFazenda').classLi
 $('formFazenda').addEventListener('submit', criarFazenda);
 carregarClientes();
 carregarFazendas();
+
+// Clientes: abrir/fechar o form, cadastrar, e o atalho vindo do form de fazenda.
+$('btnNovoCliente').addEventListener('click', ()=>{
+  const f = $('formCliente'); f.classList.toggle('hidden');
+  if(!f.classList.contains('hidden')) $('clNome').focus();
+});
+$('btnCancelarCliente').addEventListener('click', ()=>{ $('formCliente').classList.add('hidden'); $('clMsg').textContent=''; });
+$('formCliente').addEventListener('submit', criarCliente);
+$('linkNovoCliente').addEventListener('click', ()=>{
+  setView('clientes');
+  $('formCliente').classList.remove('hidden');
+  $('clNome').focus();
+});
+carregarListaClientes();
 
 carregarTudo();
 setInterval(carregarTudo, 10000);
