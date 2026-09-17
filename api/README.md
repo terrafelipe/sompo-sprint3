@@ -89,7 +89,8 @@ SESSAO_HORAS=24
 ```
 
 Variáveis de segurança:
-- `SOMPO_API_KEY` — vazio desliga a autenticação da API por header (modo demo). Se definido,
+- `SOMPO_API_KEY` — deve ficar vazia no Render com o painel atual, autenticado por sessão.
+  Vazia desliga somente a exigência do header; o login continua ativo. Se definido,
   toda rota (menos `/saude`) exige o header `X-API-Key` com esse valor.
 - `CORS_ORIGINS` — origens liberadas para CORS, separadas por vírgula. Vazio = nenhuma.
 - `PAINEL_SENHA` — vazio desliga o login do painel (demo local aberta). Se definido, **todo o
@@ -119,7 +120,7 @@ pytest
 
 ## Autenticação (header `X-API-Key`)
 
-Quando `SOMPO_API_KEY` está definida (produção), **toda rota — exceto `/saude`** — exige o
+Para clientes externos, quando `SOMPO_API_KEY` está definida, **toda rota — exceto `/saude`** — exige o
 header `X-API-Key` com o valor da chave. Sem o header, ou com valor errado, a API responde
 `401` e **não** processa a rota:
 
@@ -135,7 +136,8 @@ curl -H "X-API-Key: SUA_CHAVE" "https://sua-api.onrender.com/telemetria?disposit
 
 No Postman: aba **Headers** → `Key = X-API-Key`, `Value = SUA_CHAVE`.
 
-Com `SOMPO_API_KEY` vazia (modo demo), nenhuma rota exige o header.
+Com `SOMPO_API_KEY` vazia, nenhuma rota exige o header. Esta é a configuração do painel
+no Render: a sessão de login protege o acesso quando `PAINEL_SENHA` está definida.
 
 ## Endpoints
 

@@ -384,3 +384,26 @@ os horários em Brasília — mais fácil de ler/apresentar que o JSON.
   SSID/senha simples; deixe os dados móveis ligados.
 - **quer o relatório com IA de verdade:** preencher `LLM_API_KEY` no `.env` (sem ela a origem fica
   `prompt_apenas`, que é o esperado).
+# Regressão de navegação e frota (17/09/2026)
+
+Na raiz, crie um ambiente local e instale as dependências de teste:
+
+```powershell
+python -m venv .venv
+.venv/Scripts/python.exe -m pip install -r api/requirements-test.txt
+.venv/Scripts/python.exe -m playwright install chromium
+cd api
+../.venv/Scripts/python.exe -m pytest -q
+```
+
+Se o Edge estiver instalado, pode dispensar o download do Chromium definindo
+`$env:SOMPO_TEST_BROWSER='msedge'` antes do pytest. Só API:
+`../.venv/Scripts/python.exe -m pytest -q --ignore=tests/test_painel.py`.
+
+Os testes do painel usam a página real com respostas HTTP simuladas em `painel.test`,
+nos tamanhos 1280×900 e 390×900. Incluem menus sem máquina, refresh de cinco segundos,
+troca de fazenda com resposta atrasada, permissões após resize, falha/vazio/nova tentativa,
+cadastro completo, matrícula opcional, detalhe e atalho de telemetria, além do download.
+Os assets visuais (Tailwind/fontes) usam os mesmos CDNs do painel e exigem rede.
+O teste da API abre o Word e confere máquina, fazenda e dispositivo selecionados.
+Todas as escritas usam fixtures de teste; não executar cadastros de teste em produção.

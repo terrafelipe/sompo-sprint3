@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SOMPO · Painel de Risco</title>
 <style>
+  [hidden]{display:none!important}
+  button:disabled{opacity:.55;cursor:not-allowed}
   @layer base{html,body{margin:0;padding:0}}
   ::-webkit-scrollbar{width:8px;height:8px}
   ::-webkit-scrollbar-thumb{background:#e9bcb5;border-radius:8px}
@@ -82,7 +84,7 @@
 <div class="lg:pl-64 min-w-0 max-w-full overflow-x-hidden">
 
   <!-- HEADER -->
-  <header class="sticky top-0 z-40 bg-surface/80 backdrop-blur-xl border-b border-outline-variant/30 px-4 lg:px-8 py-3 lg:py-0 lg:h-20 flex flex-wrap items-center gap-3">
+  <header class="sticky top-0 z-40 bg-surface/80 backdrop-blur-xl border-b border-outline-variant/30 px-4 lg:px-8 py-3 lg:min-h-20 flex flex-wrap items-center gap-3">
     <!-- Nav mobile (sidebar some no celular) -->
     <div class="lg:hidden flex items-center gap-2 font-extrabold text-primary mr-1">
       <span class="material-symbols-outlined">agriculture</span> SOMPO
@@ -117,7 +119,7 @@
     </button>
     <button id="btnBaixar" title="Baixar o relatório de risco em Word (.docx)"
             class="inline-flex items-center gap-1.5 bg-primary text-on-primary font-semibold px-3 sm:px-4 py-2 rounded-lg shadow-md hover:bg-on-primary-fixed-variant transition-all">
-      <span class="material-symbols-outlined text-[18px]">download</span><span class="hidden sm:inline">Exportar Word</span>
+      <span class="material-symbols-outlined text-[18px]">download</span><span>Exportar Word</span>
     </button>
     <a href="/logout" class="lg:hidden inline-flex items-center p-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high" title="Sair">
       <span class="material-symbols-outlined">logout</span>
@@ -148,6 +150,9 @@
       <div class="text-xs text-on-surface-variant">Atualizado às <span id="ultima" class="font-semibold text-on-surface">–</span> · auto-refresh 5s</div>
     </div>
 
+    <div id="semMaquina" hidden class="bg-surface-container-lowest rounded-xl p-6 mb-6" role="status">Selecione uma máquina para consultar esta aba. <button id="selecionarNoAviso" class="text-primary font-semibold underline">Selecionar máquina</button></div>
+    <p id="wordAjuda" class="text-xs text-on-surface-variant mb-4">Selecione uma máquina para exportar o relatório Word.</p>
+    <div id="frotaEstado" role="status"></div>
     <!-- KPI CARDS (só na Visão Geral) -->
     <div data-section="kpis" class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
       <div id="cardRisco" class="relative bg-surface-container-lowest p-5 rounded-2xl shadow-sm transition-shadow">
@@ -276,6 +281,10 @@
           <div><label class="block text-xs font-semibold text-on-surface-variant mb-1">Tipo</label><input id="maqTipo" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2" placeholder="Trator, colheitadeira..."/></div>
           <div><label class="block text-xs font-semibold text-on-surface-variant mb-1">Modelo</label><input id="maqModelo" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2"/></div>
           <div class="md:col-span-2"><label class="block text-xs font-semibold text-on-surface-variant mb-1">ID do ESP32</label><input id="maqDispositivo" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2" placeholder="Ex.: SOMPO-ESP32"/></div>
+          <div><label for="maqFabricacao" class="block text-xs font-semibold mb-1">Fabricação</label><input id="maqFabricacao" type="date" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2"/></div>
+          <div><label for="maqManutencao" class="block text-xs font-semibold mb-1">Última manutenção</label><input id="maqManutencao" type="date" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2"/></div>
+          <div><label for="maqValor" class="block text-xs font-semibold mb-1">Valor segurado (R$)</label><input id="maqValor" type="number" min="0" step="0.01" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2"/></div>
+          <p class="text-xs">O cliente proprietário é definido pela fazenda escolhida. O ID do equipamento é gerado no cadastro; o ID do ESP32 identifica o dispositivo físico.</p>
           <div class="md:col-span-2 flex items-center gap-3"><button type="submit" class="bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg">Salvar máquina</button><button type="button" id="btnCancelarMaquina" class="font-semibold text-on-surface-variant px-3 py-2">Cancelar</button><span id="maqMsg" class="text-[13px] font-semibold"></span></div>
         </form>
         <div id="listaMaquinas" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
@@ -289,8 +298,8 @@
         </div>
         <form id="formOperador" class="hidden bg-surface-container-low rounded-xl p-5 mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
           <div><label class="block text-xs font-semibold text-on-surface-variant mb-1">Nome *</label><input id="opNome" required class="w-full bg-surface-container-lowest rounded-lg px-3 py-2"/></div>
-          <div><label class="block text-xs font-semibold text-on-surface-variant mb-1">Matrícula</label><input id="opMatricula" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2"/></div>
-          <div><label class="block text-xs font-semibold text-on-surface-variant mb-1">UID do crachá *</label><input id="opUid" required class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 uppercase" placeholder="8B EE BC 06"/></div>
+          <div><label for="opMatricula" class="block text-xs font-semibold text-on-surface-variant mb-1">Matrícula (opcional)</label><input aria-describedby="matriculaAjuda" id="opMatricula" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2"/><p id="matriculaAjuda" class="text-xs text-on-surface-variant mt-1">Código interno do funcionário, se houver.</p></div>
+          <div><label class="block text-xs font-semibold text-on-surface-variant mb-1">UID do crachá * — identificador RFID</label><input id="opUid" required class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 uppercase" placeholder="8B EE BC 06" aria-description="Identificador do crachá RFID"/></div>
           <div id="opFazendaWrap"><label class="block text-xs font-semibold text-on-surface-variant mb-1">Fazenda *</label><select id="opFazenda" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2"></select></div>
           <div class="md:col-span-2 flex items-center gap-3"><button type="submit" class="bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg">Salvar operador</button><button type="button" id="btnCancelarOperador" class="font-semibold text-on-surface-variant px-3 py-2">Cancelar</button><span id="opMsg" class="text-[13px] font-semibold"></span></div>
         </form>
@@ -475,6 +484,7 @@
 
 <script>
 const $ = id => document.getElementById(id);
+let contextoVersao = 0;
 let dispositivo = 'SOMPO-ESP32';
 let equipamentoSelecionado = null;
 let fazendaSelecionada = null;
@@ -515,7 +525,11 @@ const VIEWS = {
 };
 
 let viewAtual = 'maquinas';
+const restrita = view => perfilRole !== 'sompo' && ['fazendas','clientes','usuarios'].includes(view);
+const dependeMaquina = view => ['visao','risco','telemetria','alertas'].includes(view);
 function setView(view){
+  if(restrita(view)) view = 'maquinas';
+  const mudou = viewAtual !== view;
   viewAtual = view;
   const cfg = VIEWS[view] || VIEWS.visao;
   // Os spans de 12 colunas só valem no desktop (lg). No mobile o grid é de 1 coluna,
@@ -523,7 +537,7 @@ function setView(view){
   const desktop = window.matchMedia('(min-width:1024px)').matches;
   document.querySelectorAll('[data-section]').forEach(el => {
     const k = el.dataset.section;
-    if (cfg[k]) {
+    if (cfg[k] && !(dependeMaquina(view) && !equipamentoSelecionado)) {
       el.style.display = '';
       el.style.gridColumn = (desktop && typeof cfg[k] === 'number') ? ('span ' + cfg[k] + ' / span ' + cfg[k]) : '';
     } else {
@@ -539,14 +553,52 @@ function setView(view){
     a.className = 'whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors' + (a.dataset.nav === view ? CHIP_ON : CHIP_OFF);
   });
   $('tituloView').textContent = TITULOS[view] || 'Visão Geral';
-  $('btnBaixar').classList.toggle('hidden', !equipamentoSelecionado);
-  window.scrollTo({top:0, behavior:'smooth'});
+  document.querySelectorAll('[data-nav]').forEach(a => { a.hidden = restrita(a.dataset.nav); });
+  $('semMaquina').hidden = !dependeMaquina(view) || !!equipamentoSelecionado;
+  $('btnBaixar').classList.remove('hidden');
+  $('btnBaixar').disabled = !equipamentoSelecionado;
+  $('btnBaixar').title = equipamentoSelecionado ? 'Baixar relatório da máquina selecionada' : 'Selecione uma máquina para exportar';
+  $('btnBaixar').setAttribute('aria-describedby', 'wordAjuda');
+  $('wordAjuda').hidden = !!equipamentoSelecionado;
+  if(mudou) window.scrollTo({top:0, behavior:'smooth'});
 }
 
 async function getJSON(path){
-  const r = await fetch(path, {headers:{'Accept':'application/json'}});
-  if(!r.ok) throw new Error('HTTP '+r.status);
-  return r.json();
+  const versao = contextoVersao;
+  const obsoleto = () => versao !== contextoVersao;
+  try {
+    const r = await fetch(path, {headers:{'Accept':'application/json'}});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const dados = await r.json();
+    if(obsoleto()) throw new Error('Resposta antiga');
+    return dados;
+  } catch(e) { if(obsoleto()) e.obsoleto = true; throw e; }
+}
+const erroLista = mensagem => `<div role="alert" class="col-span-full text-error py-4">${mensagem} <button data-tentar class="underline font-semibold">Tentar novamente</button></div>`;
+function iniciando(id){ if(!$(id).innerHTML.trim() || $(id).querySelector('[data-tentar]')) $(id).textContent = 'Carregando…'; }
+function limparMaquina(){
+  contextoVersao++;
+  equipamentoSelecionado = null; dispositivo = ''; eventosCache = [];
+  ['kpis','sparkTemp','tabelaTelemetria','eventos','justFurto','justIncendio','recs','lim','origemBadge'].forEach(id => $(id).innerHTML = '');
+  ['kpiRisco','kpiFurto','kpiIncendio','kpiAlertas','scoreFurto','scoreIncendio','classifFurto','classifIncendio','alertasBadge'].forEach(id => $(id).textContent = '–');
+  ['barFurto','barIncendio'].forEach(id => $(id).style.width = '0%');
+  $('cardRisco').dataset.risco = 'seguro';
+  $('equipamentoSel').value = '';
+  fecharDetalhe(); fecharEvento();
+}
+async function trocarFazenda(id){
+  limparMaquina(); fazendaSelecionada = id;
+  maquinasCache = []; operadoresCache = [];
+  ['listaMaquinas','listaOperadores','listaHistorico'].forEach(id => $(id).innerHTML = '');
+  $('resumoFazendaNome').textContent = 'Carregando…';
+  $('equipamentoSel').innerHTML = '<option value="">Selecione uma máquina</option>';
+  $('fazendaSel').value = String(id);
+  opcoesFazenda($('maqFazenda'),id); opcoesFazenda($('opFazenda'),id);
+  setView(viewAtual);
+  const versao = contextoVersao;
+  await carregarResumoFazenda();
+  if(versao !== contextoVersao) return;
+  await carregarTudo();
 }
 const seletorEquipamento = () => equipamentoSelecionado
   ? `equipamento=${encodeURIComponent(equipamentoSelecionado)}`
@@ -611,13 +663,14 @@ async function carregarSaude(){
     $('saudeDot').className = 'w-2 h-2 rounded-full ' + (ok ? 'bg-ok animate-pulse' : 'bg-error');
     $('saudeTxt').textContent = ok ? 'API e banco OK' : 'Banco indisponível';
     $('fonteBanco').textContent = ok ? 'Fonte: Supabase conectado.' : 'Fonte: Supabase indisponível.';
-  }catch(e){
+  }catch(e){ if(e.obsoleto) return;
     $('saudeDot').className = 'w-2 h-2 rounded-full bg-error';
     $('saudeTxt').textContent = 'API offline';
   }
 }
 
 async function carregarRisco(){
+  iniciando('justFurto');
   try{
     const d = await getJSON(`/relatorio/risco?${seletorEquipamento()}&dias=7`);
     const sf = d.score_furto ?? 0, si = d.score_incendio ?? 0;
@@ -636,12 +689,16 @@ async function carregarRisco(){
     const org = d.origem_da_analise || '';
     const meta = {llm:['IA · Gemini','#10b981'], prompt_apenas:['sem IA · prompt','#545f73'], fallback:['fallback · template','#f59e0b']}[org];
     $('origemBadge').innerHTML = meta ? `<span class="text-[11px] font-bold px-3 py-1 rounded-full" style="background:${meta[1]}22;color:${meta[1]}">${meta[0]}</span>` : '';
-  }catch(e){
-    $('justFurto').textContent = 'Relatório indisponível ('+e.message+').';
+  }catch(e){ if(e.obsoleto) return;
+    ['scoreFurto','scoreIncendio','kpiFurto','kpiIncendio','classifFurto','classifIncendio'].forEach(id=>$(id).textContent='–');
+    ['barFurto','barIncendio'].forEach(id=>$(id).style.width='0%');
+    ['justIncendio','recs','lim','origemBadge'].forEach(id=>$(id).innerHTML='');
+    $('justFurto').innerHTML = erroLista('Relatório indisponível.');
   }
 }
 
 async function carregarTelemetria(){
+  iniciando('kpis');
   try{
     const d = await getJSON(`/telemetria?${seletorEquipamento()}&limite=10`);
     const linhas = d.dados || [];
@@ -692,12 +749,16 @@ async function carregarTelemetria(){
         <td class="py-3 px-5">${bool(x.chama_detectada)}</td>
       </tr>`;
     }).join('');
-  }catch(e){
-    $('kpis').innerHTML = '<div class="col-span-full text-on-surface-variant italic text-sm py-2">Telemetria indisponível.</div>';
+  }catch(e){ if(e.obsoleto) return;
+    $('kpis').innerHTML = erroLista('Telemetria indisponível.');
+    $('sparkTemp').innerHTML = '';
+    $('tabelaTelemetria').innerHTML = '<tr><td colspan="9">Telemetria indisponível.</td></tr>';
+    $('kpiRisco').textContent = '–'; $('cardRisco').dataset.risco = 'seguro';
   }
 }
 
 async function carregarEventos(){
+  iniciando('eventos');
   try{
     const d = await getJSON(`/eventos?${seletorEquipamento()}&dias=7`);
     const evs = d.dados || [];
@@ -721,8 +782,10 @@ async function carregarEventos(){
         </div>
       </div>`;
     }).join('');
-  }catch(e){
-    $('eventos').innerHTML = '<div class="text-on-surface-variant italic text-sm p-3">Eventos indisponíveis.</div>';
+  }catch(e){ if(e.obsoleto) return;
+    eventosCache = [];
+    $('alertasBadge').textContent = '–'; $('kpiAlertas').textContent = '–';
+    $('eventos').innerHTML = erroLista('Eventos indisponíveis.');
   }
 }
 
@@ -814,10 +877,8 @@ function abrirFazenda(f){
            + (dono.telefone ? linhaDet('Telefone', dono.telefone) : '')
            + (dono.email ? linhaDet('E-mail', dono.email) : '')
            + linhaDet('Dispositivo', f.dispositivo_id || '— (sem dispositivo)');
-  const botao = f.dispositivo_id
-    ? `<button data-vertelemetria="${f.dispositivo_id}" class="mt-4 inline-flex items-center gap-1.5 bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg shadow-md hover:bg-on-primary-fixed-variant transition-all">
-        <span class="material-symbols-outlined text-[18px]">sensors</span> Ver telemetria</button>`
-    : '';
+  const botao = `<button data-vertelemetria="${f.id_fazenda}" class="mt-4 inline-flex items-center gap-1.5 bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg shadow-md hover:bg-on-primary-fixed-variant transition-all">
+        <span class="material-symbols-outlined text-[18px]">sensors</span> Ver telemetria</button>`;
   abrirDetalhe(f.nome || 'Fazenda', 'landscape', html + botao);
 }
 
@@ -827,12 +888,13 @@ async function carregarClientes(){
     const d = await getJSON('/clientes');
     const opts = (d.dados||[]).map(c=>`<option value="${c.id_cliente}">${c.nome}</option>`).join('');
     $('fzCliente').innerHTML = '<option value="">— selecione o cliente —</option>' + opts;
-  }catch(e){ $('fzCliente').innerHTML = '<option value="">(clientes indisponíveis)</option>'; }
+  }catch(e){ if(e.obsoleto) return; $('fzCliente').innerHTML = '<option value="">(clientes indisponíveis)</option>'; }
 }
 
 const fmtArea = a => (a==null||a==='') ? '' : (Number(a).toLocaleString('pt-BR') + ' ha');
 
 async function carregarFazendas(){
+  iniciando('listaFazendas');
   try{
     const d = await getJSON('/fazendas');
     const fs = d.dados||[];
@@ -855,7 +917,7 @@ async function carregarFazendas(){
         </div>
       </div>`;
     }).join('');
-  }catch(e){ $('listaFazendas').innerHTML = '<div class="text-on-surface-variant italic text-sm py-4">Lista de fazendas indisponível.</div>'; }
+  }catch(e){ if(e.obsoleto) return; $('listaFazendas').innerHTML =erroLista('Lista de fazendas indisponível.'); }
 }
 
 async function criarFazenda(ev){
@@ -877,11 +939,12 @@ async function criarFazenda(ev){
     $('formFazenda').reset();
     await Promise.all([carregarFazendas(), carregarSeletorFazendas()]);  // atualiza a lista E o seletor da barra
     setTimeout(()=>{ $('formFazenda').classList.add('hidden'); msg.textContent=''; }, 1200);
-  }catch(e){ msg.textContent='Erro ao salvar ('+e.message+').'; msg.style.color='#ba1a1a'; }
+  }catch(e){ if(e.obsoleto) return; msg.textContent='Erro ao salvar ('+e.message+').'; msg.style.color='#ba1a1a'; }
 }
 
 /* ---------- Clientes (cadastro) ---------- */
 async function carregarListaClientes(){
+  iniciando('listaClientes');
   try{
     const d = await getJSON('/clientes');
     const cs = d.dados||[];
@@ -896,7 +959,7 @@ async function carregarListaClientes(){
         ${c.cnpj?`<div class="text-[13px] text-on-surface-variant mt-0.5 inline-flex items-center gap-1"><span class="material-symbols-outlined text-[15px]">badge</span>${c.cnpj}</div>`:''}
       </div>
     </div>`).join('');
-  }catch(e){ $('listaClientes').innerHTML = '<div class="text-on-surface-variant italic text-sm py-4">Lista de clientes indisponível.</div>'; }
+  }catch(e){ if(e.obsoleto) return; $('listaClientes').innerHTML =erroLista('Lista de clientes indisponível.'); }
 }
 
 async function criarCliente(ev){
@@ -919,7 +982,7 @@ async function criarCliente(ev){
     $('formCliente').reset();
     await Promise.all([carregarListaClientes(), carregarClientes()]);  // atualiza a lista E o dropdown de fazenda
     setTimeout(()=>{ $('formCliente').classList.add('hidden'); msg.textContent=''; }, 1200);
-  }catch(e){ msg.textContent='Erro ao salvar ('+e.message+').'; msg.style.color='#ba1a1a'; }
+  }catch(e){ if(e.obsoleto) return; msg.textContent='Erro ao salvar ('+e.message+').'; msg.style.color='#ba1a1a'; }
 }
 
 /* ---------- Usuários (logins do painel) ---------- */
@@ -936,10 +999,11 @@ async function carregarUsuariosFazendaSelect(){
     const fs = d.dados||[];
     $('usFazenda').innerHTML = '<option value="">— selecione a fazenda —</option>' +
       fs.map(f=>`<option value="${f.id_fazenda}">${f.nome}</option>`).join('');
-  }catch(e){ $('usFazenda').innerHTML = '<option value="">(fazendas indisponíveis)</option>'; }
+  }catch(e){ if(e.obsoleto) return; $('usFazenda').innerHTML = '<option value="">(fazendas indisponíveis)</option>'; }
 }
 
 async function carregarUsuarios(){
+  iniciando('listaUsuarios');
   try{
     const d = await getJSON('/usuarios');
     const us = d.dados||[];
@@ -960,7 +1024,7 @@ async function carregarUsuarios(){
         </div>
       </div>`;
     }).join('');
-  }catch(e){ $('listaUsuarios').innerHTML = '<div class="text-on-surface-variant italic text-sm py-4">Lista de usuários indisponível.</div>'; }
+  }catch(e){ if(e.obsoleto) return; $('listaUsuarios').innerHTML =erroLista('Lista de usuários indisponível.'); }
 }
 
 // A fazenda vinculada só faz sentido para gestor_fazenda; some para o perfil Sompo.
@@ -987,7 +1051,7 @@ async function criarUsuario(ev){
     $('formUsuario').reset(); atualizarCampoFazendaUsuario();
     await carregarUsuarios();
     setTimeout(()=>{ $('formUsuario').classList.add('hidden'); msg.textContent=''; }, 1200);
-  }catch(e){ msg.textContent='Erro ao salvar ('+e.message+').'; msg.style.color='#ba1a1a'; }
+  }catch(e){ if(e.obsoleto) return; msg.textContent='Erro ao salvar ('+e.message+').'; msg.style.color='#ba1a1a'; }
 }
 
 /* ---------- Frota, operadores e histórico ---------- */
@@ -1000,15 +1064,18 @@ function opcoesFazenda(select, selecionada){
 }
 
 async function carregarResumoFazenda(){
+  iniciando('listaMaquinas');
   if(!fazendaSelecionada){
     $('listaMaquinas').innerHTML = '<div class="col-span-full text-on-surface-variant italic py-4">Nenhuma fazenda selecionada.</div>';
     return;
   }
+  if(!maquinasCache.length) $('frotaEstado').textContent = 'Carregando máquinas…';
   try{
     const d = await getJSON(`/fazendas/${fazendaSelecionada}/resumo?dias=7`);
+    $('frotaEstado').textContent = '';
     maquinasCache = d.equipamentos || [];
     $('resumoFazendaNome').textContent = (d.fazenda && d.fazenda.nome) || 'Fazenda selecionada';
-    $('equipamentoSel').innerHTML = '<option value="">Resumo da fazenda</option>' + maquinasCache.map(m=>`<option value="${m.id_equipamento}">${m.nome}</option>`).join('');
+    $('equipamentoSel').innerHTML = '<option value="">Selecione uma máquina</option>' + maquinasCache.map(m=>`<option value="${m.id_equipamento}">${m.nome}</option>`).join('');
     $('equipamentoSel').value = equipamentoSelecionado || '';
     $('equipamentoSelWrap').classList.remove('hidden');
     if(!maquinasCache.length){ $('listaMaquinas').innerHTML='<div class="col-span-full text-on-surface-variant italic py-4">Nenhuma máquina cadastrada nesta fazenda.</div>'; return; }
@@ -1019,39 +1086,44 @@ async function carregarResumoFazenda(){
         <div class="flex items-start justify-between gap-3"><div><h3 class="font-bold text-on-surface">${m.nome}</h3><p class="text-xs text-on-surface-variant mt-1">${[m.tipo,m.modelo].filter(Boolean).join(' · ')||'Máquina agrícola'}</p></div><span class="text-[11px] font-bold px-2 py-1 rounded-full" style="background:${cor}18;color:${cor}">${com}</span></div>
         <div class="grid grid-cols-2 gap-3 my-4 text-xs"><div><span class="text-on-surface-variant">Risco máximo</span><div class="font-bold text-lg">${risco}</div></div><div><span class="text-on-surface-variant">Operador</span><div class="font-semibold mt-1">${m.operador_nome||'Não identificado'}</div></div></div>
         <div class="text-xs text-on-surface-variant mb-4">${m.dispositivo_id||'ESP32 ainda não vinculado'}${m.config_pendente?' · configuração pendente':''}</div>
-        <div class="flex gap-2 flex-wrap"><button data-abrir-maquina="${m.id_equipamento}" class="bg-primary text-on-primary font-semibold px-3 py-2 rounded-lg text-xs">Abrir painel</button><button data-autorizar-maquina="${m.id_equipamento}" class="bg-surface-container-high text-primary font-semibold px-3 py-2 rounded-lg text-xs">Crachás autorizados</button></div>
+        <div class="flex gap-2 flex-wrap"><button data-detalhe-maquina="${m.id_equipamento}" class="text-primary underline text-xs">Detalhes</button><button data-abrir-maquina="${m.id_equipamento}" class="bg-primary text-on-primary font-semibold px-3 py-2 rounded-lg text-xs">Abrir painel</button><button data-autorizar-maquina="${m.id_equipamento}" class="bg-surface-container-high text-primary font-semibold px-3 py-2 rounded-lg text-xs">Crachás autorizados</button></div>
       </article>`;
     }).join('');
-  }catch(e){ $('listaMaquinas').innerHTML=`<div class="col-span-full text-error py-4">Não foi possível carregar a frota: ${e.message}</div>`; }
+  }catch(e){ if(e.obsoleto) return;
+    $('listaMaquinas').innerHTML=erroLista('Frota indisponível.');
+    $('frotaEstado').innerHTML = '<p class="text-error mb-4">Não foi possível atualizar a lista de máquinas. <button data-retry-frota class="underline">Tentar novamente</button></p>';
+  }
 }
 
-async function selecionarMaquina(id){
+async function selecionarMaquina(id, view = 'visao'){
   const m = maquinasCache.find(x=>String(x.id_equipamento)===String(id));
   if(!m) return;
+  limparMaquina();
   equipamentoSelecionado = m.id_equipamento;
   dispositivo = m.dispositivo_id || '';
   $('dispositivo').value = dispositivo;
   $('equipamentoSel').value = String(id);
-  setView('visao');
+  setView(view);
   await carregarTudo();
 }
 
 async function criarMaquina(ev){
   ev.preventDefault(); const msg=$('maqMsg');
   const payload={nome:$('maqNome').value.trim(), fk_fazenda_id_fazenda:$('maqFazenda').value,
-    tipo:$('maqTipo').value.trim(), modelo:$('maqModelo').value.trim(), dispositivo_id:$('maqDispositivo').value.trim()};
+    tipo:$('maqTipo').value.trim(), modelo:$('maqModelo').value.trim(), dispositivo_id:$('maqDispositivo').value.trim(), fabricacao:$('maqFabricacao').value, ultima_manutencao:$('maqManutencao').value, valor_segurado:$('maqValor').value};
   msg.textContent='Salvando…';
   try{ const r=await fetch('/equipamentos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); const d=await r.json(); if(!r.ok) throw new Error(d.erro||`HTTP ${r.status}`);
     $('formMaquina').reset(); $('formMaquina').classList.add('hidden'); msg.textContent=''; await carregarResumoFazenda();
-  }catch(e){ msg.textContent=e.message; msg.style.color='#ba1a1a'; }
+  }catch(e){ if(e.obsoleto) return; msg.textContent=e.message; msg.style.color='#ba1a1a'; }
 }
 
 async function carregarOperadores(){
+  iniciando('listaOperadores');
   try{
     const q = perfilRole==='sompo' && fazendaSelecionada ? `?fazenda=${fazendaSelecionada}` : '';
     const d=await getJSON('/operadores'+q); operadoresCache=d.dados||[];
     $('listaOperadores').innerHTML = operadoresCache.length ? operadoresCache.map(o=>`<div class="flex items-center gap-3 p-4 rounded-xl bg-surface-container-low"><span class="material-symbols-outlined text-primary">badge</span><div class="flex-1"><div class="font-semibold">${o.nome}</div><div class="text-xs text-on-surface-variant">UID ${o.uid}${o.matricula?' · Matrícula '+o.matricula:''}</div></div><span class="text-xs font-semibold ${o.ativo?'text-secondary':'text-on-surface-variant'}">${o.ativo?'Ativo':'Inativo'}</span></div>`).join('') : '<div class="text-on-surface-variant italic py-4">Nenhum operador cadastrado.</div>';
-  }catch(e){ $('listaOperadores').innerHTML='<div class="text-error py-4">Operadores indisponíveis.</div>'; }
+  }catch(e){ if(e.obsoleto) return; $('listaOperadores').innerHTML=erroLista('Operadores indisponíveis.'); }
 }
 
 async function criarOperador(ev){
@@ -1060,7 +1132,7 @@ async function criarOperador(ev){
   msg.textContent='Salvando…';
   try{ const r=await fetch('/operadores',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); const d=await r.json(); if(!r.ok) throw new Error(d.erro||`HTTP ${r.status}`);
     $('formOperador').reset(); $('formOperador').classList.add('hidden'); msg.textContent=''; await carregarOperadores();
-  }catch(e){ msg.textContent=e.message; msg.style.color='#ba1a1a'; }
+  }catch(e){ if(e.obsoleto) return; msg.textContent=e.message; msg.style.color='#ba1a1a'; }
 }
 
 async function gerenciarAutorizacoes(id){
@@ -1084,16 +1156,18 @@ async function gerarCredencial(id){
 }
 
 async function carregarHistorico(){
+  iniciando('listaHistorico');
   try{ const q=new URLSearchParams({dias:$('historicoDias').value}); if(perfilRole==='sompo'&&fazendaSelecionada) q.set('fazenda',fazendaSelecionada); const d=await getJSON('/operacoes?'+q);
     $('listaHistorico').innerHTML=(d.dados||[]).map(s=>`<div class="grid grid-cols-1 md:grid-cols-4 gap-2 p-4 rounded-xl bg-surface-container-low"><div><div class="font-semibold">${s.equipamento_nome||'Máquina'}</div><div class="text-xs text-on-surface-variant">${s.operador_nome||'Operador não identificado'}</div></div><div class="text-xs"><span class="text-on-surface-variant">Início</span><div>${s.inicio_em?fmtHora(s.inicio_em):'Horário desconhecido'}</div></div><div class="text-xs"><span class="text-on-surface-variant">Fim</span><div>${s.fim_em?fmtHora(s.fim_em):'—'}</div></div><div class="md:text-right font-semibold text-xs">${s.status||'—'}${s.motivo?' · '+s.motivo:''}</div></div>`).join('')||'<div class="text-on-surface-variant italic py-4">Nenhuma sessão no período.</div>';
-  }catch(e){ $('listaHistorico').innerHTML='<div class="text-error py-4">Histórico indisponível.</div>'; }
+  }catch(e){ if(e.obsoleto) return; $('listaHistorico').innerHTML=erroLista('Histórico indisponível.'); }
 }
 
 /* ---------- Perfil de acesso (role-based) ---------- */
 async function aplicarPerfil(){
-  let me = {role:'sompo'};
-  try{ me = await getJSON('/me'); }catch(e){ /* modo demo/sem login -> sompo */ }
-  perfilRole = me.role || 'sompo';
+  let me = {role:'indisponivel'};
+  try{ me = await getJSON('/me'); }catch(e){ if(e.obsoleto) return; /* modo demo/sem login -> sompo */ }
+  perfilRole = me.role || 'indisponivel';
+  setView(viewAtual);
 
   if(perfilRole === 'gestor_fazenda'){
     // Esconde as abas de cadastro (portfolio) - o gestor so ve a propria fazenda.
@@ -1115,20 +1189,20 @@ async function aplicarPerfil(){
 }
 
 async function carregarSeletorFazendas(){
-  // sompo: dropdown com TODAS as fazendas para trocar a visao. Cada uma aponta para
-  // seu dispositivo; fazenda sem dispositivo aparece marcada, mas sem telemetria.
+  // Cada fazenda carrega sua própria frota; dispositivo pertence à máquina.
   try{
     const d = await getJSON('/fazendas');
     const fs = d.dados||[];
     fazendasCache = fs;
-    if(!fs.length){ $('deviceWrap').classList.remove('hidden'); return; }  // sem fazendas: cai no input
+    $('frotaEstado').textContent = '';
+    if(!fs.length){ $('frotaEstado').textContent = 'Nenhuma fazenda cadastrada. Cadastre uma em Fazendas.'; return; }
     $('fazendaSel').innerHTML = fs.map(f=>`<option value="${f.id_fazenda}">${f.nome}</option>`).join('');
     $('fazendaSelWrap').classList.remove('hidden');
     $('deviceWrap').classList.add('hidden');
-    fazendaSelecionada = fs[0].id_fazenda;
+    fazendaSelecionada = fs.some(f=>String(f.id_fazenda)===String(fazendaSelecionada)) ? fazendaSelecionada : fs[0].id_fazenda;
     $('fazendaSel').value = String(fazendaSelecionada);
     opcoesFazenda($('maqFazenda'), fazendaSelecionada); opcoesFazenda($('opFazenda'), fazendaSelecionada);
-  }catch(e){ $('deviceWrap').classList.remove('hidden'); }
+  }catch(e){ if(e.obsoleto) return; $('frotaEstado').innerHTML = '<p class="text-error">Fazendas indisponíveis. <button data-retry-fazendas class="underline">Tentar novamente</button></p>'; }
 }
 
 // Estado amigavel quando a fazenda selecionada nao tem dispositivo vinculado.
@@ -1145,11 +1219,22 @@ function mostrarSemDispositivo(){
   $('ultima').textContent = new Date().toLocaleTimeString('pt-BR');
 }
 
+const atualizacoes = new Map();
 async function carregarTudo(){
+  const chave = `${contextoVersao}:${viewAtual}`;
+  if(atualizacoes.has(chave)) return atualizacoes.get(chave);
+  const tarefa = atualizarView().finally(()=>atualizacoes.delete(chave));
+  atualizacoes.set(chave, tarefa);
+  return tarefa;
+}
+async function atualizarView(){
   if(viewAtual === 'maquinas'){ await Promise.all([carregarSaude(), carregarResumoFazenda()]); $('ultima').textContent = new Date().toLocaleTimeString('pt-BR'); return; }
   if(viewAtual === 'operadores'){ await Promise.all([carregarSaude(), carregarOperadores()]); $('ultima').textContent = new Date().toLocaleTimeString('pt-BR'); return; }
   if(viewAtual === 'historico'){ await Promise.all([carregarSaude(), carregarHistorico()]); $('ultima').textContent = new Date().toLocaleTimeString('pt-BR'); return; }
-  if(!equipamentoSelecionado){ setView('maquinas'); await carregarResumoFazenda(); return; }
+  if(viewAtual === 'fazendas'){ await carregarFazendas(); return; }
+  if(viewAtual === 'clientes'){ await carregarListaClientes(); return; }
+  if(viewAtual === 'usuarios'){ await carregarUsuarios(); return; }
+  if(!equipamentoSelecionado){ setView(viewAtual); return; }
   await Promise.all([carregarSaude(), carregarRisco(), carregarTelemetria(), carregarEventos()]);
   $('ultima').textContent = new Date().toLocaleTimeString('pt-BR');
 }
@@ -1180,8 +1265,8 @@ $('btnBaixar').addEventListener('click', () => {
   window.location = `/relatorio/risco.docx?equipamento=${encodeURIComponent(equipamentoSelecionado)}&dias=7`;
 });
 $('dispositivo').addEventListener('change', carregarTudo);
-$('fazendaSel').addEventListener('change', ()=>{ fazendaSelecionada=$('fazendaSel').value; equipamentoSelecionado=null; opcoesFazenda($('maqFazenda'),fazendaSelecionada); opcoesFazenda($('opFazenda'),fazendaSelecionada); setView('maquinas'); carregarTudo(); });
-$('equipamentoSel').addEventListener('change', ()=>{ const id=$('equipamentoSel').value; if(id) selecionarMaquina(id); else { equipamentoSelecionado=null; setView('maquinas'); carregarTudo(); } });
+$('fazendaSel').addEventListener('change', ()=>trocarFazenda($('fazendaSel').value));
+$('equipamentoSel').addEventListener('change', ()=>{ const id=$('equipamentoSel').value; if(id) selecionarMaquina(id, dependeMaquina(viewAtual) ? viewAtual : 'visao'); else { limparMaquina(); setView(viewAtual); } });
 
 // Feed de alertas clicavel -> modal com os detalhes do evento.
 $('eventos').addEventListener('click', e=>{ const c = e.target.closest('[data-ev]'); if(c) abrirEvento(eventosCache[+c.dataset.ev]); });
@@ -1194,16 +1279,35 @@ $('listaFazendas').addEventListener('click', e=>{ const c = e.target.closest('[d
 $('detFechar').addEventListener('click', fecharDetalhe);
 $('modalDetalhe').addEventListener('click', e=>{ if(e.target === $('modalDetalhe')) fecharDetalhe(); });
 // "Ver telemetria" no modal da fazenda -> aponta o seletor e abre a Telemetria.
-$('detCorpo').addEventListener('click', e=>{
+$('detCorpo').addEventListener('click', async e=>{
   const salvar=e.target.closest('[data-salvar-autorizacoes]'); if(salvar){ salvarAutorizacoes(salvar.dataset.salvarAutorizacoes); return; }
   const cred=e.target.closest('[data-gerar-credencial]'); if(cred){ gerarCredencial(cred.dataset.gerarCredencial); return; }
   const b = e.target.closest('[data-vertelemetria]'); if(!b) return;
-  const dev = b.dataset.vertelemetria;
-  if(!$('fazendaSelWrap').classList.contains('hidden')) $('fazendaSel').value = dev;
-  $('dispositivo').value = dev; dispositivo = dev;
-  fecharDetalhe(); setView('telemetria'); carregarTudo();
+  setView('telemetria');
+  const fazenda = b.dataset.vertelemetria;
+  await trocarFazenda(fazenda);
+  if(String(fazendaSelecionada) !== fazenda) return;
+  if(maquinasCache.length) await selecionarMaquina(maquinasCache[0].id_equipamento, 'telemetria');
+
 });
 
+const escapar = v => String(v ?? '—').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function detalheMaquina(m){
+  const faz = fazendasCache.find(f=>String(f.id_fazenda)===String(m.fk_fazenda_id_fazenda));
+  const cliente = faz?.cliente || clientesCache.find(c=>String(c.id_cliente)===String(m.fk_cliente_id_cliente));
+  const data = v => v ? String(v).slice(0,10).split('-').reverse().join('/') : 'Não informada';
+  abrirDetalhe(m.nome, 'agriculture', [
+    ['ID do equipamento',m.id_equipamento], ['ID do ESP32',m.dispositivo_id || 'Não vinculado'],
+    ['Cliente proprietário',cliente?.nome || `Cliente #${m.fk_cliente_id_cliente}`],
+    ['Tipo',m.tipo],['Modelo',m.modelo],['Fabricação',data(m.fabricacao)],
+    ['Última manutenção',data(m.ultima_manutencao)],
+    ['Valor segurado',m.valor_segurado == null ? 'Não informado' : Number(m.valor_segurado).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})]
+  ].map(([k,v])=>linhaDet(k,escapar(v))).join(''));
+}
+$('selecionarNoAviso').addEventListener('click', async ()=>{ await carregarResumoFazenda(); $('equipamentoSel').focus(); });
+document.addEventListener('click', e=>{ if(e.target.closest('[data-tentar]')) carregarTudo(); if(e.target.closest('[data-retry-frota]')) carregarResumoFazenda(); });
+document.addEventListener('click', async e=>{ if(e.target.closest('[data-retry-fazendas]')){ await carregarSeletorFazendas(); await carregarResumoFazenda(); } });
+$('listaMaquinas').addEventListener('click', e=>{ const b=e.target.closest('[data-detalhe-maquina]'); if(b) detalheMaquina(maquinasCache.find(m=>String(m.id_equipamento)===b.dataset.detalheMaquina)); });
 $('listaMaquinas').addEventListener('click', e=>{ const abrir=e.target.closest('[data-abrir-maquina]'); if(abrir) selecionarMaquina(abrir.dataset.abrirMaquina); const aut=e.target.closest('[data-autorizar-maquina]'); if(aut) gerenciarAutorizacoes(aut.dataset.autorizarMaquina); });
 $('btnNovaMaquina').addEventListener('click',()=>{ $('formMaquina').classList.toggle('hidden'); opcoesFazenda($('maqFazenda'),fazendaSelecionada); });
 $('btnCancelarMaquina').addEventListener('click',()=>$('formMaquina').classList.add('hidden'));

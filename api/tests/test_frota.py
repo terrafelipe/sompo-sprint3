@@ -99,6 +99,48 @@ def test_cadastro_operador_normaliza_uid_sem_criar_login(banco):
     assert r.status_code == 201
     assert r.json['operador']['uid'] == 'ABCDEF12'
     assert 'senha' not in r.json['operador']
+    assert r.json['operador']['matricula'] is None
+
+
+def test_cadastro_maquina_completo(banco):
+    r = gestor().post('/equipamentos', json={
+        'nome': 'Colheitadeira', 'fabricacao': '2020-01-02',
+        'ultima_manutencao': '2026-09-01', 'valor_segurado': '150000.50',
+        'tipo': 'Colheitadeira', 'modelo': 'M1', 'dispositivo_id': 'ESP-TESTE'})
+    assert r.status_code == 201
+    eq = r.json['equipamento']
+    assert eq['fabricacao'] == '2020-01-02'
+    assert eq['ultima_manutencao'] == '2026-09-01'
+    assert eq['valor_segurado'] == '150000.50'
+    assert eq['fk_cliente_id_cliente'] == 10
+
+
+def test_word_contem_apenas_maquina_selecionada(banco):
+    from io import BytesIO
+    from docx import Document
+
+    with patch('app.consultar_resumo', return_value=[]) as resumo, \
+         patch('app.consultar_eventos', return_value=[]) as eventos, \
+         patch('llm.LLM_API_KEY', ''):
+        r = gestor().get('/relatorio/risco.docx?equipamento=2&dias=7')
+    assert r.status_code == 200
+    assert 'wordprocessingml' in r.content_type
+    assert 'ESP-B' in r.headers['Content-Disposition']
+    resumo.assert_called_once_with('ESP-B', dias=7)
+    eventos.assert_called_once_with('ESP-B', dias=7)
+    doc = Document(BytesIO(r.data))
+    text = '\n'.join(p.text for p in doc.paragraphs)
+    assert 'Trator B' in text and 'Santa Rita' in text and 'ESP-B' in text
+    assert 'Trator A' not in text and 'ESP-A' not in text
+
+
+def test_historico_vazio_diferente_de_falha(banco):
+    with patch('supabase_client.consultar_periodo', return_value=[]):
+        r = gestor().get('/operacoes')
+        assert r.status_code == 200 and r.json['dados'] == []
+    with patch('supabase_client.consultar_periodo', side_effect=RuntimeError('offline')):
+        r = gestor().get('/operacoes')
+        assert r.status_code == 502 and r.json['erro'] == 'frota_indisponivel'
 
 
 @pytest.mark.parametrize('uid', ['', '123', 'GGGGGGGG', '01020304'])

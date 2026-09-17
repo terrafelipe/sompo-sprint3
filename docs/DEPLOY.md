@@ -6,6 +6,11 @@ usando o **[Render](https://render.com)** a partir do `render.yaml` da raiz do r
 
 O ESP32 continua falando direto com o Supabase — publicar o painel **não** muda nada no firmware.
 
+Esta correção de navegação/formulários não exige nova migração nem alteração do contrato
+da API. Preserve os cadastros existentes. Após o deploy de `main`, confira login, menus
+sem máquina, seleção, refresh e download Word. Cadastros de validação devem ocorrer
+somente em ambiente de teste; mantenha `SOMPO_API_KEY` vazia no Render.
+
 > Por que um app só: a rota `/` serve o dashboard (`api/static/index.html`) e a página busca os
 > dados por caminhos relativos (`/saude`, `/relatorio/risco`, ...). Painel e API sobem juntos, na
 > mesma origem — nada de `localhost` no código, nada para reconfigurar.

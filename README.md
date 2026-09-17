@@ -150,9 +150,9 @@ tabela `usuario` e semeia os logins de teste).
 - **Segredos nunca vão para o repositório.** `api/.env` e
   `firmware/sompo_hardware_final/segredos.h` estão no `.gitignore`; o repositório traz só os
   modelos (`.env.example`, `segredos.exemplo.h`).
-- **API protegida por chave** (`SOMPO_API_KEY`): em produção, toda rota — exceto `/saude` —
-  exige o header `X-API-Key`. Sem ele (ou errado) a resposta é `401`. Exemplo:
-  `curl -H "X-API-Key: SUA_CHAVE" https://sua-api.onrender.com/telemetria`.
+- **Painel no Render:** usa sessão de login; mantenha `PAINEL_SENHA` definida e
+  **`SOMPO_API_KEY` vazia**. A chave por header é opcional para clientes externos;
+  habilitá-la exige `X-API-Key` nas rotas de dados e impede o painel atual de consultá-las.
 - O ESP32 usará apenas a **publishable key** do Supabase, limitada a INSERT por políticas de RLS
   (`firmware/sql/preparar_supabase.sql`). A **secret key** vive só na API.
 - Detalhes e endurecimento em [`docs/SEGURANCA.md`](docs/SEGURANCA.md).
