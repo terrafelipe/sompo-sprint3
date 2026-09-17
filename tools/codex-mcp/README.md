@@ -10,17 +10,25 @@ sair da conversa.
 - Python 3.10+ no PATH (`python --version`).
 - Codex CLI instalado e logado (`codex login status`). Testado com `codex-cli 0.154`.
 
-## Registro no Claude Code
+## Registro no Claude Code (escopo de usuário — vale para todos os projetos)
 
-O arquivo `.mcp.json` na raiz do repositório já registra o servidor com escopo de
-projeto. Ao abrir o Claude Code nesta pasta ele pede aprovação uma vez; depois o servidor
-aparece em `/mcp` e em `claude mcp list` como `codex`.
-
-Para ter o servidor em qualquer projeto (escopo de usuário):
+O servidor não depende do projeto: cada chamada opera na pasta onde o Claude Code foi
+aberto. Por isso a instalação recomendada é copiar o arquivo para um lugar fixo e
+registrar no escopo de usuário:
 
 ```powershell
-claude mcp add --scope user codex -- python "<caminho-absoluto>\tools\codex-mcp\codex_mcp_server.py"
+New-Item -ItemType Directory -Force "$env:USERPROFILE\.claude\mcp" | Out-Null
+Copy-Item tools\codex-mcp\codex_mcp_server.py "$env:USERPROFILE\.claude\mcp\"
+claude mcp add --scope user codex -- python "$env:USERPROFILE\.claude\mcp\codex_mcp_server.py"
+claude mcp get codex        # deve mostrar "User config" e "Connected"
 ```
+
+Depois disso `codex` aparece em `/mcp` em qualquer projeto. Ao atualizar este arquivo no
+repo, repita o `Copy-Item`.
+
+Alternativa por projeto: um `.mcp.json` na raiz com
+`{"mcpServers": {"codex": {"command": "python", "args": ["tools/codex-mcp/codex_mcp_server.py"]}}}`
+(o Claude Code pede aprovação na primeira abertura).
 
 ## Ferramentas
 

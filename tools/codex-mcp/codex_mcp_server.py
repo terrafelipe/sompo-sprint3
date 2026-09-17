@@ -11,9 +11,11 @@ Ferramentas expostas:
   codex_resume  - continua a última sessão do Codex (ou uma sessão por id) com nova mensagem.
   codex_status  - versão do binário, diretório padrão e checagem de autenticação.
 
-Registro no Claude Code (arquivo .mcp.json na raiz do projeto, já incluído):
+Registro no Claude Code (escopo de usuário, vale para todos os projetos):
+  copie este arquivo para ~/.claude/mcp/ e rode
+  claude mcp add --scope user codex -- python <home>/.claude/mcp/codex_mcp_server.py
+Ou por projeto, num .mcp.json na raiz:
   {"mcpServers": {"codex": {"command": "python", "args": ["tools/codex-mcp/codex_mcp_server.py"]}}}
-Ou por usuário: claude mcp add --scope user codex -- python <caminho>/codex_mcp_server.py
 
 Variáveis de ambiente opcionais:
   CODEX_BIN              caminho do executável (padrão: "codex" no PATH)
