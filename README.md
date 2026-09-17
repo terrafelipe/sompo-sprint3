@@ -1,6 +1,6 @@
 # SOMPO — Monitor de Furto e Incêndio para Máquinas Agrícolas
 
-Projeto acadêmico da **FIAP** para a **Sompo Seguros** (Sprint 3). Sistema IoT embarcado em
+Projeto acadêmico da **FIAP** para a **Sompo Seguros**. Sistema IoT embarcado em
 máquina agrícola (trator) que detecta **furto/roubo** e **incêndio**, envia telemetria e eventos
 para a nuvem, e gera **relatórios de risco** — inclusive um relatório interpretado por IA — para
 apoiar a seguradora.
