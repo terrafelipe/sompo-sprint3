@@ -26,8 +26,16 @@
   nesta correção. Não executar `preparar_supabase.sql` em banco existente. A finalização
   `concluir_migracao_dispositivos()` só ocorre após provisionar e sincronizar todas as placas;
   ver [Ativar frota](docs/ATIVAR_FROTA.md). A compatibilidade legada não equivale a token universal.
+- Máquinas cadastradas são editáveis pelo botão "Editar" do card (ou pelo modal de
+  detalhes), reaproveitando o mesmo formulário do cadastro em modo edição via
+  `PATCH /equipamentos/<id>`. Fazenda e ESP32 já vinculado ficam travados na UI, espelhando
+  as recusas 409 do backend (`transferencia_nao_permitida`, `remanejamento_nao_permitido`).
+- Os `<select>` do painel usam `appearance: base-select` (Chrome/Edge 135+): a lista de
+  opções segue o design do painel; navegadores sem suporte mostram a lista nativa.
 - Máquinas, Operadores, Histórico, Fazendas, Clientes e Usuários carregam sem máquina.
-  Painel da máquina, Risco, Telemetria e Alertas mantêm a aba e solicitam seleção.
+  Painel da máquina, Risco, Telemetria e Alertas mantêm a aba e solicitam seleção; o atalho
+  "Selecionar máquina" abre a lista do seletor do header (`showPicker()`) ou, sem máquinas
+  na fazenda, leva para a aba Máquinas.
   O refresh de cinco segundos preserva aba/seleção; mudanças de fazenda limpam dados e
   invalidam respostas pendentes. Menus restritos do gestor continuam ocultos após resize.
 - Exportar Word permanece visível, desabilitado com explicação sem máquina. Com seleção,

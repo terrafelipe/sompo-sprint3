@@ -19,7 +19,8 @@ def painel(request):
     with pw.sync_playwright() as p:
         browser = p.chromium.launch(channel=os.getenv('SOMPO_TEST_BROWSER') or None)
         page = browser.new_page(viewport={'width': request.param, 'height': 900})
-        state = dict(role='sompo', fail=set(), posts=[], held=[], hold=None, errors=[])
+        state = dict(role='sompo', fail=set(), posts=[], held=[], hold=None, errors=[],
+                     sem_esp32=False, sem_maquinas=False)
         page.on('pageerror', lambda e: state['errors'].append(str(e)))
 
         def route(r):
@@ -36,9 +37,14 @@ def painel(request):
             if path in state['fail']:
                 r.fulfill(status=502, json={'erro': 'indisponivel'})
                 return
-            if r.request.method == 'POST':
+            if r.request.method in ('POST', 'PATCH'):
                 state['posts'].append((path, r.request.post_data_json))
-                r.fulfill(status=201, json={})
+                if r.request.method == 'PATCH':
+                    id = int(path.rsplit('/', 1)[-1])
+                    r.fulfill(status=200, json={'ok': True, 'equipamento': {
+                        **r.request.post_data_json, 'id_equipamento': id, 'dispositivo_id': f'ESP-{id}'}})
+                else:
+                    r.fulfill(status=201, json={})
                 return
             data = {'dados': []}
             if path == '/me':
@@ -49,9 +55,9 @@ def painel(request):
                 data = {'dados': [dict(id_cliente=i, nome=f'Cliente {i}') for i in (1, 2)]}
             elif path.endswith('/resumo'):
                 i = int(path.split('/')[2])
-                data = dict(fazenda=FARMS[i-1], equipamentos=[dict(
-                    id_equipamento=i, nome=f'Trator {i}', fk_fazenda_id_fazenda=i,
-                    fk_cliente_id_cliente=i, dispositivo_id=f'ESP-{i}', fabricacao='2020-01-02',
+                data = dict(fazenda=FARMS[i-1], equipamentos=[] if state['sem_maquinas'] else [dict(
+                    id_equipamento=i, nome=f'Trator {i}', fk_fazenda_id_fazenda=i, fk_cliente_id_cliente=i,
+                    dispositivo_id=None if state['sem_esp32'] else f'ESP-{i}', fabricacao='2020-01-02',
                     ultima_manutencao='2026-09-01', valor_segurado='150000.50')])
             elif path == '/saude':
                 data = {'api': 'ok', 'banco': 'ok'}
@@ -206,3 +212,99 @@ def test_formulario_detalhe_operador_e_atalho(painel):
     pw.expect(page.locator('#equipamentoSel')).to_have_value('2')
     assert page.evaluate('[viewAtual,dispositivo]') == ['telemetria','ESP-2']
     captura(page, 'telemetria')
+
+
+def editar_e_salvar(page, id, nome):
+    page.locator(f'#listaMaquinas [data-editar-maquina="{id}"]').click()
+    pw.expect(page.locator('#formMaquina')).to_be_visible()
+    page.locator('#maqNome').fill(nome)
+    page.locator('#formMaquina button[type=submit]').click()
+    pw.expect(page.locator('#formMaquina')).not_to_be_visible()
+
+
+def test_editar_maquina(painel):
+    page, state = painel
+    page.locator('[data-editar-maquina="1"]').click()
+    pw.expect(page.locator('#formMaquina')).to_be_visible()
+    pw.expect(page.locator('#maqFormTitulo')).to_contain_text('Editar')
+    for id, value in [('maqNome','Trator 1'),('maqValor','150000.50'),('maqFabricacao','2020-01-02')]:
+        pw.expect(page.locator('#'+id)).to_have_value(value)
+    pw.expect(page.locator('#maqFazenda')).to_be_disabled()
+    pw.expect(page.locator('#maqDispositivo')).to_be_disabled()
+    pw.expect(page.locator('#maqDispositivoAjuda')).to_be_visible()
+    page.locator('#maqNome').fill('Trator 1B')
+    page.locator('#maqValor').fill('99')
+    captura(page, 'editar-maquina')
+    assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
+    page.locator('#formMaquina button[type=submit]').click()
+    pw.expect(page.locator('#formMaquina')).not_to_be_visible()
+    path, payload = state['posts'][-1]
+    assert path == '/equipamentos/1' and payload['nome'] == 'Trator 1B' and payload['valor_segurado'] == '99'
+    assert 'fk_fazenda_id_fazenda' not in payload and 'dispositivo_id' not in payload
+    page.locator('#btnNovaMaquina').click()
+    pw.expect(page.locator('#maqFormTitulo')).to_have_text('Nova máquina')
+    pw.expect(page.locator('#maqNome')).to_have_value('')
+    pw.expect(page.locator('#maqFazenda')).to_be_enabled()
+    pw.expect(page.locator('#maqDispositivo')).to_be_enabled()
+    pw.expect(page.locator('#maqDispositivoAjuda')).not_to_be_visible()
+
+
+def test_editar_maquina_sem_esp32_e_via_detalhe(painel):
+    page, state = painel
+    state['sem_esp32'] = True
+    page.select_option('#fazendaSel', '2')
+    pw.expect(page.locator('#listaMaquinas')).to_contain_text('Trator 2')
+    page.locator('[data-detalhe-maquina="2"]').click()
+    page.locator('#detCorpo [data-editar-maquina="2"]').click()
+    pw.expect(page.locator('#modalDetalhe')).not_to_be_visible()
+    pw.expect(page.locator('#formMaquina')).to_be_visible()
+    pw.expect(page.locator('#maqDispositivo')).to_be_enabled()
+    pw.expect(page.locator('#maqDispositivoAjuda')).not_to_be_visible()
+    page.locator('#maqDispositivo').fill('ESP-NOVO')
+    page.locator('#formMaquina button[type=submit]').click()
+    pw.expect(page.locator('#formMaquina')).not_to_be_visible()
+    path, payload = state['posts'][-1]
+    assert path == '/equipamentos/2' and payload['dispositivo_id'] == 'ESP-NOVO'
+    assert 'fk_fazenda_id_fazenda' not in payload
+
+
+def test_editar_maquina_selecionada_atualiza_dispositivo(painel):
+    page, state = painel
+    page.select_option('#equipamentoSel', '1')
+    nav(page, 'maquinas')
+    editar_e_salvar(page, 1, 'Trator 1C')
+    assert state['posts'][-1][0] == '/equipamentos/1'
+    assert page.evaluate('[equipamentoSelecionado, dispositivo]') == [1, 'ESP-1']
+    pw.expect(page.locator('#listaMaquinas')).to_contain_text('Trator 1')
+    pw.expect(page.locator('#equipamentoSel')).to_have_value('1')
+
+
+def test_selecionar_no_aviso_mantem_aba(painel):
+    page, state = painel
+    nav(page, 'risco')
+    page.locator('#selecionarNoAviso').click()
+    # Com appearance: base-select o picker abre e o foco vai para uma <option> dentro do select.
+    assert page.evaluate("document.getElementById('equipamentoSel').contains(document.activeElement)")
+    assert page.evaluate("document.getElementById('equipamentoSel').matches(':open') || document.getElementById('equipamentoSelWrap').classList.contains('sel-destaque')")
+    assert page.evaluate('viewAtual') == 'risco'
+    pw.expect(page.locator('#semMaquina')).to_be_visible()
+    page.keyboard.press('Escape')
+    state['sem_maquinas'] = True
+    page.select_option('#fazendaSel', '2')
+    pw.expect(page.locator('#resumoFazendaNome')).to_have_text('Fazenda 2')
+    nav(page, 'risco')
+    page.locator('#selecionarNoAviso').click()
+    pw.expect(page.locator('#tituloView')).to_have_text('Máquinas')
+    assert page.evaluate('viewAtual') == 'maquinas'
+    pw.expect(page.locator('#listaMaquinas')).to_contain_text('Nenhuma máquina')
+
+
+def test_selects_estilizados(painel):
+    page, state = painel
+    ids = ['fazendaSel','equipamentoSel','maqFazenda','opFazenda','historicoDias','fzCliente','usRole','usFazenda']
+    aparencia = [page.evaluate('id => getComputedStyle(document.getElementById(id)).appearance', id) for id in ids]
+    if aparencia[0] != 'base-select':
+        pytest.skip('Chromium sem appearance: base-select')
+    assert aparencia == ['base-select'] * len(ids)
+    assert page.evaluate("getComputedStyle(document.getElementById('equipamentoSel'), '::picker-icon').display") == 'none'
+    assert page.evaluate("getComputedStyle(document.getElementById('historicoDias'), '::picker-icon').display") != 'none'

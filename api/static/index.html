@@ -30,6 +30,38 @@
   #cardRisco[data-risco="critico"]::after{ opacity:1; --beam-cor:#ba1a1a; --beam-dur:2.2s; }
   #cardRisco[data-risco="critico"]{ box-shadow:0 0 0 1px #ba1a1a22, 0 6px 22px #ba1a1a22; }
   @media (prefers-reduced-motion: reduce){ #cardRisco::after{ animation:none; } }
+
+  /* Select customizável (Chrome/Edge 135+): a lista de opções deixa de ser a nativa do
+     sistema e passa a seguir o design do painel. Navegadores sem suporte ignoram o bloco
+     inteiro e continuam com o select nativo. */
+  @supports (appearance: base-select){
+    select, ::picker(select){ appearance: base-select !important; }
+    /* base-select torna o select um flex: sem isto o texto do header quebra em duas linhas */
+    select{ font: inherit; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    select::select-fallback-button-text, select selectedcontent{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
+    select::picker-icon{ font-family:'Material Symbols Outlined'; content:'expand_more'; font-size:18px; color:#5f3f3a; transition:rotate .2s ease; }
+    select:open::picker-icon{ rotate:180deg; }
+    /* os dois selects do header já têm a seta desenhada no markup */
+    #fazendaSel::picker-icon, #equipamentoSel::picker-icon{ display:none; }
+    select:open + .sel-seta{ rotate:180deg; }
+    .sel-seta{ transition:rotate .2s ease; }
+    ::picker(select){
+      margin-top:6px; padding:6px; border:1px solid #e9bcb5; border-radius:12px;
+      background:#fff; color:#2a1613; box-shadow:0 12px 32px rgba(42,22,19,.12);
+      font:500 14px/1.3 Inter, system-ui, sans-serif; min-width:anchor-size(width);
+    }
+    option{ display:flex; align-items:center; gap:8px; padding:8px 12px; border-radius:8px; cursor:pointer; }
+    option:hover, option:focus-visible{ background:#ffe9e6; outline:none; }
+    option:checked{ background:#b70100; color:#fff; font-weight:600; }
+    option::checkmark{ order:1; margin-left:auto; font-family:'Material Symbols Outlined'; content:'check'; font-size:18px; }
+    option[value=""]{ color:#5f3f3a; }
+    option[value=""]:checked{ background:#ffe9e6; color:#5f3f3a; font-weight:500; }
+  }
+
+  /* Pulso no seletor de máquina quando "Selecionar máquina" não consegue abrir a lista. */
+  @keyframes sel-pulso{ 0%,100%{ box-shadow:0 0 0 0 rgba(183,1,0,0); } 40%{ box-shadow:0 0 0 6px rgba(183,1,0,.28); } }
+  .sel-destaque{ border-radius:9999px; animation:sel-pulso .8s ease-out 2; }
+  @media (prefers-reduced-motion: reduce){ .sel-destaque{ animation:none; box-shadow:0 0 0 3px rgba(183,1,0,.35); } }
 </style>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
@@ -101,13 +133,13 @@
       <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant pointer-events-none">landscape</span>
       <select id="fazendaSel" title="Fazenda"
               class="appearance-none w-48 bg-surface-container-lowest rounded-full py-2 pl-9 pr-9 text-sm text-on-surface font-medium outline-none shadow-sm cursor-pointer focus:ring-2 focus:ring-primary/20"></select>
-      <span class="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant pointer-events-none">expand_more</span>
+      <span class="sel-seta material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant pointer-events-none">expand_more</span>
     </div>
     <div id="equipamentoSelWrap" class="relative hidden">
       <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant pointer-events-none">agriculture</span>
       <select id="equipamentoSel" title="Máquina"
               class="appearance-none w-52 bg-surface-container-lowest rounded-full py-2 pl-9 pr-9 text-sm text-on-surface font-medium outline-none shadow-sm cursor-pointer focus:ring-2 focus:ring-primary/20"></select>
-      <span class="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant pointer-events-none">expand_more</span>
+      <span class="sel-seta material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant pointer-events-none">expand_more</span>
     </div>
     <div id="deviceWrap" class="relative">
       <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant">memory</span>
@@ -150,7 +182,7 @@
       <div class="text-xs text-on-surface-variant">Atualizado às <span id="ultima" class="font-semibold text-on-surface">–</span> · auto-refresh 5s</div>
     </div>
 
-    <div id="semMaquina" hidden class="bg-surface-container-lowest rounded-xl p-6 mb-6" role="status">Selecione uma máquina para consultar esta aba. <button id="selecionarNoAviso" class="text-primary font-semibold underline">Selecionar máquina</button></div>
+    <div id="semMaquina" hidden class="bg-surface-container-lowest rounded-xl p-6 mb-6" role="status">Selecione uma máquina para consultar esta aba. <button id="selecionarNoAviso" class="inline-flex items-center gap-1 text-primary font-semibold underline underline-offset-2 hover:text-on-primary-fixed-variant">Selecionar máquina<span class="material-symbols-outlined text-[16px]" aria-hidden="true">arrow_outward</span></button></div>
     <p id="wordAjuda" class="text-xs text-on-surface-variant mb-4">Selecione uma máquina para exportar o relatório Word.</p>
     <div id="frotaEstado" role="status"></div>
     <!-- KPI CARDS (só na Visão Geral) -->
@@ -276,16 +308,17 @@
           </button>
         </div>
         <form id="formMaquina" class="hidden bg-surface-container-low rounded-xl p-5 mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <h3 id="maqFormTitulo" class="md:col-span-2 font-semibold text-on-surface">Nova máquina</h3>
           <div><label class="block text-xs font-semibold text-on-surface-variant mb-1">Nome *</label><input id="maqNome" required class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20" placeholder="Ex.: Trator 01"/></div>
-          <div id="maqFazendaWrap"><label class="block text-xs font-semibold text-on-surface-variant mb-1">Fazenda *</label><select id="maqFazenda" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20"></select></div>
+          <div id="maqFazendaWrap"><label class="block text-xs font-semibold text-on-surface-variant mb-1">Fazenda *</label><select id="maqFazenda" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"></select></div>
           <div><label class="block text-xs font-semibold text-on-surface-variant mb-1">Tipo</label><input id="maqTipo" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2" placeholder="Trator, colheitadeira..."/></div>
           <div><label class="block text-xs font-semibold text-on-surface-variant mb-1">Modelo</label><input id="maqModelo" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2"/></div>
-          <div class="md:col-span-2"><label class="block text-xs font-semibold text-on-surface-variant mb-1">ID do ESP32</label><input id="maqDispositivo" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2" placeholder="Ex.: SOMPO-ESP32"/></div>
+          <div class="md:col-span-2"><label class="block text-xs font-semibold text-on-surface-variant mb-1">ID do ESP32</label><input id="maqDispositivo" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 disabled:opacity-60 disabled:cursor-not-allowed" placeholder="Ex.: SOMPO-ESP32" aria-describedby="maqDispositivoAjuda"/><p id="maqDispositivoAjuda" class="text-xs text-on-surface-variant mt-1" hidden>ESP32 já vinculado; o dispositivo não pode ser remanejado para outra máquina.</p></div>
           <div><label for="maqFabricacao" class="block text-xs font-semibold mb-1">Fabricação</label><input id="maqFabricacao" type="date" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2"/></div>
           <div><label for="maqManutencao" class="block text-xs font-semibold mb-1">Última manutenção</label><input id="maqManutencao" type="date" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2"/></div>
           <div><label for="maqValor" class="block text-xs font-semibold mb-1">Valor segurado (R$)</label><input id="maqValor" type="number" min="0" step="0.01" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2"/></div>
           <p class="text-xs">O cliente proprietário é definido pela fazenda escolhida. O ID do equipamento é gerado no cadastro; o ID do ESP32 identifica o dispositivo físico.</p>
-          <div class="md:col-span-2 flex items-center gap-3"><button type="submit" class="bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg">Salvar máquina</button><button type="button" id="btnCancelarMaquina" class="font-semibold text-on-surface-variant px-3 py-2">Cancelar</button><span id="maqMsg" class="text-[13px] font-semibold"></span></div>
+          <div class="md:col-span-2 flex items-center gap-3"><button type="submit" id="maqSalvar" class="bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg">Salvar máquina</button><button type="button" id="btnCancelarMaquina" class="font-semibold text-on-surface-variant px-3 py-2">Cancelar</button><span id="maqMsg" class="text-[13px] font-semibold"></span></div>
         </form>
         <div id="listaMaquinas" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
       </section>
@@ -300,7 +333,7 @@
           <div><label class="block text-xs font-semibold text-on-surface-variant mb-1">Nome *</label><input id="opNome" required class="w-full bg-surface-container-lowest rounded-lg px-3 py-2"/></div>
           <div><label for="opMatricula" class="block text-xs font-semibold text-on-surface-variant mb-1">Matrícula (opcional)</label><input aria-describedby="matriculaAjuda" id="opMatricula" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2"/><p id="matriculaAjuda" class="text-xs text-on-surface-variant mt-1">Código interno do funcionário, se houver.</p></div>
           <div><label class="block text-xs font-semibold text-on-surface-variant mb-1">UID do crachá * — identificador RFID</label><input id="opUid" required class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 uppercase" placeholder="8B EE BC 06" aria-description="Identificador do crachá RFID"/></div>
-          <div id="opFazendaWrap"><label class="block text-xs font-semibold text-on-surface-variant mb-1">Fazenda *</label><select id="opFazenda" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2"></select></div>
+          <div id="opFazendaWrap"><label class="block text-xs font-semibold text-on-surface-variant mb-1">Fazenda *</label><select id="opFazenda" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"></select></div>
           <div class="md:col-span-2 flex items-center gap-3"><button type="submit" class="bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg">Salvar operador</button><button type="button" id="btnCancelarOperador" class="font-semibold text-on-surface-variant px-3 py-2">Cancelar</button><span id="opMsg" class="text-[13px] font-semibold"></span></div>
         </form>
         <div id="listaOperadores" class="space-y-2"></div>
@@ -310,7 +343,7 @@
       <section data-section="historico" class="bg-surface-container-lowest rounded-2xl shadow-sm p-6">
         <div class="flex items-center justify-between mb-5 flex-wrap gap-3">
           <div><h2 class="text-lg font-semibold text-on-surface">Histórico de operação</h2><p class="text-xs text-on-surface-variant mt-1">Sessões identificadas pelo crachá, sem atribuição automática de responsabilidade.</p></div>
-          <select id="historicoDias" class="bg-surface-container-low rounded-lg px-3 py-2"><option value="7">7 dias</option><option value="30">30 dias</option><option value="90">90 dias</option></select>
+          <select id="historicoDias" class="bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer shadow-sm"><option value="7">7 dias</option><option value="30">30 dias</option><option value="90">90 dias</option></select>
         </div>
         <div id="listaHistorico" class="space-y-2"></div>
       </section>
@@ -340,7 +373,7 @@
           </div>
           <div class="md:col-span-2">
             <label class="block text-xs font-semibold text-on-surface-variant mb-1">Cliente (dono) *</label>
-            <select id="fzCliente" required class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20"></select>
+            <select id="fzCliente" required class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"></select>
             <button type="button" id="linkNovoCliente" class="mt-1.5 text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1"><span class="material-symbols-outlined text-[15px]">add</span>Não achou? Cadastrar novo cliente</button>
           </div>
           <div class="md:col-span-2 flex items-center gap-3 flex-wrap">
@@ -417,14 +450,14 @@
           </div>
           <div>
             <label class="block text-xs font-semibold text-on-surface-variant mb-1">Perfil *</label>
-            <select id="usRole" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20">
+            <select id="usRole" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer">
               <option value="gestor_fazenda">Gestor da fazenda (vê só a fazenda dele)</option>
               <option value="sompo">Sompo (vê tudo e cadastra)</option>
             </select>
           </div>
           <div id="usFazendaWrap">
             <label class="block text-xs font-semibold text-on-surface-variant mb-1">Fazenda vinculada *</label>
-            <select id="usFazenda" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20"></select>
+            <select id="usFazenda" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"></select>
           </div>
           <div class="md:col-span-2 flex items-center gap-3 flex-wrap">
             <button type="submit" class="inline-flex items-center gap-1.5 bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg shadow-md hover:bg-on-primary-fixed-variant transition-all">
@@ -493,6 +526,8 @@ let eventosCache = [];      // eventos renderizados no feed (para o modal de det
 let clientesCache = [];     // clientes renderizados (para o modal de detalhe do cliente)
 let fazendasCache = [];     // fazendas renderizadas (para o modal de detalhe da fazenda)
 let maquinasCache = [];
+let maquinaEditando = null;  // máquina aberta no formMaquina em modo edição (null = cadastro)
+let envioMaquina = 0;        // versão do formMaquina: respostas de um envio antigo não mexem no form atual
 let operadoresCache = [];
 
 const RISCO = {ALTO:'#ba1a1a', MEDIO:'#f59e0b', BAIXO:'#10b981'};
@@ -589,6 +624,7 @@ function limparMaquina(){
 async function trocarFazenda(id){
   limparMaquina(); fazendaSelecionada = id;
   maquinasCache = []; operadoresCache = [];
+  if(maquinaEditando) fecharFormMaquina();   // não editar máquina de outra fazenda
   ['listaMaquinas','listaOperadores','listaHistorico'].forEach(id => $(id).innerHTML = '');
   $('resumoFazendaNome').textContent = 'Carregando…';
   $('equipamentoSel').innerHTML = '<option value="">Selecione uma máquina</option>';
@@ -1086,7 +1122,7 @@ async function carregarResumoFazenda(){
         <div class="flex items-start justify-between gap-3"><div><h3 class="font-bold text-on-surface">${m.nome}</h3><p class="text-xs text-on-surface-variant mt-1">${[m.tipo,m.modelo].filter(Boolean).join(' · ')||'Máquina agrícola'}</p></div><span class="text-[11px] font-bold px-2 py-1 rounded-full" style="background:${cor}18;color:${cor}">${com}</span></div>
         <div class="grid grid-cols-2 gap-3 my-4 text-xs"><div><span class="text-on-surface-variant">Risco máximo</span><div class="font-bold text-lg">${risco}</div></div><div><span class="text-on-surface-variant">Operador</span><div class="font-semibold mt-1">${m.operador_nome||'Não identificado'}</div></div></div>
         <div class="text-xs text-on-surface-variant mb-4">${m.dispositivo_id||'ESP32 ainda não vinculado'}${m.config_pendente?' · configuração pendente':''}</div>
-        <div class="flex gap-2 flex-wrap"><button data-detalhe-maquina="${m.id_equipamento}" class="text-primary underline text-xs">Detalhes</button><button data-abrir-maquina="${m.id_equipamento}" class="bg-primary text-on-primary font-semibold px-3 py-2 rounded-lg text-xs">Abrir painel</button><button data-autorizar-maquina="${m.id_equipamento}" class="bg-surface-container-high text-primary font-semibold px-3 py-2 rounded-lg text-xs">Crachás autorizados</button></div>
+        <div class="flex gap-2 flex-wrap"><button data-detalhe-maquina="${m.id_equipamento}" class="text-primary underline text-xs">Detalhes</button><button data-abrir-maquina="${m.id_equipamento}" class="bg-primary text-on-primary font-semibold px-3 py-2 rounded-lg text-xs">Abrir painel</button><button data-editar-maquina="${m.id_equipamento}" class="bg-surface-container-high text-primary font-semibold px-3 py-2 rounded-lg text-xs inline-flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">edit</span>Editar</button><button data-autorizar-maquina="${m.id_equipamento}" class="bg-surface-container-high text-primary font-semibold px-3 py-2 rounded-lg text-xs">Crachás autorizados</button></div>
       </article>`;
     }).join('');
   }catch(e){ if(e.obsoleto) return;
@@ -1107,14 +1143,50 @@ async function selecionarMaquina(id, view = 'visao'){
   await carregarTudo();
 }
 
-async function criarMaquina(ev){
+// Prepara o formMaquina para cadastro (m = null) ou edição (m = máquina do cache).
+// Na edição a fazenda e o ESP32 já vinculado ficam travados: o backend recusa
+// transferência de fazenda e remanejamento de dispositivo (409).
+function modoFormMaquina(m){
+  maquinaEditando = m || null; envioMaquina++;
+  const f=$('formMaquina'), msg=$('maqMsg');
+  f.reset(); msg.textContent=''; msg.style.color='';
+  $('maqFormTitulo').textContent = m ? `Editar máquina — ${m.nome}` : 'Nova máquina';
+  $('maqSalvar').textContent = m ? 'Salvar alterações' : 'Salvar máquina'; $('maqSalvar').disabled = false;
+  opcoesFazenda($('maqFazenda'), m ? m.fk_fazenda_id_fazenda : fazendaSelecionada);
+  $('maqFazenda').disabled = !!m;
+  const travaDispositivo = !!(m && m.dispositivo_id);
+  $('maqDispositivo').disabled = travaDispositivo; $('maqDispositivoAjuda').hidden = !travaDispositivo;
+  if(m){
+    $('maqNome').value=m.nome||''; $('maqTipo').value=m.tipo||''; $('maqModelo').value=m.modelo||'';
+    $('maqDispositivo').value=m.dispositivo_id||''; $('maqFabricacao').value=String(m.fabricacao||'').slice(0,10);
+    $('maqManutencao').value=String(m.ultima_manutencao||'').slice(0,10); $('maqValor').value=m.valor_segurado ?? '';
+  }
+}
+function abrirFormMaquina(m){
+  modoFormMaquina(m);
+  const f=$('formMaquina'); f.classList.remove('hidden');
+  f.scrollIntoView({behavior:'smooth',block:'start'}); $('maqNome').focus();
+}
+function fecharFormMaquina(){ modoFormMaquina(null); $('formMaquina').classList.add('hidden'); }
+
+async function salvarMaquina(ev){
   ev.preventDefault(); const msg=$('maqMsg');
-  const payload={nome:$('maqNome').value.trim(), fk_fazenda_id_fazenda:$('maqFazenda').value,
-    tipo:$('maqTipo').value.trim(), modelo:$('maqModelo').value.trim(), dispositivo_id:$('maqDispositivo').value.trim(), fabricacao:$('maqFabricacao').value, ultima_manutencao:$('maqManutencao').value, valor_segurado:$('maqValor').value};
-  msg.textContent='Salvando…';
-  try{ const r=await fetch('/equipamentos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); const d=await r.json(); if(!r.ok) throw new Error(d.erro||`HTTP ${r.status}`);
-    $('formMaquina').reset(); $('formMaquina').classList.add('hidden'); msg.textContent=''; await carregarResumoFazenda();
-  }catch(e){ if(e.obsoleto) return; msg.textContent=e.message; msg.style.color='#ba1a1a'; }
+  const editando = maquinaEditando;
+  const payload={nome:$('maqNome').value.trim(),
+    tipo:$('maqTipo').value.trim(), modelo:$('maqModelo').value.trim(), fabricacao:$('maqFabricacao').value, ultima_manutencao:$('maqManutencao').value, valor_segurado:$('maqValor').value};
+  if(!editando) payload.fk_fazenda_id_fazenda = $('maqFazenda').value;   // na edição a fazenda não muda
+  if(!$('maqDispositivo').disabled) payload.dispositivo_id = $('maqDispositivo').value.trim();
+  const url = editando ? `/equipamentos/${editando.id_equipamento}` : '/equipamentos';
+  const envio = envioMaquina;   // se o form mudar de modo enquanto o envio está pendente, a resposta não mexe nele
+  msg.textContent='Salvando…'; msg.style.color=''; $('maqSalvar').disabled = true;
+  try{ const r=await fetch(url,{method:editando?'PATCH':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); const d=await r.json(); if(!r.ok) throw new Error(d.erro||`HTTP ${r.status}`);
+    if(editando && String(equipamentoSelecionado)===String(editando.id_equipamento) && d.equipamento){
+      dispositivo = d.equipamento.dispositivo_id || ''; $('dispositivo').value = dispositivo;
+    }
+    if(envio===envioMaquina) fecharFormMaquina();
+    await carregarResumoFazenda();
+  }catch(e){ if(e.obsoleto || envio!==envioMaquina) return; msg.textContent=e.message; msg.style.color='#ba1a1a'; }
+  finally{ if(envio===envioMaquina) $('maqSalvar').disabled = false; }
 }
 
 async function carregarOperadores(){
@@ -1282,6 +1354,7 @@ $('modalDetalhe').addEventListener('click', e=>{ if(e.target === $('modalDetalhe
 $('detCorpo').addEventListener('click', async e=>{
   const salvar=e.target.closest('[data-salvar-autorizacoes]'); if(salvar){ salvarAutorizacoes(salvar.dataset.salvarAutorizacoes); return; }
   const cred=e.target.closest('[data-gerar-credencial]'); if(cred){ gerarCredencial(cred.dataset.gerarCredencial); return; }
+  const editar=e.target.closest('[data-editar-maquina]'); if(editar){ const m=maquinasCache.find(x=>String(x.id_equipamento)===editar.dataset.editarMaquina); fecharDetalhe(); if(m){ setView('maquinas'); abrirFormMaquina(m); } return; }
   const b = e.target.closest('[data-vertelemetria]'); if(!b) return;
   setView('telemetria');
   const fazenda = b.dataset.vertelemetria;
@@ -1302,16 +1375,28 @@ function detalheMaquina(m){
     ['Tipo',m.tipo],['Modelo',m.modelo],['Fabricação',data(m.fabricacao)],
     ['Última manutenção',data(m.ultima_manutencao)],
     ['Valor segurado',m.valor_segurado == null ? 'Não informado' : Number(m.valor_segurado).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})]
-  ].map(([k,v])=>linhaDet(k,escapar(v))).join(''));
+  ].map(([k,v])=>linhaDet(k,escapar(v))).join('') + `<div class="mt-4"><button data-editar-maquina="${m.id_equipamento}" class="bg-surface-container-high text-primary font-semibold px-4 py-2 rounded-lg inline-flex items-center gap-1"><span class="material-symbols-outlined text-[18px]">edit</span>Editar máquina</button></div>`);
 }
-$('selecionarNoAviso').addEventListener('click', async ()=>{ await carregarResumoFazenda(); $('equipamentoSel').focus(); });
+// "Selecionar máquina": abre a lista do seletor do header (showPicker). Se o navegador não
+// abrir a lista (sem suporte ou ativação expirada), destaca o seletor; sem máquinas na
+// fazenda, leva para a aba Máquinas, onde dá para cadastrar.
+$('selecionarNoAviso').addEventListener('click', async ()=>{
+  if(!maquinasCache.length) await carregarResumoFazenda();
+  if(!maquinasCache.length){ setView('maquinas'); carregarTudo(); return; }
+  const sel=$('equipamentoSel'), wrap=$('equipamentoSelWrap');
+  wrap.classList.remove('hidden'); sel.focus();
+  try{ sel.showPicker(); }
+  catch(_){ wrap.classList.remove('sel-destaque'); void wrap.offsetWidth; wrap.classList.add('sel-destaque'); setTimeout(()=>wrap.classList.remove('sel-destaque'),1700); }
+});
 document.addEventListener('click', e=>{ if(e.target.closest('[data-tentar]')) carregarTudo(); if(e.target.closest('[data-retry-frota]')) carregarResumoFazenda(); });
 document.addEventListener('click', async e=>{ if(e.target.closest('[data-retry-fazendas]')){ await carregarSeletorFazendas(); await carregarResumoFazenda(); } });
 $('listaMaquinas').addEventListener('click', e=>{ const b=e.target.closest('[data-detalhe-maquina]'); if(b) detalheMaquina(maquinasCache.find(m=>String(m.id_equipamento)===b.dataset.detalheMaquina)); });
 $('listaMaquinas').addEventListener('click', e=>{ const abrir=e.target.closest('[data-abrir-maquina]'); if(abrir) selecionarMaquina(abrir.dataset.abrirMaquina); const aut=e.target.closest('[data-autorizar-maquina]'); if(aut) gerenciarAutorizacoes(aut.dataset.autorizarMaquina); });
-$('btnNovaMaquina').addEventListener('click',()=>{ $('formMaquina').classList.toggle('hidden'); opcoesFazenda($('maqFazenda'),fazendaSelecionada); });
-$('btnCancelarMaquina').addEventListener('click',()=>$('formMaquina').classList.add('hidden'));
-$('formMaquina').addEventListener('submit',criarMaquina);
+$('listaMaquinas').addEventListener('click', e=>{ const b=e.target.closest('[data-editar-maquina]'); if(!b) return; const m=maquinasCache.find(x=>String(x.id_equipamento)===b.dataset.editarMaquina); if(m) abrirFormMaquina(m); });
+// "Nova máquina" abre o form limpo; se já estiver aberto em modo cadastro, fecha.
+$('btnNovaMaquina').addEventListener('click',()=>{ if($('formMaquina').classList.contains('hidden') || maquinaEditando) abrirFormMaquina(null); else fecharFormMaquina(); });
+$('btnCancelarMaquina').addEventListener('click',fecharFormMaquina);
+$('formMaquina').addEventListener('submit',salvarMaquina);
 $('btnNovoOperador').addEventListener('click',()=>{ $('formOperador').classList.toggle('hidden'); opcoesFazenda($('opFazenda'),fazendaSelecionada); });
 $('btnCancelarOperador').addEventListener('click',()=>$('formOperador').classList.add('hidden'));
 $('formOperador').addEventListener('submit',criarOperador);
