@@ -16,7 +16,7 @@ def test_sem_chave_configurada_libera_geral():
     client = app.test_client()
     with patch('app.SOMPO_API_KEY', ''), \
          patch('app.consultar_telemetria', return_value=[]):
-        response = client.get('/telemetria')
+        response = client.get('/telemetria?dispositivo=SOMPO-ESP32')
     assert response.status_code == 200
 
 
@@ -40,7 +40,7 @@ def test_rota_protegida_com_header_correto_passa():
     client = app.test_client()
     with patch('app.SOMPO_API_KEY', _CHAVE), \
          patch('app.consultar_telemetria', return_value=[]):
-        response = client.get('/telemetria', headers={'X-API-Key': _CHAVE})
+        response = client.get('/telemetria?dispositivo=SOMPO-ESP32', headers={'X-API-Key': _CHAVE})
     assert response.status_code == 200
     assert response.get_json()['total'] == 0
 
@@ -60,7 +60,7 @@ def test_api_key_valida_passa_mesmo_com_login_ligado():
     with patch('app.PAINEL_SENHA', 'senha-do-painel'), \
          patch('app.SOMPO_API_KEY', _CHAVE), \
          patch('app.consultar_telemetria', return_value=[]):
-        response = client.get('/telemetria', headers={'X-API-Key': _CHAVE})
+        response = client.get('/telemetria?dispositivo=SOMPO-ESP32', headers={'X-API-Key': _CHAVE})
     assert response.status_code == 200
 
 

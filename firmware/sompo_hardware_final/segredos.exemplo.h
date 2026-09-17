@@ -20,4 +20,8 @@
 #define SUPABASE_URL_CFG     "https://SEU-PROJETO.supabase.co"
 #define SUPABASE_CHAVE_CFG   "sb_publishable_COLE_A_SUA_AQUI"
 
+// Gerado uma unica vez no painel, em Equipamentos > Credencial. Cada ESP32
+// recebe seu proprio token; ele nunca deve ser reutilizado em outra maquina.
+#define DISPOSITIVO_TOKEN_CFG "COLE_O_TOKEN_DESTE_EQUIPAMENTO"
+
 #endif

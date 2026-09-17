@@ -35,7 +35,7 @@ def test_endpoint_docx_retorna_word():
     with patch('app.consultar_resumo', return_value=[]), \
          patch('app.consultar_eventos', return_value=[]), \
          patch('llm.LLM_API_KEY', ''):
-        response = client.get('/relatorio/risco.docx?dias=7')
+        response = client.get('/relatorio/risco.docx?dispositivo=SOMPO-ESP32&dias=7')
     assert response.status_code == 200
     assert 'wordprocessingml' in response.headers['Content-Type']
     assert response.headers['Content-Disposition'].startswith('attachment')

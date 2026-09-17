@@ -48,7 +48,7 @@
   }}};
 </script>
 </head>
-<body class="bg-background text-on-background font-sans text-sm">
+<body class="bg-background text-on-background font-sans text-sm overflow-x-hidden">
 
 <!-- ===================== SIDEBAR ===================== -->
 <aside class="hidden lg:flex fixed left-0 top-0 h-full w-64 bg-surface-container-lowest z-50 flex-col shadow-[4px_0_24px_rgba(0,0,0,0.03)]">
@@ -60,10 +60,13 @@
     </div>
   </div>
   <nav class="flex-1 px-3 space-y-1 mt-4">
-    <a href="#" data-nav="visao"      class="flex items-center px-4 py-3 rounded-xl font-semibold transition-colors"><span class="material-symbols-outlined mr-3">dashboard</span>Visão Geral</a>
+    <a href="#" data-nav="maquinas"   class="flex items-center px-4 py-3 rounded-xl font-semibold transition-colors"><span class="material-symbols-outlined mr-3">agriculture</span>Máquinas</a>
+    <a href="#" data-nav="visao"      class="flex items-center px-4 py-3 rounded-xl font-semibold transition-colors"><span class="material-symbols-outlined mr-3">dashboard</span>Painel da máquina</a>
     <a href="#" data-nav="risco"      class="flex items-center px-4 py-3 rounded-xl font-semibold transition-colors"><span class="material-symbols-outlined mr-3">analytics</span>Análise de Risco</a>
     <a href="#" data-nav="telemetria" class="flex items-center px-4 py-3 rounded-xl font-semibold transition-colors"><span class="material-symbols-outlined mr-3">sensors</span>Telemetria</a>
     <a href="#" data-nav="alertas"    class="flex items-center px-4 py-3 rounded-xl font-semibold transition-colors"><span class="material-symbols-outlined mr-3">warning</span>Alertas</a>
+    <a href="#" data-nav="operadores" class="flex items-center px-4 py-3 rounded-xl font-semibold transition-colors"><span class="material-symbols-outlined mr-3">badge</span>Operadores</a>
+    <a href="#" data-nav="historico"  class="flex items-center px-4 py-3 rounded-xl font-semibold transition-colors"><span class="material-symbols-outlined mr-3">history</span>Histórico</a>
     <a href="#" data-nav="fazendas"   class="flex items-center px-4 py-3 rounded-xl font-semibold transition-colors"><span class="material-symbols-outlined mr-3">landscape</span>Fazendas</a>
     <a href="#" data-nav="clientes"   class="flex items-center px-4 py-3 rounded-xl font-semibold transition-colors"><span class="material-symbols-outlined mr-3">group</span>Clientes</a>
     <a href="#" data-nav="usuarios"   class="flex items-center px-4 py-3 rounded-xl font-semibold transition-colors"><span class="material-symbols-outlined mr-3">manage_accounts</span>Usuários</a>
@@ -76,7 +79,7 @@
 </aside>
 
 <!-- ===================== CONTEUDO ===================== -->
-<div class="lg:pl-64">
+<div class="lg:pl-64 min-w-0 max-w-full overflow-x-hidden">
 
   <!-- HEADER -->
   <header class="sticky top-0 z-40 bg-surface/80 backdrop-blur-xl border-b border-outline-variant/30 px-4 lg:px-8 py-3 lg:py-0 lg:h-20 flex flex-wrap items-center gap-3">
@@ -98,17 +101,23 @@
               class="appearance-none w-48 bg-surface-container-lowest rounded-full py-2 pl-9 pr-9 text-sm text-on-surface font-medium outline-none shadow-sm cursor-pointer focus:ring-2 focus:ring-primary/20"></select>
       <span class="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant pointer-events-none">expand_more</span>
     </div>
+    <div id="equipamentoSelWrap" class="relative hidden">
+      <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant pointer-events-none">agriculture</span>
+      <select id="equipamentoSel" title="Máquina"
+              class="appearance-none w-52 bg-surface-container-lowest rounded-full py-2 pl-9 pr-9 text-sm text-on-surface font-medium outline-none shadow-sm cursor-pointer focus:ring-2 focus:ring-primary/20"></select>
+      <span class="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant pointer-events-none">expand_more</span>
+    </div>
     <div id="deviceWrap" class="relative">
       <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant">memory</span>
       <input id="dispositivo" value="SOMPO-ESP32" title="ID do dispositivo"
              class="w-36 bg-surface-container-lowest rounded-full py-2 pl-9 pr-3 text-sm outline-none shadow-sm focus:ring-2 focus:ring-primary/20"/>
     </div>
-    <button id="btnAtualizar" class="inline-flex items-center gap-1.5 bg-surface-container text-primary font-semibold px-4 py-2 rounded-lg hover:bg-surface-container-high transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
-      <span id="iconAtualizar" class="material-symbols-outlined text-[18px]">refresh</span> <span id="txtAtualizar">Atualizar</span>
+    <button id="btnAtualizar" title="Atualizar" class="inline-flex items-center gap-1.5 bg-surface-container text-primary font-semibold px-3 sm:px-4 py-2 rounded-lg hover:bg-surface-container-high transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+      <span id="iconAtualizar" class="material-symbols-outlined text-[18px]">refresh</span> <span id="txtAtualizar" class="hidden sm:inline">Atualizar</span>
     </button>
     <button id="btnBaixar" title="Baixar o relatório de risco em Word (.docx)"
-            class="inline-flex items-center gap-1.5 bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg shadow-md hover:bg-on-primary-fixed-variant transition-all">
-      <span class="material-symbols-outlined text-[18px]">download</span> Exportar Word
+            class="inline-flex items-center gap-1.5 bg-primary text-on-primary font-semibold px-3 sm:px-4 py-2 rounded-lg shadow-md hover:bg-on-primary-fixed-variant transition-all">
+      <span class="material-symbols-outlined text-[18px]">download</span><span class="hidden sm:inline">Exportar Word</span>
     </button>
     <a href="/logout" class="lg:hidden inline-flex items-center p-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high" title="Sair">
       <span class="material-symbols-outlined">logout</span>
@@ -116,11 +125,14 @@
   </header>
 
   <!-- Navegacao por abas no mobile (a sidebar some) -->
-  <div class="lg:hidden flex gap-2 overflow-x-auto px-4 pt-4">
-    <a href="#" data-nav="visao"      class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Visão Geral</a>
+  <div class="lg:hidden flex gap-2 overflow-x-auto px-4 pt-4 w-full max-w-full min-w-0">
+    <a href="#" data-nav="maquinas"   class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Máquinas</a>
+    <a href="#" data-nav="visao"      class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Painel</a>
     <a href="#" data-nav="risco"      class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Risco</a>
     <a href="#" data-nav="telemetria" class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Telemetria</a>
     <a href="#" data-nav="alertas"    class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Alertas</a>
+    <a href="#" data-nav="operadores" class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Operadores</a>
+    <a href="#" data-nav="historico"  class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Histórico</a>
     <a href="#" data-nav="fazendas"   class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Fazendas</a>
     <a href="#" data-nav="clientes"   class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Clientes</a>
     <a href="#" data-nav="usuarios"   class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Usuários</a>
@@ -130,7 +142,7 @@
   <main class="p-4 lg:p-8">
     <div class="flex items-end justify-between mb-8 flex-wrap gap-3">
       <div>
-        <h1 id="tituloView" class="text-2xl lg:text-3xl font-bold text-on-background mb-1">Visão Geral</h1>
+        <h1 id="tituloView" class="text-2xl lg:text-3xl font-bold text-on-background mb-1">Máquinas</h1>
         <p class="text-on-surface-variant">Monitoramento de furto e incêndio em máquinas agrícolas.</p>
       </div>
       <div class="text-xs text-on-surface-variant">Atualizado às <span id="ultima" class="font-semibold text-on-surface">–</span> · auto-refresh 5s</div>
@@ -247,6 +259,53 @@
         </div>
       </section>
 
+      <!-- MAQUINAS / RESUMO DA FAZENDA -->
+      <section data-section="maquinas" class="bg-surface-container-lowest rounded-2xl shadow-sm p-6">
+        <div class="flex items-center justify-between mb-5 flex-wrap gap-2">
+          <div>
+            <h2 class="text-lg font-semibold text-on-surface">Máquinas da fazenda</h2>
+            <p id="resumoFazendaNome" class="text-xs text-on-surface-variant mt-1">Selecione uma fazenda para acompanhar a frota.</p>
+          </div>
+          <button id="btnNovaMaquina" class="inline-flex items-center gap-1.5 bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg shadow-md hover:bg-on-primary-fixed-variant transition-all">
+            <span class="material-symbols-outlined text-[18px]">add</span> Nova máquina
+          </button>
+        </div>
+        <form id="formMaquina" class="hidden bg-surface-container-low rounded-xl p-5 mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div><label class="block text-xs font-semibold text-on-surface-variant mb-1">Nome *</label><input id="maqNome" required class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20" placeholder="Ex.: Trator 01"/></div>
+          <div id="maqFazendaWrap"><label class="block text-xs font-semibold text-on-surface-variant mb-1">Fazenda *</label><select id="maqFazenda" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20"></select></div>
+          <div><label class="block text-xs font-semibold text-on-surface-variant mb-1">Tipo</label><input id="maqTipo" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2" placeholder="Trator, colheitadeira..."/></div>
+          <div><label class="block text-xs font-semibold text-on-surface-variant mb-1">Modelo</label><input id="maqModelo" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2"/></div>
+          <div class="md:col-span-2"><label class="block text-xs font-semibold text-on-surface-variant mb-1">ID do ESP32</label><input id="maqDispositivo" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2" placeholder="Ex.: SOMPO-ESP32"/></div>
+          <div class="md:col-span-2 flex items-center gap-3"><button type="submit" class="bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg">Salvar máquina</button><button type="button" id="btnCancelarMaquina" class="font-semibold text-on-surface-variant px-3 py-2">Cancelar</button><span id="maqMsg" class="text-[13px] font-semibold"></span></div>
+        </form>
+        <div id="listaMaquinas" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
+      </section>
+
+      <!-- OPERADORES RFID -->
+      <section data-section="operadores" class="bg-surface-container-lowest rounded-2xl shadow-sm p-6">
+        <div class="flex items-center justify-between mb-5 flex-wrap gap-2">
+          <div><h2 class="text-lg font-semibold text-on-surface">Operadores RFID</h2><p class="text-xs text-on-surface-variant mt-1">Operadores não possuem login; o crachá registra a presença na máquina.</p></div>
+          <button id="btnNovoOperador" class="inline-flex items-center gap-1.5 bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg"><span class="material-symbols-outlined text-[18px]">add</span>Novo operador</button>
+        </div>
+        <form id="formOperador" class="hidden bg-surface-container-low rounded-xl p-5 mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div><label class="block text-xs font-semibold text-on-surface-variant mb-1">Nome *</label><input id="opNome" required class="w-full bg-surface-container-lowest rounded-lg px-3 py-2"/></div>
+          <div><label class="block text-xs font-semibold text-on-surface-variant mb-1">Matrícula</label><input id="opMatricula" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2"/></div>
+          <div><label class="block text-xs font-semibold text-on-surface-variant mb-1">UID do crachá *</label><input id="opUid" required class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 uppercase" placeholder="8B EE BC 06"/></div>
+          <div id="opFazendaWrap"><label class="block text-xs font-semibold text-on-surface-variant mb-1">Fazenda *</label><select id="opFazenda" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2"></select></div>
+          <div class="md:col-span-2 flex items-center gap-3"><button type="submit" class="bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg">Salvar operador</button><button type="button" id="btnCancelarOperador" class="font-semibold text-on-surface-variant px-3 py-2">Cancelar</button><span id="opMsg" class="text-[13px] font-semibold"></span></div>
+        </form>
+        <div id="listaOperadores" class="space-y-2"></div>
+      </section>
+
+      <!-- HISTORICO DE SESSOES -->
+      <section data-section="historico" class="bg-surface-container-lowest rounded-2xl shadow-sm p-6">
+        <div class="flex items-center justify-between mb-5 flex-wrap gap-3">
+          <div><h2 class="text-lg font-semibold text-on-surface">Histórico de operação</h2><p class="text-xs text-on-surface-variant mt-1">Sessões identificadas pelo crachá, sem atribuição automática de responsabilidade.</p></div>
+          <select id="historicoDias" class="bg-surface-container-low rounded-lg px-3 py-2"><option value="7">7 dias</option><option value="30">30 dias</option><option value="90">90 dias</option></select>
+        </div>
+        <div id="listaHistorico" class="space-y-2"></div>
+      </section>
+
       <!-- FAZENDAS -->
       <section data-section="fazendas" class="bg-surface-container-lowest rounded-2xl shadow-sm p-6">
         <div class="flex items-center justify-between mb-5 flex-wrap gap-2">
@@ -274,11 +333,6 @@
             <label class="block text-xs font-semibold text-on-surface-variant mb-1">Cliente (dono) *</label>
             <select id="fzCliente" required class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20"></select>
             <button type="button" id="linkNovoCliente" class="mt-1.5 text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1"><span class="material-symbols-outlined text-[15px]">add</span>Não achou? Cadastrar novo cliente</button>
-          </div>
-          <div class="md:col-span-2">
-            <label class="block text-xs font-semibold text-on-surface-variant mb-1">Dispositivo (ESP32) vinculado</label>
-            <input id="fzDispositivo" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20" placeholder="Ex.: SOMPO-ESP32 (deixe em branco se ainda não houver)"/>
-            <p class="mt-1.5 text-xs text-on-surface-variant">Só a fazenda com o ID do ESP32 real (<span class="font-semibold">SOMPO-ESP32</span>) recebe dado ao vivo — há um aparelho físico. As demais aparecem no seletor, mas sem telemetria.</p>
           </div>
           <div class="md:col-span-2 flex items-center gap-3 flex-wrap">
             <button type="submit" class="inline-flex items-center gap-1.5 bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg shadow-md hover:bg-on-primary-fixed-variant transition-all">
@@ -422,10 +476,14 @@
 <script>
 const $ = id => document.getElementById(id);
 let dispositivo = 'SOMPO-ESP32';
+let equipamentoSelecionado = null;
+let fazendaSelecionada = null;
 let perfilRole = 'sompo';   // definido por /me no init
 let eventosCache = [];      // eventos renderizados no feed (para o modal de detalhes)
 let clientesCache = [];     // clientes renderizados (para o modal de detalhe do cliente)
 let fazendasCache = [];     // fazendas renderizadas (para o modal de detalhe da fazenda)
+let maquinasCache = [];
+let operadoresCache = [];
 
 const RISCO = {ALTO:'#ba1a1a', MEDIO:'#f59e0b', BAIXO:'#10b981'};
 const corRisco = c => RISCO[c] || RISCO.BAIXO;
@@ -441,19 +499,22 @@ const NAV_ON = ' bg-primary text-on-primary';
 const NAV_OFF = ' text-on-surface-variant hover:bg-surface-container-high';
 const CHIP_ON = ' bg-primary text-on-primary';
 const CHIP_OFF = ' bg-surface-container text-on-surface-variant';
-const TITULOS = {visao:'Visão Geral', risco:'Análise de Risco', telemetria:'Telemetria', alertas:'Alertas', fazendas:'Fazendas', clientes:'Clientes', usuarios:'Usuários'};
+const TITULOS = {maquinas:'Máquinas', visao:'Painel da máquina', risco:'Análise de Risco', telemetria:'Telemetria', alertas:'Alertas', operadores:'Operadores', historico:'Histórico', fazendas:'Fazendas', clientes:'Clientes', usuarios:'Usuários'};
 // Para cada view, quais seções aparecem e com qual largura (colunas de 12).
 const VIEWS = {
   visao:      {kpis:true, risco:12, telemetria:8, alertas:4, tabela:12},
+  maquinas:   {maquinas:12},
   risco:      {risco:12},
   telemetria: {telemetria:12, tabela:12},
   alertas:    {alertas:12},
+  operadores: {operadores:12},
+  historico:  {historico:12},
   fazendas:   {fazendas:12},
   clientes:   {clientes:12},
   usuarios:   {usuarios:12},
 };
 
-let viewAtual = 'visao';
+let viewAtual = 'maquinas';
 function setView(view){
   viewAtual = view;
   const cfg = VIEWS[view] || VIEWS.visao;
@@ -478,6 +539,7 @@ function setView(view){
     a.className = 'whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors' + (a.dataset.nav === view ? CHIP_ON : CHIP_OFF);
   });
   $('tituloView').textContent = TITULOS[view] || 'Visão Geral';
+  $('btnBaixar').classList.toggle('hidden', !equipamentoSelecionado);
   window.scrollTo({top:0, behavior:'smooth'});
 }
 
@@ -486,6 +548,9 @@ async function getJSON(path){
   if(!r.ok) throw new Error('HTTP '+r.status);
   return r.json();
 }
+const seletorEquipamento = () => equipamentoSelecionado
+  ? `equipamento=${encodeURIComponent(equipamentoSelecionado)}`
+  : `dispositivo=${encodeURIComponent(dispositivo)}`;
 
 // Grafico de linha (estilo Recharts/shadcn, recriado em SVG puro): eixo Y em °C,
 // gridlines, curva suave, area com gradiente, pontos e hover (title) por leitura.
@@ -554,7 +619,7 @@ async function carregarSaude(){
 
 async function carregarRisco(){
   try{
-    const d = await getJSON(`/relatorio/risco?dispositivo=${encodeURIComponent(dispositivo)}&dias=7`);
+    const d = await getJSON(`/relatorio/risco?${seletorEquipamento()}&dias=7`);
     const sf = d.score_furto ?? 0, si = d.score_incendio ?? 0;
     const cf = d.classificacao_furto || 'BAIXO', ci = d.classificacao_incendio || 'BAIXO';
     $('scoreFurto').textContent = sf; $('scoreIncendio').textContent = si;
@@ -578,7 +643,7 @@ async function carregarRisco(){
 
 async function carregarTelemetria(){
   try{
-    const d = await getJSON(`/telemetria?dispositivo=${encodeURIComponent(dispositivo)}&limite=10`);
+    const d = await getJSON(`/telemetria?${seletorEquipamento()}&limite=10`);
     const linhas = d.dados || [];
     const t = linhas[0] || null;
     const bool = v => v ? 'Sim' : 'Não';
@@ -634,7 +699,7 @@ async function carregarTelemetria(){
 
 async function carregarEventos(){
   try{
-    const d = await getJSON(`/eventos?dispositivo=${encodeURIComponent(dispositivo)}&dias=7`);
+    const d = await getJSON(`/eventos?${seletorEquipamento()}&dias=7`);
     const evs = d.dados || [];
     $('alertasBadge').textContent = evs.length;
     $('kpiAlertas').textContent = evs.length;
@@ -802,8 +867,7 @@ async function criarFazenda(ev){
     nome,
     localizacao: $('fzLocal').value.trim(),
     area_ha: $('fzArea').value,
-    fk_cliente_id_cliente: $('fzCliente').value,
-    dispositivo_id: $('fzDispositivo').value.trim()
+    fk_cliente_id_cliente: $('fzCliente').value
   };
   msg.textContent='Salvando…'; msg.style.color='#545f73';
   try{
@@ -926,6 +990,105 @@ async function criarUsuario(ev){
   }catch(e){ msg.textContent='Erro ao salvar ('+e.message+').'; msg.style.color='#ba1a1a'; }
 }
 
+/* ---------- Frota, operadores e histórico ---------- */
+const COMUNICACAO = {recente:['Online','#10b981'], atrasada:['Atrasada','#f59e0b'], sem_dados:['Sem dados','#545f73'], sem_dispositivo:['Sem ESP32','#545f73']};
+
+function opcoesFazenda(select, selecionada){
+  const fs = fazendasCache.length ? fazendasCache : (fazendaSelecionada ? [{id_fazenda:fazendaSelecionada,nome:'Minha fazenda'}] : []);
+  select.innerHTML = fs.map(f=>`<option value="${f.id_fazenda}">${f.nome}</option>`).join('');
+  if(selecionada) select.value = String(selecionada);
+}
+
+async function carregarResumoFazenda(){
+  if(!fazendaSelecionada){
+    $('listaMaquinas').innerHTML = '<div class="col-span-full text-on-surface-variant italic py-4">Nenhuma fazenda selecionada.</div>';
+    return;
+  }
+  try{
+    const d = await getJSON(`/fazendas/${fazendaSelecionada}/resumo?dias=7`);
+    maquinasCache = d.equipamentos || [];
+    $('resumoFazendaNome').textContent = (d.fazenda && d.fazenda.nome) || 'Fazenda selecionada';
+    $('equipamentoSel').innerHTML = '<option value="">Resumo da fazenda</option>' + maquinasCache.map(m=>`<option value="${m.id_equipamento}">${m.nome}</option>`).join('');
+    $('equipamentoSel').value = equipamentoSelecionado || '';
+    $('equipamentoSelWrap').classList.remove('hidden');
+    if(!maquinasCache.length){ $('listaMaquinas').innerHTML='<div class="col-span-full text-on-surface-variant italic py-4">Nenhuma máquina cadastrada nesta fazenda.</div>'; return; }
+    $('listaMaquinas').innerHTML = maquinasCache.map(m=>{
+      const [com,cor] = COMUNICACAO[m.comunicacao] || COMUNICACAO.sem_dados;
+      const risco = Math.max(m.scores?.score_furto||0,m.scores?.score_incendio||0);
+      return `<article class="rounded-xl border border-outline-variant/30 p-5 bg-surface-container-low">
+        <div class="flex items-start justify-between gap-3"><div><h3 class="font-bold text-on-surface">${m.nome}</h3><p class="text-xs text-on-surface-variant mt-1">${[m.tipo,m.modelo].filter(Boolean).join(' · ')||'Máquina agrícola'}</p></div><span class="text-[11px] font-bold px-2 py-1 rounded-full" style="background:${cor}18;color:${cor}">${com}</span></div>
+        <div class="grid grid-cols-2 gap-3 my-4 text-xs"><div><span class="text-on-surface-variant">Risco máximo</span><div class="font-bold text-lg">${risco}</div></div><div><span class="text-on-surface-variant">Operador</span><div class="font-semibold mt-1">${m.operador_nome||'Não identificado'}</div></div></div>
+        <div class="text-xs text-on-surface-variant mb-4">${m.dispositivo_id||'ESP32 ainda não vinculado'}${m.config_pendente?' · configuração pendente':''}</div>
+        <div class="flex gap-2 flex-wrap"><button data-abrir-maquina="${m.id_equipamento}" class="bg-primary text-on-primary font-semibold px-3 py-2 rounded-lg text-xs">Abrir painel</button><button data-autorizar-maquina="${m.id_equipamento}" class="bg-surface-container-high text-primary font-semibold px-3 py-2 rounded-lg text-xs">Crachás autorizados</button></div>
+      </article>`;
+    }).join('');
+  }catch(e){ $('listaMaquinas').innerHTML=`<div class="col-span-full text-error py-4">Não foi possível carregar a frota: ${e.message}</div>`; }
+}
+
+async function selecionarMaquina(id){
+  const m = maquinasCache.find(x=>String(x.id_equipamento)===String(id));
+  if(!m) return;
+  equipamentoSelecionado = m.id_equipamento;
+  dispositivo = m.dispositivo_id || '';
+  $('dispositivo').value = dispositivo;
+  $('equipamentoSel').value = String(id);
+  setView('visao');
+  await carregarTudo();
+}
+
+async function criarMaquina(ev){
+  ev.preventDefault(); const msg=$('maqMsg');
+  const payload={nome:$('maqNome').value.trim(), fk_fazenda_id_fazenda:$('maqFazenda').value,
+    tipo:$('maqTipo').value.trim(), modelo:$('maqModelo').value.trim(), dispositivo_id:$('maqDispositivo').value.trim()};
+  msg.textContent='Salvando…';
+  try{ const r=await fetch('/equipamentos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); const d=await r.json(); if(!r.ok) throw new Error(d.erro||`HTTP ${r.status}`);
+    $('formMaquina').reset(); $('formMaquina').classList.add('hidden'); msg.textContent=''; await carregarResumoFazenda();
+  }catch(e){ msg.textContent=e.message; msg.style.color='#ba1a1a'; }
+}
+
+async function carregarOperadores(){
+  try{
+    const q = perfilRole==='sompo' && fazendaSelecionada ? `?fazenda=${fazendaSelecionada}` : '';
+    const d=await getJSON('/operadores'+q); operadoresCache=d.dados||[];
+    $('listaOperadores').innerHTML = operadoresCache.length ? operadoresCache.map(o=>`<div class="flex items-center gap-3 p-4 rounded-xl bg-surface-container-low"><span class="material-symbols-outlined text-primary">badge</span><div class="flex-1"><div class="font-semibold">${o.nome}</div><div class="text-xs text-on-surface-variant">UID ${o.uid}${o.matricula?' · Matrícula '+o.matricula:''}</div></div><span class="text-xs font-semibold ${o.ativo?'text-secondary':'text-on-surface-variant'}">${o.ativo?'Ativo':'Inativo'}</span></div>`).join('') : '<div class="text-on-surface-variant italic py-4">Nenhum operador cadastrado.</div>';
+  }catch(e){ $('listaOperadores').innerHTML='<div class="text-error py-4">Operadores indisponíveis.</div>'; }
+}
+
+async function criarOperador(ev){
+  ev.preventDefault(); const msg=$('opMsg');
+  const payload={nome:$('opNome').value.trim(),matricula:$('opMatricula').value.trim(),uid:$('opUid').value.trim(),fk_fazenda_id_fazenda:$('opFazenda').value};
+  msg.textContent='Salvando…';
+  try{ const r=await fetch('/operadores',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); const d=await r.json(); if(!r.ok) throw new Error(d.erro||`HTTP ${r.status}`);
+    $('formOperador').reset(); $('formOperador').classList.add('hidden'); msg.textContent=''; await carregarOperadores();
+  }catch(e){ msg.textContent=e.message; msg.style.color='#ba1a1a'; }
+}
+
+async function gerenciarAutorizacoes(id){
+  await carregarOperadores();
+  const atuais=await getJSON(`/equipamentos/${id}/operadores`);
+  const marcados=new Set((atuais.dados||[]).map(x=>String(x.operador_id)));
+  const maquina=maquinasCache.find(m=>String(m.id_equipamento)===String(id));
+  const checks=operadoresCache.map(o=>`<label class="flex items-center gap-3 py-2"><input type="checkbox" name="opAutorizado" value="${o.id_operador}" ${marcados.has(String(o.id_operador))?'checked':''}/><span>${o.nome}</span><span class="text-xs text-on-surface-variant">${o.uid}</span></label>`).join('')||'<p class="text-on-surface-variant">Cadastre operadores nesta fazenda primeiro.</p>';
+  abrirDetalhe('Crachás · '+(maquina?.nome||'Máquina'),'badge',`<div id="listaAutorizacoes">${checks}</div><div class="flex gap-2 mt-4 flex-wrap"><button data-salvar-autorizacoes="${id}" class="bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg">Salvar autorizações</button>${maquina?.dispositivo_id?`<button data-gerar-credencial="${id}" class="bg-surface-container-high text-primary font-semibold px-4 py-2 rounded-lg">Gerar credencial do ESP32</button>`:''}</div><p id="autMsg" class="text-xs mt-3 text-on-surface-variant"></p>`);
+}
+
+async function salvarAutorizacoes(id){
+  const ids=[...document.querySelectorAll('input[name="opAutorizado"]:checked')].map(x=>Number(x.value));
+  const r=await fetch(`/equipamentos/${id}/operadores`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({operador_ids:ids})});
+  const d=await r.json(); $('autMsg').textContent=r.ok?'Autorizações salvas; o ESP32 sincroniza em até 60 segundos.':(d.erro||`HTTP ${r.status}`);
+}
+
+async function gerarCredencial(id){
+  const r=await fetch(`/equipamentos/${id}/credencial`,{method:'POST'}); const d=await r.json();
+  $('autMsg').innerHTML = r.ok ? `Token exibido uma única vez. Copie para <code>DISPOSITIVO_TOKEN_CFG</code>:<div class="mt-2 p-3 rounded bg-surface-container font-mono break-all select-all">${d.token}</div>` : (d.erro||`HTTP ${r.status}`);
+}
+
+async function carregarHistorico(){
+  try{ const q=new URLSearchParams({dias:$('historicoDias').value}); if(perfilRole==='sompo'&&fazendaSelecionada) q.set('fazenda',fazendaSelecionada); const d=await getJSON('/operacoes?'+q);
+    $('listaHistorico').innerHTML=(d.dados||[]).map(s=>`<div class="grid grid-cols-1 md:grid-cols-4 gap-2 p-4 rounded-xl bg-surface-container-low"><div><div class="font-semibold">${s.equipamento_nome||'Máquina'}</div><div class="text-xs text-on-surface-variant">${s.operador_nome||'Operador não identificado'}</div></div><div class="text-xs"><span class="text-on-surface-variant">Início</span><div>${s.inicio_em?fmtHora(s.inicio_em):'Horário desconhecido'}</div></div><div class="text-xs"><span class="text-on-surface-variant">Fim</span><div>${s.fim_em?fmtHora(s.fim_em):'—'}</div></div><div class="md:text-right font-semibold text-xs">${s.status||'—'}${s.motivo?' · '+s.motivo:''}</div></div>`).join('')||'<div class="text-on-surface-variant italic py-4">Nenhuma sessão no período.</div>';
+  }catch(e){ $('listaHistorico').innerHTML='<div class="text-error py-4">Histórico indisponível.</div>'; }
+}
+
 /* ---------- Perfil de acesso (role-based) ---------- */
 async function aplicarPerfil(){
   let me = {role:'sompo'};
@@ -935,14 +1098,16 @@ async function aplicarPerfil(){
   if(perfilRole === 'gestor_fazenda'){
     // Esconde as abas de cadastro (portfolio) - o gestor so ve a propria fazenda.
     document.querySelectorAll('[data-nav="fazendas"],[data-nav="clientes"],[data-nav="usuarios"]').forEach(a=>a.classList.add('hidden'));
-    if(['fazendas','clientes','usuarios'].includes(viewAtual)) setView('visao');
-    // Trava o dispositivo na fazenda do gestor (o backend tambem forca).
-    if(me.dispositivo){ $('dispositivo').value = me.dispositivo; dispositivo = me.dispositivo; }
+    if(['fazendas','clientes','usuarios'].includes(viewAtual)) setView('maquinas');
+    fazendaSelecionada = me.fazenda_id;
+    fazendasCache = [{id_fazenda:me.fazenda_id,nome:me.fazenda_nome||'Minha fazenda'}];
+    opcoesFazenda($('maqFazenda'), fazendaSelecionada); opcoesFazenda($('opFazenda'), fazendaSelecionada);
+    $('maqFazendaWrap').classList.add('hidden'); $('opFazendaWrap').classList.add('hidden');
     $('deviceWrap').classList.add('hidden');
     $('fazendaSelWrap').classList.add('hidden');
     $('perfilTxt').textContent = 'Gestor da Fazenda ' + (me.fazenda_nome || '—');
   } else {
-    $('perfilTxt').textContent = me.usuario ? 'Sompo — Visão Geral' : 'Visão Geral';
+    $('perfilTxt').textContent = me.usuario ? 'Sompo — Portfólio' : 'Portfólio';
     $('deviceWrap').classList.add('hidden');       // o seletor de fazenda substitui o input
     await carregarSeletorFazendas();
   }
@@ -955,19 +1120,14 @@ async function carregarSeletorFazendas(){
   try{
     const d = await getJSON('/fazendas');
     const fs = d.dados||[];
+    fazendasCache = fs;
     if(!fs.length){ $('deviceWrap').classList.remove('hidden'); return; }  // sem fazendas: cai no input
-    $('fazendaSel').innerHTML = fs.map(f=>{
-      const dev = f.dispositivo_id || '';
-      const rotulo = dev ? f.nome : (f.nome + ' (sem dispositivo)');
-      return `<option value="${dev}">${rotulo}</option>`;
-    }).join('');
+    $('fazendaSel').innerHTML = fs.map(f=>`<option value="${f.id_fazenda}">${f.nome}</option>`).join('');
     $('fazendaSelWrap').classList.remove('hidden');
     $('deviceWrap').classList.add('hidden');
-    // Padrao: a primeira fazenda COM dispositivo (a que tem dado ao vivo).
-    const comDev = fs.find(f=>f.dispositivo_id);
-    const escolhido = comDev ? comDev.dispositivo_id : '';
-    $('fazendaSel').value = escolhido;
-    $('dispositivo').value = escolhido; dispositivo = escolhido;
+    fazendaSelecionada = fs[0].id_fazenda;
+    $('fazendaSel').value = String(fazendaSelecionada);
+    opcoesFazenda($('maqFazenda'), fazendaSelecionada); opcoesFazenda($('opFazenda'), fazendaSelecionada);
   }catch(e){ $('deviceWrap').classList.remove('hidden'); }
 }
 
@@ -986,21 +1146,21 @@ function mostrarSemDispositivo(){
 }
 
 async function carregarTudo(){
-  const bruto = $('dispositivo').value.trim();
-  // Seletor de fazenda pode apontar para uma fazenda sem dispositivo: avisa e nao busca dado.
-  if(!bruto && !$('fazendaSelWrap').classList.contains('hidden')){ mostrarSemDispositivo(); return; }
-  dispositivo = bruto || 'SOMPO-ESP32';
+  if(viewAtual === 'maquinas'){ await Promise.all([carregarSaude(), carregarResumoFazenda()]); $('ultima').textContent = new Date().toLocaleTimeString('pt-BR'); return; }
+  if(viewAtual === 'operadores'){ await Promise.all([carregarSaude(), carregarOperadores()]); $('ultima').textContent = new Date().toLocaleTimeString('pt-BR'); return; }
+  if(viewAtual === 'historico'){ await Promise.all([carregarSaude(), carregarHistorico()]); $('ultima').textContent = new Date().toLocaleTimeString('pt-BR'); return; }
+  if(!equipamentoSelecionado){ setView('maquinas'); await carregarResumoFazenda(); return; }
   await Promise.all([carregarSaude(), carregarRisco(), carregarTelemetria(), carregarEventos()]);
   $('ultima').textContent = new Date().toLocaleTimeString('pt-BR');
 }
 
 // Liga a navegação
 document.querySelectorAll('[data-nav]').forEach(a =>
-  a.addEventListener('click', e => { e.preventDefault(); setView(a.dataset.nav); })
+  a.addEventListener('click', e => { e.preventDefault(); setView(a.dataset.nav); carregarTudo(); })
 );
 // Reaplica os spans ao cruzar o breakpoint mobile/desktop.
 window.addEventListener('resize', () => setView(viewAtual));
-setView('visao');
+setView('maquinas');
 
 // Atualizar manual com feedback visual (icone girando + "Atualizando...").
 async function atualizarManual(){
@@ -1016,11 +1176,12 @@ async function atualizarManual(){
 }
 $('btnAtualizar').addEventListener('click', atualizarManual);
 $('btnBaixar').addEventListener('click', () => {
-  const dev = $('dispositivo').value.trim() || 'SOMPO-ESP32';
-  window.location = `/relatorio/risco.docx?dispositivo=${encodeURIComponent(dev)}&dias=7`;
+  if(!equipamentoSelecionado) return;
+  window.location = `/relatorio/risco.docx?equipamento=${encodeURIComponent(equipamentoSelecionado)}&dias=7`;
 });
 $('dispositivo').addEventListener('change', carregarTudo);
-$('fazendaSel').addEventListener('change', ()=>{ $('dispositivo').value = $('fazendaSel').value; carregarTudo(); });
+$('fazendaSel').addEventListener('change', ()=>{ fazendaSelecionada=$('fazendaSel').value; equipamentoSelecionado=null; opcoesFazenda($('maqFazenda'),fazendaSelecionada); opcoesFazenda($('opFazenda'),fazendaSelecionada); setView('maquinas'); carregarTudo(); });
+$('equipamentoSel').addEventListener('change', ()=>{ const id=$('equipamentoSel').value; if(id) selecionarMaquina(id); else { equipamentoSelecionado=null; setView('maquinas'); carregarTudo(); } });
 
 // Feed de alertas clicavel -> modal com os detalhes do evento.
 $('eventos').addEventListener('click', e=>{ const c = e.target.closest('[data-ev]'); if(c) abrirEvento(eventosCache[+c.dataset.ev]); });
@@ -1034,12 +1195,23 @@ $('detFechar').addEventListener('click', fecharDetalhe);
 $('modalDetalhe').addEventListener('click', e=>{ if(e.target === $('modalDetalhe')) fecharDetalhe(); });
 // "Ver telemetria" no modal da fazenda -> aponta o seletor e abre a Telemetria.
 $('detCorpo').addEventListener('click', e=>{
+  const salvar=e.target.closest('[data-salvar-autorizacoes]'); if(salvar){ salvarAutorizacoes(salvar.dataset.salvarAutorizacoes); return; }
+  const cred=e.target.closest('[data-gerar-credencial]'); if(cred){ gerarCredencial(cred.dataset.gerarCredencial); return; }
   const b = e.target.closest('[data-vertelemetria]'); if(!b) return;
   const dev = b.dataset.vertelemetria;
   if(!$('fazendaSelWrap').classList.contains('hidden')) $('fazendaSel').value = dev;
   $('dispositivo').value = dev; dispositivo = dev;
   fecharDetalhe(); setView('telemetria'); carregarTudo();
 });
+
+$('listaMaquinas').addEventListener('click', e=>{ const abrir=e.target.closest('[data-abrir-maquina]'); if(abrir) selecionarMaquina(abrir.dataset.abrirMaquina); const aut=e.target.closest('[data-autorizar-maquina]'); if(aut) gerenciarAutorizacoes(aut.dataset.autorizarMaquina); });
+$('btnNovaMaquina').addEventListener('click',()=>{ $('formMaquina').classList.toggle('hidden'); opcoesFazenda($('maqFazenda'),fazendaSelecionada); });
+$('btnCancelarMaquina').addEventListener('click',()=>$('formMaquina').classList.add('hidden'));
+$('formMaquina').addEventListener('submit',criarMaquina);
+$('btnNovoOperador').addEventListener('click',()=>{ $('formOperador').classList.toggle('hidden'); opcoesFazenda($('opFazenda'),fazendaSelecionada); });
+$('btnCancelarOperador').addEventListener('click',()=>$('formOperador').classList.add('hidden'));
+$('formOperador').addEventListener('submit',criarOperador);
+$('historicoDias').addEventListener('change',carregarHistorico);
 
 document.addEventListener('keydown', e=>{ if(e.key === 'Escape'){ fecharEvento(); fecharDetalhe(); } });
 
@@ -1083,6 +1255,8 @@ $('formUsuario').addEventListener('submit', criarUsuario);
     carregarUsuarios();
     carregarUsuariosFazendaSelect();
   }
+  await carregarResumoFazenda();
+  carregarOperadores();
   carregarTudo();
   setInterval(carregarTudo, 5000);
 })();

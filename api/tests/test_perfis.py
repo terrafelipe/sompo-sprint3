@@ -55,15 +55,14 @@ def test_sompo_cadastra_fazenda():
     assert response.status_code == 201
 
 
-def test_gestor_so_ve_seu_dispositivo():
-    # Mesmo forcando ?dispositivo=SOMPO-ESP32 na URL, o gestor le so o dispositivo da fazenda dele.
+def test_sessao_legada_sem_fazenda_nao_libera_dispositivo():
+    # Sessão antiga sem fazenda exige novo login; não reutiliza escopo de ESP32.
     client = app.test_client()
     _login_como(client, 'gestor_fazenda', dispositivo='SOMPO-ESP32-SIM')
     with patch('app.consultar_telemetria', return_value=[]) as mock_tel:
         response = client.get('/telemetria?dispositivo=SOMPO-ESP32')
-    assert response.status_code == 200
-    dispositivo_consultado = mock_tel.call_args.args[0]
-    assert dispositivo_consultado == 'SOMPO-ESP32-SIM'
+    assert response.status_code == 403
+    mock_tel.assert_not_called()
 
 
 def test_sompo_ve_o_dispositivo_pedido():

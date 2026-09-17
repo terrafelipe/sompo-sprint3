@@ -85,6 +85,7 @@
   #include <WiFi.h>
   #include <WiFiClientSecure.h>
   #include <HTTPClient.h>
+  #include <LittleFS.h>
   #include <time.h>
   #include "segredos.h"
 #endif
@@ -134,10 +135,12 @@
 #define BUZZER_FREQ_FURTO   3000         // Hz - alarme de furto (vibracao/capo/tanque/partida)
 
 #define DISPOSITIVO_ID "SOMPO-ESP32"     // TEM de bater com o default da API
-#define TAM_PAYLOAD    384               // maior linha JSON que montamos
+#define TAM_PAYLOAD    1024              // registro com identidade, sessao e dados do sensor
 
 #if USAR_WIFI
-  #define FILA_EVENTOS             16    // eventos guardados enquanto falta rede
+  #define LIMITE_FILA_DURAVEL  (512 * 1024) // LittleFS reservado a eventos/transicoes
+  #define MAX_OPERADORES_CACHE     32
+  #define INTERVALO_SINCRONIA_MS   60000
   #define TIMEOUT_HTTP             8000  // ms - POST inteiro, com handshake TLS
   #define MAX_TENTATIVAS_ENVIO     3     // reenvios antes de devolver a fila
   #define PAUSA_ENVIO              250   // ms entre POSTs (nao afoga a fila)
@@ -188,6 +191,306 @@ struct Json {
     n = ((size_t)w >= sizeof(txt) - n) ? sizeof(txt) - 1 : n + (size_t)w;
   }
 };
+
+// ---------------------------------------------------------------------------
+// Identidade da maquina, autorizacoes RFID e trilha duravel.
+// Eventos e transicoes so sao confirmados depois de gravados no LittleFS.
+// ---------------------------------------------------------------------------
+namespace Frota {
+#if USAR_WIFI
+  struct Operador { uint64_t id; char uid[21]; };
+  enum ResultadoCracha { NEGADO, INICIO, FIM, TROCA, FALHA_PERSISTENCIA };
+
+  Operador operadores[MAX_OPERADORES_CACHE];
+  size_t totalOperadores = 0;
+  uint64_t equipamentoId = 0, configVersao = 1, sequencia = 0;
+  uint64_t operadorAtual = 0;
+  char uidAtual[21] = "", sessaoAtual[37] = "", bootId[37] = "";
+  bool armazenamentoOK = false;
+  SemaphoreHandle_t mutexArquivos = NULL;
+
+  const char* ARQ_FILA = "/fila.ndjson";
+  const char* ARQ_FILA_BAK = "/fila.bak";
+  const char* ARQ_CONFIG = "/frota.cfg";
+  const char* ARQ_SESSAO = "/sessao.cfg";
+
+  bool encerrarSessao(const char* motivo);
+  uint64_t operadorPorUid(const char* uid);
+
+  void uuid(char* out) {
+    uint8_t b[16];
+    for (byte i = 0; i < 16; i += 4) {
+      uint32_t r = esp_random();
+      memcpy(b + i, &r, 4);
+    }
+    b[6] = (b[6] & 0x0f) | 0x40;
+    b[8] = (b[8] & 0x3f) | 0x80;
+    snprintf(out, 37,
+      "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
+      b[0],b[1],b[2],b[3],b[4],b[5],b[6],b[7],b[8],b[9],b[10],b[11],b[12],b[13],b[14],b[15]);
+  }
+
+  bool carimboISO(char* txt, size_t n) {
+    struct tm t;
+    if (!getLocalTime(&t, 5)) return false;
+    snprintf(txt, n, "%04d-%02d-%02dT%02d:%02d:%02d%+03d:00",
+             t.tm_year + 1900, t.tm_mon + 1, t.tm_mday,
+             t.tm_hour, t.tm_min, t.tm_sec, GMT_OFFSET_SEC / 3600);
+    return true;
+  }
+
+  void metadados(Json &j, const char* registroId = NULL,
+                 uint64_t operador = UINT64_MAX, const char* sessao = NULL,
+                 const char* uid = NULL) {
+    char id[37];
+    if (!registroId) { uuid(id); registroId = id; }
+    if (operador == UINT64_MAX) operador = operadorAtual;
+    if (!sessao) sessao = sessaoAtual;
+    if (!uid) uid = uidAtual;
+    j.add("\"registro_id\":\"%s\",\"dispositivo_id\":\"%s\"", registroId, DISPOSITIVO_ID);
+    if (equipamentoId) j.add(",\"equipamento_id\":%llu", (unsigned long long)equipamentoId);
+    if (operador) j.add(",\"operador_id\":%llu", (unsigned long long)operador);
+    if (sessao && sessao[0]) j.add(",\"sessao_id\":\"%s\"", sessao);
+    if (uid && uid[0]) j.add(",\"uid\":\"%s\"", uid);
+    j.add(",\"config_versao\":%llu,\"boot_id\":\"%s\",\"sequencia\":%llu,\"uptime_ms\":%lu",
+          (unsigned long long)configVersao, bootId,
+          (unsigned long long)sequencia++, millis());
+    char quando[40];
+    if (carimboISO(quando, sizeof(quando))) j.add(",\"ocorrido_em\":\"%s\"", quando);
+  }
+
+  bool anexarDuravel(const char* categoria, const char* json) {
+    if (!armazenamentoOK || !mutexArquivos) return false;
+    xSemaphoreTake(mutexArquivos, portMAX_DELAY);
+    File atual = LittleFS.open(ARQ_FILA, FILE_READ);
+    size_t tamanho = atual ? atual.size() : 0;
+    if (atual) atual.close();
+    size_t necessario = strlen(categoria) + strlen(json) + 2;
+    if (tamanho + necessario > LIMITE_FILA_DURAVEL) {
+      xSemaphoreGive(mutexArquivos);
+      Serial.println("[FROTA] fila duravel cheia; registro nao confirmado");
+      return false;
+    }
+    File f = LittleFS.open(ARQ_FILA, FILE_APPEND);
+    bool ok = f && f.print(categoria) && f.print('\t') && f.println(json);
+    if (f) { f.flush(); f.close(); }
+    xSemaphoreGive(mutexArquivos);
+    return ok;
+  }
+
+  bool proximoDuravel(String &categoria, String &json) {
+    if (!armazenamentoOK || !mutexArquivos) return false;
+    xSemaphoreTake(mutexArquivos, portMAX_DELAY);
+    File f = LittleFS.open(ARQ_FILA, FILE_READ);
+    String linha = f ? f.readStringUntil('\n') : String();
+    if (f) f.close();
+    xSemaphoreGive(mutexArquivos);
+    int tab = linha.indexOf('\t');
+    if (tab < 1) return false;
+    categoria = linha.substring(0, tab);
+    json = linha.substring(tab + 1);
+    json.trim();
+    return json.length() > 1;
+  }
+
+  bool confirmarDuravel() {
+    xSemaphoreTake(mutexArquivos, portMAX_DELAY);
+    File origem = LittleFS.open(ARQ_FILA, FILE_READ);
+    if (!origem) { xSemaphoreGive(mutexArquivos); return false; }
+    origem.readStringUntil('\n');
+    File destino = LittleFS.open("/fila.tmp", FILE_WRITE);
+    bool ok = (bool)destino;
+    uint8_t bloco[256];
+    while (ok && origem.available()) {
+      size_t n = origem.read(bloco, sizeof(bloco));
+      ok = destino.write(bloco, n) == n;
+    }
+    origem.close();
+    if (destino) { destino.flush(); destino.close(); }
+    if (ok) {
+      LittleFS.remove(ARQ_FILA_BAK);
+      ok = LittleFS.rename(ARQ_FILA, ARQ_FILA_BAK);
+      if (ok) ok = LittleFS.rename("/fila.tmp", ARQ_FILA);
+      if (ok) LittleFS.remove(ARQ_FILA_BAK);
+      else if (!LittleFS.exists(ARQ_FILA) && LittleFS.exists(ARQ_FILA_BAK))
+        LittleFS.rename(ARQ_FILA_BAK, ARQ_FILA);
+    } else LittleFS.remove("/fila.tmp");
+    xSemaphoreGive(mutexArquivos);
+    return ok;
+  }
+
+  uint64_t numeroApos(const String &s, const char* chave, int inicio = 0) {
+    int p = s.indexOf(chave, inicio);
+    if (p < 0) return 0;
+    p += strlen(chave);
+    while (p < (int)s.length() && (s[p] == ' ' || s[p] == ':')) p++;
+    return strtoull(s.c_str() + p, NULL, 10);
+  }
+
+  String textoApos(const String &s, const char* chave, int inicio = 0) {
+    int p = s.indexOf(chave, inicio);
+    if (p < 0) return String();
+    p = s.indexOf('"', p + strlen(chave));
+    if (p < 0) return String();
+    int fim = s.indexOf('"', p + 1);
+    return fim < 0 ? String() : s.substring(p + 1, fim);
+  }
+
+  bool salvarConfig() {
+    xSemaphoreTake(mutexArquivos, portMAX_DELAY);
+    File f = LittleFS.open("/frota.tmp", FILE_WRITE);
+    if (!f) { xSemaphoreGive(mutexArquivos); return false; }
+    f.printf("%llu|%llu\n", (unsigned long long)equipamentoId, (unsigned long long)configVersao);
+    for (size_t i = 0; i < totalOperadores; i++)
+      f.printf("%llu|%s\n", (unsigned long long)operadores[i].id, operadores[i].uid);
+    f.flush(); f.close();
+    LittleFS.remove("/frota.bak");
+    if (LittleFS.exists(ARQ_CONFIG)) LittleFS.rename(ARQ_CONFIG, "/frota.bak");
+    bool ok = LittleFS.rename("/frota.tmp", ARQ_CONFIG);
+    if (ok) LittleFS.remove("/frota.bak");
+    else if (LittleFS.exists("/frota.bak")) LittleFS.rename("/frota.bak", ARQ_CONFIG);
+    xSemaphoreGive(mutexArquivos);
+    return ok;
+  }
+
+  void carregarConfig() {
+    File f = LittleFS.open(ARQ_CONFIG, FILE_READ);
+    if (!f) return;
+    String cab = f.readStringUntil('\n');
+    equipamentoId = strtoull(cab.c_str(), NULL, 10);
+    int sep = cab.indexOf('|');
+    if (sep >= 0) configVersao = strtoull(cab.c_str() + sep + 1, NULL, 10);
+    totalOperadores = 0;
+    while (f.available() && totalOperadores < MAX_OPERADORES_CACHE) {
+      String linha = f.readStringUntil('\n'); linha.trim();
+      sep = linha.indexOf('|');
+      if (sep < 1) continue;
+      operadores[totalOperadores].id = strtoull(linha.c_str(), NULL, 10);
+      linha.substring(sep + 1).toCharArray(operadores[totalOperadores].uid, sizeof(operadores[0].uid));
+      totalOperadores++;
+    }
+    f.close();
+  }
+
+  bool aplicarConfig(const String &corpo) {
+    uint64_t equipamento = numeroApos(corpo, "\"equipamento_id\"");
+    uint64_t versao = numeroApos(corpo, "\"versao\"");
+    int lista = corpo.indexOf("\"operadores\"");
+    if (!equipamento || !versao || lista < 0) return false;
+    Operador novos[MAX_OPERADORES_CACHE];
+    size_t total = 0;
+    int p = lista;
+    while (total < MAX_OPERADORES_CACHE && (p = corpo.indexOf("\"operador_id\"", p)) >= 0) {
+      uint64_t id = numeroApos(corpo, "\"operador_id\"", p);
+      String uid = textoApos(corpo, "\"uid\"", p);
+      if (id && (uid.length() == 8 || uid.length() == 14 || uid.length() == 20)) {
+        novos[total].id = id;
+        uid.toUpperCase();
+        uid.toCharArray(novos[total].uid, sizeof(novos[total].uid));
+        total++;
+      }
+      p += 13;
+    }
+    equipamentoId = equipamento; configVersao = versao; totalOperadores = total;
+    memcpy(operadores, novos, total * sizeof(Operador));
+    bool salvo = salvarConfig();
+    bool atualRevogado = sessaoAtual[0] && !operadorPorUid(uidAtual);
+    if (salvo && atualRevogado && !encerrarSessao("autorizacao_revogada"))
+      Serial.println("[FROTA] revogacao recebida, mas encerramento aguarda espaco na fila");
+    return salvo;
+  }
+
+  uint64_t operadorPorUid(const char* uid) {
+    for (size_t i = 0; i < totalOperadores; i++)
+      if (!strcmp(uid, operadores[i].uid)) return operadores[i].id;
+    return 0;
+  }
+
+  bool registrarOperacao(const char* tipo, const char* motivo, const char* uid,
+                         uint64_t operador, const char* sessao) {
+    Json j; j.add("{");
+    metadados(j, NULL, operador, sessao, uid);
+    j.add(",\"tipo\":\"%s\"", tipo);
+    if (motivo && motivo[0]) j.add(",\"motivo\":\"%s\"", motivo);
+    j.add("}");
+    return anexarDuravel("operacao", j.txt);
+  }
+
+  bool salvarSessao(const char* sessao, uint64_t operador, const char* uid) {
+    xSemaphoreTake(mutexArquivos, portMAX_DELAY);
+    File f = LittleFS.open(ARQ_SESSAO, FILE_WRITE);
+    if (!f) { xSemaphoreGive(mutexArquivos); return false; }
+    bool ok = f.printf("%s|%llu|%s\n", sessao, (unsigned long long)operador, uid) > 0;
+    f.flush(); f.close();
+    xSemaphoreGive(mutexArquivos);
+    return ok;
+  }
+
+  bool comecarSessao(uint64_t operador, const char* uid) {
+    char sessao[37]; uuid(sessao);
+    if (!salvarSessao(sessao, operador, uid)) return false;
+    if (!registrarOperacao("inicio", "rfid", uid, operador, sessao)) {
+      LittleFS.remove(ARQ_SESSAO); return false;
+    }
+    operadorAtual = operador;
+    strncpy(uidAtual, uid, sizeof(uidAtual) - 1);
+    strncpy(sessaoAtual, sessao, sizeof(sessaoAtual) - 1);
+    Estado::operadorAutorizado = true;
+    return true;
+  }
+
+  bool encerrarSessao(const char* motivo) {
+    if (!sessaoAtual[0]) return true;
+    if (!registrarOperacao("fim", motivo, uidAtual, operadorAtual, sessaoAtual)) return false;
+    LittleFS.remove(ARQ_SESSAO);
+    operadorAtual = 0; uidAtual[0] = '\0'; sessaoAtual[0] = '\0';
+    Estado::operadorAutorizado = false;
+    return true;
+  }
+
+  ResultadoCracha processarCracha(const char* uid) {
+    uint64_t operador = operadorPorUid(uid);
+    if (!operador) {
+      registrarOperacao("tentativa_negada", "cracha_nao_autorizado", uid, 0, "");
+      return NEGADO;
+    }
+    if (!sessaoAtual[0]) return comecarSessao(operador, uid) ? INICIO : FALHA_PERSISTENCIA;
+    if (operadorAtual == operador)
+      return encerrarSessao("rfid") ? FIM : FALHA_PERSISTENCIA;
+    if (!encerrarSessao("troca_operador")) return FALHA_PERSISTENCIA;
+    return comecarSessao(operador, uid) ? TROCA : FALHA_PERSISTENCIA;
+  }
+
+  void recuperarInterrupcao() {
+    File f = LittleFS.open(ARQ_SESSAO, FILE_READ);
+    if (!f) return;
+    String linha = f.readStringUntil('\n'); f.close();
+    int a = linha.indexOf('|'), b = linha.indexOf('|', a + 1);
+    if (a < 1 || b < 0) { LittleFS.remove(ARQ_SESSAO); return; }
+    String sessao = linha.substring(0, a), uid = linha.substring(b + 1); uid.trim();
+    uint64_t operador = strtoull(linha.c_str() + a + 1, NULL, 10);
+    if (registrarOperacao("fim", "reinicio", uid.c_str(), operador, sessao.c_str()))
+      LittleFS.remove(ARQ_SESSAO);
+  }
+
+  void iniciar() {
+    uuid(bootId);
+    mutexArquivos = xSemaphoreCreateMutex();
+    armazenamentoOK = mutexArquivos && LittleFS.begin(true);
+    if (!armazenamentoOK) { Serial.println("ERRO: LittleFS indisponivel; RFID nao sera confirmado"); return; }
+    if (!LittleFS.exists(ARQ_FILA) && LittleFS.exists(ARQ_FILA_BAK))
+      LittleFS.rename(ARQ_FILA_BAK, ARQ_FILA);
+    carregarConfig();
+    recuperarInterrupcao();
+    Serial.printf("Frota: equipamento=%llu config=%llu operadores=%u\n",
+      (unsigned long long)equipamentoId, (unsigned long long)configVersao, (unsigned)totalOperadores);
+  }
+#else
+  enum ResultadoCracha { NEGADO, INICIO, FIM, TROCA, FALHA_PERSISTENCIA };
+  inline void iniciar() {}
+  inline ResultadoCracha processarCracha(const char*) { return NEGADO; }
+#endif
+}
 
 // Duas unicas declaracoes antecipadas: os sensores usam as duas, e elas
 // dependem de coisas definidas mais abaixo.
@@ -436,50 +739,32 @@ namespace Rfid {
   MFRC522 dev(RFID_SS, RFID_RST);
   unsigned long ultimoToque = 0;   // anti-repique: 1 arma/desarma por aproximacao
 
-  // UIDs autorizados (4 bytes). Preencha com o que o Serial imprimir ao
-  // encostar a sua tag: "UID: A1 B2 C3 D4" -> {0xA1,0xB2,0xC3,0xD4}.
-  // Com o valor de exemplo, TODA partida vira evento de furto.
-  const byte AUTORIZADOS[][4] = {
-    { 0x8B, 0xEE, 0xBC, 0x06 },   // tag do operador (lida na bancada)
-  };
-
-  bool autorizado() {
-    if (dev.uid.size != 4) return false;   // so comparamos UIDs de 4 bytes
-    for (size_t i = 0; i < sizeof(AUTORIZADOS) / 4; i++) {
-      bool igual = true;
-      for (byte b = 0; b < 4; b++)
-        if (dev.uid.uidByte[b] != AUTORIZADOS[i][b]) { igual = false; break; }
-      if (igual) return true;
-    }
-    return false;
-  }
-
   void iniciar() { dev.PCD_Init(); Serial.println("RC522 OK"); }
 
   void ler() {
     if (!dev.PICC_IsNewCardPresent() || !dev.PICC_ReadCardSerial()) return;
+    char uid[21] = "";
+    size_t cursor = 0;
     Serial.print("RFID detectado - UID:");
     for (byte i = 0; i < dev.uid.size; i++) {
       Serial.print(dev.uid.uidByte[i] < 0x10 ? " 0" : " ");
       Serial.print(dev.uid.uidByte[i], HEX);
+      if (cursor + 2 < sizeof(uid)) cursor += snprintf(uid + cursor, sizeof(uid) - cursor, "%02X", dev.uid.uidByte[i]);
     }
-    if (autorizado()) {
-      // O cracha ARMA/DESARMA o sistema, como a chave de ignicao: uma passada
-      // desarma (autoriza), a proxima rearma. O estado PERSISTE ate a proxima
-      // passada. Anti-repique para uma aproximacao nao contar como duas.
-      if (millis() - ultimoToque > 1500) {
-        ultimoToque = millis();
-        Estado::operadorAutorizado = !Estado::operadorAutorizado;
-        Serial.println(Estado::operadorAutorizado ? "  -> AUTORIZADO (sistema desarmado)"
-                                                   : "  -> REARMADO (aguardando cracha)");
-        Alarme::bipeConfirma();   // 2 bipes curtos ascendentes = confirmacao
-      }
-    } else {
-      // Mesmo anti-repique: um cartao estranho encostado nao fica bipando em loop.
-      if (millis() - ultimoToque > 1500) {
-        ultimoToque = millis();
+    if (millis() - ultimoToque > 1500) {
+      ultimoToque = millis();
+      Frota::ResultadoCracha resultado = Frota::processarCracha(uid);
+      if (resultado == Frota::NEGADO) {
         Serial.println("  -> nao autorizado");
-        Alarme::bipeNega();       // 1 bipe longo grave = negacao (distinto do alarme)
+        Alarme::bipeNega();
+      } else if (resultado == Frota::FALHA_PERSISTENCIA) {
+        Serial.println("  -> falha ao gravar historico; sessao nao confirmada");
+        Alarme::bipeNega();
+      } else {
+        const char* estado = resultado == Frota::INICIO ? "SESSAO INICIADA" :
+                             resultado == Frota::FIM ? "SESSAO ENCERRADA" : "OPERADOR TROCADO";
+        Serial.printf("  -> %s\n", estado);
+        Alarme::bipeConfirma();
       }
     }
     dev.PICC_HaltA();
@@ -714,13 +999,13 @@ namespace Risco {
 namespace Rede {
 #if USAR_WIFI
   struct Payload {
-    char tabela[12];
+    char categoria[12];
     char json[TAM_PAYLOAD];
   };
-  QueueHandle_t filaEventos = NULL;
   QueueHandle_t caixaTelemetria = NULL;
   unsigned long ok = 0, falha = 0, perdidos = 0;
   unsigned long ultimaTentativa = 0;
+  unsigned long ultimaSincronia = 0;
   bool estavaConectado = false;
 
   // CA raiz que autentica o Supabase: Google Trust Services "GTS Root R4"
@@ -753,7 +1038,7 @@ p/SgguMh1YQdc4acLa/KNJvxn7kjNuK8YAOdgLOaVsjh4rsUecrNIdSUtUlD
     return true;
   }
 
-  bool postar(const char* tabela, const char* json) {
+  bool postarRpc(const char* categoria, const char* json) {
     WiFiClientSecure cliente;
     // Autentica pelo CA raiz embutido. O firmware antigo usava setInsecure()
     // porque o simulador nao trazia o bundle de CAs; com internet real nao ha
@@ -761,8 +1046,8 @@ p/SgguMh1YQdc4acLa/KNJvxn7kjNuK8YAOdgLOaVsjh4rsUecrNIdSUtUlD
     cliente.setCACert(ROOT_CA);
     cliente.setTimeout(TIMEOUT_HTTP / 1000);
 
-    char url[160];
-    snprintf(url, sizeof(url), "%s/rest/v1/%s", SUPABASE_URL_CFG, tabela);
+    char url[192];
+    snprintf(url, sizeof(url), "%s/rest/v1/rpc/registrar_dispositivo", SUPABASE_URL_CFG);
 
     HTTPClient http;
     if (!http.begin(cliente, url)) { Serial.println("[REDE] http.begin() falhou"); return false; }
@@ -770,48 +1055,74 @@ p/SgguMh1YQdc4acLa/KNJvxn7kjNuK8YAOdgLOaVsjh4rsUecrNIdSUtUlD
     http.addHeader("apikey", SUPABASE_CHAVE_CFG);
     http.addHeader("Authorization", "Bearer " SUPABASE_CHAVE_CFG);
     http.addHeader("Content-Type", "application/json");
-    http.addHeader("Prefer", "return=minimal");   // sem eco do registro: poupa RAM
-
-    int codigo = http.POST((uint8_t*)json, strlen(json));
+    String corpo = "{\"p_dispositivo_id\":\"" DISPOSITIVO_ID "\",\"p_token\":\"";
+    corpo += DISPOSITIVO_TOKEN_CFG;
+    corpo += "\",\"p_categoria\":\"";
+    corpo += categoria;
+    corpo += "\",\"p_registro\":";
+    corpo += json;
+    corpo += '}';
+    int codigo = http.POST((uint8_t*)corpo.c_str(), corpo.length());
     bool sucesso = (codigo >= 200 && codigo < 300);
     if (!sucesso) {
       // O corpo do erro do PostgREST diz exatamente o que esta errado (coluna
       // inexistente, RLS negando, JSON invalido). Sem isso a depuracao e cega.
-      String corpo = (codigo > 0) ? http.getString() : String(http.errorToString(codigo));
-      Serial.printf("[REDE] falha no envio - %s HTTP %d: %.80s\n", tabela, codigo, corpo.c_str());
+      String erro = (codigo > 0) ? http.getString() : String(http.errorToString(codigo));
+      Serial.printf("[REDE] falha no envio - %s HTTP %d: %.120s\n", categoria, codigo, erro.c_str());
     }
     http.end();
     return sucesso;
   }
 
-  // Consumidora das duas filas. Roda no nucleo 0 (onde o Wi-Fi vive); o loop()
-  // fica sozinho no nucleo 1 e nunca espera pela rede.
+  bool sincronizar() {
+    WiFiClientSecure cliente;
+    cliente.setCACert(ROOT_CA);
+    cliente.setTimeout(TIMEOUT_HTTP / 1000);
+    char url[192];
+    snprintf(url, sizeof(url), "%s/rest/v1/rpc/sincronizar_dispositivo", SUPABASE_URL_CFG);
+    HTTPClient http;
+    if (!http.begin(cliente, url)) return false;
+    http.setTimeout(TIMEOUT_HTTP);
+    http.addHeader("apikey", SUPABASE_CHAVE_CFG);
+    http.addHeader("Authorization", "Bearer " SUPABASE_CHAVE_CFG);
+    http.addHeader("Content-Type", "application/json");
+    String corpo = "{\"p_dispositivo_id\":\"" DISPOSITIVO_ID "\",\"p_token\":\"";
+    corpo += DISPOSITIVO_TOKEN_CFG;
+    corpo += "\"}";
+    int codigo = http.POST((uint8_t*)corpo.c_str(), corpo.length());
+    String resposta = codigo >= 200 && codigo < 300 ? http.getString() : String();
+    http.end();
+    bool sucesso = codigo >= 200 && codigo < 300 && Frota::aplicarConfig(resposta);
+    if (sucesso) Serial.println("[FROTA] autorizacoes sincronizadas");
+    else Serial.printf("[FROTA] sincronizacao falhou HTTP %d; cache preservado\n", codigo);
+    return sucesso;
+  }
+
+  // Consome primeiro a trilha duravel; telemetria usa uma caixa sobrescrita.
   void tarefa(void*) {
     Payload p;
     for (;;) {
       if (WiFi.status() != WL_CONNECTED) { vTaskDelay(pdMS_TO_TICKS(PAUSA_SEM_REDE)); continue; }
+      if (!ultimaSincronia || millis() - ultimaSincronia >= INTERVALO_SINCRONIA_MS) {
+        ultimaSincronia = millis();
+        sincronizar();
+      }
 
-      // Evento tem prioridade: e o que nao pode se perder.
-      if (xQueueReceive(filaEventos, &p, 0) == pdTRUE) {
+      String categoria, json;
+      if (Frota::proximoDuravel(categoria, json)) {
         bool enviou = false;
         for (int t = 1; t <= MAX_TENTATIVAS_ENVIO && !enviou; t++) {
-          enviou = postar(p.tabela, p.json);
+          enviou = postarRpc(categoria.c_str(), json.c_str());
           if (!enviou) vTaskDelay(pdMS_TO_TICKS(500 * t));   // recuo progressivo
         }
-        if (enviou) { ok++; }
+        if (enviou && Frota::confirmarDuravel()) { ok++; }
         else {
           falha++;
-          // Volta para a FRENTE da fila para preservar a ordem cronologica - a
-          // nao ser que ela esteja cheia, e ai o evento se perde de verdade.
-          if (xQueueSendToFront(filaEventos, &p, 0) != pdTRUE) {
-            perdidos++;
-            Serial.println("[REDE] fila cheia - EVENTO PERDIDO");
-          }
           vTaskDelay(pdMS_TO_TICKS(PAUSA_SEM_REDE));
         }
       } else if (xQueueReceive(caixaTelemetria, &p, 0) == pdTRUE) {
         // Telemetria nao volta para a fila: a proxima amostra ja e melhor.
-        if (postar(p.tabela, p.json)) ok++; else falha++;
+        if (postarRpc(p.categoria, p.json)) ok++; else falha++;
       } else {
         vTaskDelay(pdMS_TO_TICKS(PAUSA_ENVIO));
         continue;
@@ -821,11 +1132,9 @@ p/SgguMh1YQdc4acLa/KNJvxn7kjNuK8YAOdgLOaVsjh4rsUecrNIdSUtUlD
   }
 
   void iniciar() {
-    // Filas antes do Wi-Fi: um evento pode nascer antes da rede subir.
-    filaEventos = xQueueCreate(FILA_EVENTOS, sizeof(Payload));
     caixaTelemetria = xQueueCreate(1, sizeof(Payload));
-    if (!filaEventos || !caixaTelemetria) {
-      Serial.println("ERRO: sem RAM para as filas - envio desativado");
+    if (!caixaTelemetria) {
+      Serial.println("ERRO: sem RAM para telemetria - envio desativado");
     } else {
       // Nucleo 0, 8 KB de pilha (o handshake TLS e faminto). Prioridade 1 =
       // abaixo do loop(), entao o ciclo de sensores sempre ganha.
@@ -855,17 +1164,9 @@ p/SgguMh1YQdc4acLa/KNJvxn7kjNuK8YAOdgLOaVsjh4rsUecrNIdSUtUlD
     }
   }
 
-  void enfileirarEvento(Payload &p) {
-    if (!filaEventos) return;
-    if (xQueueSend(filaEventos, &p, 0) != pdTRUE) {
-      perdidos++;
-      Serial.println("[REDE] fila de eventos cheia - EVENTO PERDIDO");
-    }
-  }
-
   void imprimir() {
-    Serial.printf("Rede: %s | envios ok=%lu falha=%lu | eventos perdidos=%lu\n",
-                  WiFi.status() == WL_CONNECTED ? "conectado" : "SEM WI-FI", ok, falha, perdidos);
+    Serial.printf("Rede: %s | envios ok=%lu falha=%lu\n",
+                  WiFi.status() == WL_CONNECTED ? "conectado" : "SEM WI-FI", ok, falha);
   }
 #else
   inline void iniciar() {}
@@ -880,10 +1181,11 @@ p/SgguMh1YQdc4acLa/KNJvxn7kjNuK8YAOdgLOaVsjh4rsUecrNIdSUtUlD
 namespace Telemetria {
 #if USAR_WIFI || DIAG_TELEMETRIA
   void montar(Json &j) {
-    j.add("{\"dispositivo_id\":\"%s\"", DISPOSITIVO_ID);
+    j.add("{");
 #if USAR_WIFI
-    char quando[40];
-    if (Rede::carimboISO(quando, sizeof(quando))) j.add(",\"criado_em\":\"%s\"", quando);
+    Frota::metadados(j);
+#else
+    j.add("\"dispositivo_id\":\"%s\"", DISPOSITIVO_ID);
 #endif
     Termopar::telemetria(j);
     Aht::telemetria(j);
@@ -905,8 +1207,8 @@ namespace Telemetria {
     // Sobrescreve: se a anterior ainda nao saiu, a leitura de agora vale mais.
     if (Rede::caixaTelemetria) {
       Rede::Payload p;
-      strncpy(p.tabela, "telemetria", sizeof(p.tabela) - 1);
-      p.tabela[sizeof(p.tabela) - 1] = '\0';
+      strncpy(p.categoria, "telemetria", sizeof(p.categoria) - 1);
+      p.categoria[sizeof(p.categoria) - 1] = '\0';
       memcpy(p.json, j.txt, j.n + 1);
       xQueueOverwrite(Rede::caixaTelemetria, &p);
     }
@@ -928,18 +1230,13 @@ namespace Evento {
     Serial.printf("[%s] %s\n", ctx, msg);
 #if USAR_WIFI
     Json j;
-    j.add("{\"dispositivo_id\":\"%s\"", DISPOSITIVO_ID);
-    char quando[40];
-    if (Rede::carimboISO(quando, sizeof(quando))) j.add(",\"criado_em\":\"%s\"", quando);
+    j.add("{");
+    Frota::metadados(j);
     j.add(",\"tipo\":\"%s\",\"severidade\":%d", tipo, sev);
     if (Termopar::ok) j.add(",\"temp_escape\":%.1f", Estado::tempEscape);
     j.add(",\"detalhes\":%s}", detalhes);
-
-    Rede::Payload p;
-    strncpy(p.tabela, "eventos", sizeof(p.tabela) - 1);
-    p.tabela[sizeof(p.tabela) - 1] = '\0';
-    memcpy(p.json, j.txt, j.n + 1);
-    Rede::enfileirarEvento(p);
+    if (!Frota::anexarDuravel("eventos", j.txt))
+      Serial.println("[EVENTO] falha ao persistir evidencia");
 #else
     (void)tipo; (void)sev; (void)detalhes;
 #endif
@@ -1006,6 +1303,7 @@ void setup() {
   Mpu::iniciar();
   Aht::iniciar();
   Gps::iniciar();
+  Frota::iniciar();
   Rfid::iniciar();
   Termopar::iniciar();
   Reed::iniciar();

@@ -22,6 +22,11 @@ sensores → ESP32 → Wi-Fi → Supabase (PostgREST)
 - **`api/`** — API REST em Flask. Lê o Supabase, calcula **scores de risco determinísticos** e gera os
   relatórios, usando o LLM apenas para redigir a análise (nunca para calcular os números).
 
+O painel também gerencia **várias máquinas por fazenda** e **operadores identificados por RFID**.
+Cada ESP32 usa uma credencial própria, sincroniza os crachás autorizados e preserva offline a trilha
+de eventos e sessões. Para atualizar uma instalação existente, siga
+[`docs/ATIVAR_FROTA.md`](docs/ATIVAR_FROTA.md).
+
 > **Estado atual do firmware:** placa física com **Wi-Fi ligado** (`USAR_WIFI 1`) e envio ao
 > Supabase em produção. Sensores ativos: MPU-6050, AHT10, buzzer, RC522, termopar MAX6675, reed
 > do capô e do tanque, GPS. Dois ficam desligados por flag no topo do `.ino`: `USAR_CHAMA 0`
@@ -108,6 +113,10 @@ login no **Render**, veja [`docs/DEPLOY.md`](docs/DEPLOY.md).
 | `GET /me` | Perfil do usuário logado (role + fazenda vinculada) |
 | `GET/POST /clientes` | Lista/cadastra clientes — **só perfil Sompo** (403 para gestor) |
 | `GET/POST /fazendas` | Lista/cadastra fazendas — **só perfil Sompo** (403 para gestor) |
+| `GET/POST /equipamentos` | Lista/cadastra máquinas dentro do escopo da fazenda |
+| `GET/POST /operadores` | Lista/cadastra operadores RFID, sem criar login |
+| `GET /operacoes` | Histórico paginado de sessões dos operadores |
+| `GET /fazendas/<id>/resumo` | Resumo das máquinas, comunicação e risco da fazenda |
 
 ## Perfis de acesso (role-based)
 

@@ -28,11 +28,12 @@ def montar_relatorio_bruto(dispositivo: str, dias: int, resumo_por_dia: List[Dic
 # Prompt: os scores JA vem calculados e entram como fato dado
 # ---------------------------------------------------------------------------
 
-def montar_prompt(dispositivo: str, dias: int, scores: Dict[str, Any], eventos: List[Dict[str, Any]]) -> str:
+def montar_prompt(dispositivo: str, dias: int, scores: Dict[str, Any], eventos: List[Dict[str, Any]], contexto=None) -> str:
     dados = json.dumps(
         {
             'dispositivo': dispositivo,
             'dias': dias,
+            'identificacao': contexto or {},
             'scores_ja_calculados': {
                 'score_furto': scores['score_furto'],
                 'classificacao_furto': scores['classificacao_furto'],
@@ -48,14 +49,17 @@ def montar_prompt(dispositivo: str, dias: int, scores: Dict[str, Any], eventos: 
 
     header = (
         "Voce e um analista de risco de seguros. Escreva a analise para o dispositivo "
-        + dispositivo + " com base nos dados abaixo.\n\n"
+        + str(dispositivo or 'sem dispositivo') + " com base nos dados abaixo.\n\n"
         "Regras obrigatorias:\n"
         "1. Os scores JA foram calculados de forma deterministica e sao FATO DADO. "
         "NAO recalcule, NAO altere e NAO conteste esses numeros - apenas os justifique.\n"
         "2. Toda afirmacao deve citar o numero (score ou contagem de eventos) que a sustenta.\n"
         "3. Se os dados nao permitirem uma conclusao, informe explicitamente.\n"
         "4. Nao invente causas.\n"
-        "5. Escreva em portugues, com linguagem adequada para seguros.\n\n"
+        "5. Escreva em portugues, com linguagem adequada para seguros.\n"
+        "6. Operador identificado por cracha nao comprova conducao continua nem culpa. "
+        "Nao atribua responsabilidade pelo acidente somente pela presenca. "
+        "Horarios de ocorrencia ausentes sao desconhecidos; recebimento nao e ocorrencia.\n\n"
         "Dados:\n"
     )
 
@@ -152,13 +156,14 @@ def montar_fallback(scores: Dict[str, Any], erro: str | None = None) -> Dict[str
 # Relatorio de risco: scores deterministicos + camada de IA, sempre HTTP 200
 # ---------------------------------------------------------------------------
 
-def montar_relatorio_risco(dispositivo: str, dias: int, resumo_por_dia: List[Dict[str, Any]], eventos: List[Dict[str, Any]]) -> Dict[str, Any]:
+def montar_relatorio_risco(dispositivo: str, dias: int, resumo_por_dia: List[Dict[str, Any]], eventos: List[Dict[str, Any]], contexto=None) -> Dict[str, Any]:
     scores = calcular_scores(dispositivo, dias, eventos)
-    prompt = montar_prompt(dispositivo, dias, scores, eventos)
+    prompt = montar_prompt(dispositivo, dias, scores, eventos, contexto)
     resultado = llm.analisar_risco(prompt)
     origem = resultado['origem']
 
     base = {
+        **(contexto or {}),
         'tipo': 'relatorio_risco',
         'dispositivo': dispositivo,
         'periodo_dias': dias,
@@ -185,4 +190,6 @@ def montar_relatorio_risco(dispositivo: str, dias: int, resumo_por_dia: List[Dic
         base.update(montar_fallback(scores, erro=resultado.get('erro')))
         base['prompt_gerado'] = prompt
 
+    base['eventos'] = eventos
+    base['limitacoes'] += ' Identificação por crachá não comprova condução contínua nem responsabilidade pelo acidente.'
     return base

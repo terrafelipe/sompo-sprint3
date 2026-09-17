@@ -75,6 +75,11 @@ def montar_docx(relatorio: Dict[str, Any], eventos: List[Dict[str, Any]]) -> byt
         f"   ·   Período: {relatorio.get('periodo_dias', '—')} dia(s)"
         f"   ·   Gerado em: {gerado} (Brasília)"
     )
+    equipamento = relatorio.get('equipamento') or {}
+    fazenda = relatorio.get('fazenda') or {}
+    if equipamento:
+        _add_par(doc, f"Equipamento: {equipamento.get('nome', '—')} (ID {equipamento.get('id_equipamento', '—')})")
+        _add_par(doc, f"Fazenda: {fazenda.get('nome', 'Cadastro pendente')}")
 
     origem = relatorio.get('origem_da_analise', '')
     nota = doc.add_paragraph()
@@ -113,17 +118,22 @@ def montar_docx(relatorio: Dict[str, Any], eventos: List[Dict[str, Any]]) -> byt
     # Eventos do período (horários já em Brasília)
     doc.add_heading('Eventos no período', level=2)
     if eventos:
-        tabela = doc.add_table(rows=1, cols=3)
+        tabela = doc.add_table(rows=1, cols=5)
         tabela.style = 'Light Grid Accent 1'
         cab = tabela.rows[0].cells
         cab[0].paragraphs[0].add_run('Data/hora (Brasília)').bold = True
         cab[1].paragraphs[0].add_run('Tipo').bold = True
         cab[2].paragraphs[0].add_run('Severidade').bold = True
+        cab[3].paragraphs[0].add_run('Operador identificado').bold = True
+        cab[4].paragraphs[0].add_run('Sessão / recebimento').bold = True
         for ev in eventos:
             linha = tabela.add_row().cells
-            linha[0].text = para_brasilia(ev.get('criado_em'))
+            ocorrido = ev.get('ocorrido_em') if ev.get('registro_id') else ev.get('criado_em')
+            linha[0].text = para_brasilia(ocorrido) if ocorrido else 'Horário desconhecido'
             linha[1].text = str(ev.get('tipo', '—'))
             linha[2].text = str(ev.get('severidade', '—'))
+            linha[3].text = ev.get('operador_nome') or 'Operador não identificado'
+            linha[4].text = str(ev.get('sessao_id') or '—') + '\n' + para_brasilia(ev.get('recebido_em'))
     else:
         doc.add_paragraph('Nenhum evento registrado no período.')
 

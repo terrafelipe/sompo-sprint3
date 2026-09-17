@@ -20,6 +20,7 @@ from flask import (
 from flask_cors import CORS
 
 import documento
+import frota
 from config import (
     CORS_ORIGINS,
     FLASK_DEBUG,
@@ -46,6 +47,7 @@ from supabase_client import (
 )
 
 app = Flask(__name__)
+app.register_blueprint(frota.bp)
 # Chave para assinar o cookie de sessao do login.
 app.secret_key = SECRET_KEY
 _SESSAO_SEGUNDOS = SESSAO_HORAS * 3600
@@ -191,12 +193,15 @@ def _perfil() -> Dict[str, Any]:
 
 
 def _dispositivo_para(req_dispositivo: str) -> str:
-    # gestor_fazenda so enxerga o dispositivo da fazenda dele: ignora qualquer valor
-    # recebido na requisicao (nao adianta forcar o parametro na URL).
-    p = _perfil()
-    if p['role'] == 'gestor_fazenda' and p['dispositivo_forcado']:
-        return p['dispositivo_forcado']
-    return req_dispositivo
+    # A seleção é explícita e autorizada pela fazenda da máquina, não pelo
+    # dispositivo antigo armazenado na sessão de login.
+    try:
+        return frota.resolver_equipamento()
+    except frota.FrotaErro:
+        raise
+    except Exception as exc:
+        app.logger.warning('falha ao resolver equipamento: %s', exc)
+        raise frota.FrotaErro('frota_indisponivel', 502) from exc
 
 
 def somente_sompo(view):
@@ -266,8 +271,8 @@ def telemetria():
     limite = _parse_int(request.args.get('limite', '50'), 50, minimum=1, maximum=500)
 
     try:
-        dados = consultar_telemetria(dispositivo, limite=limite)
-        return jsonify({'total': len(dados), 'dados': dados}), 200
+        dados = frota.identificar_registros(consultar_telemetria(dispositivo, limite=limite) if dispositivo else [])
+        return jsonify({'total': len(dados), 'dados': dados, **frota.contexto()}), 200
     except Exception as exc:
         return _erro('falha_na_consulta', exc, 502)
 
@@ -278,8 +283,8 @@ def eventos():
     dias = _parse_int(request.args.get('dias', '7'), 7, minimum=1)
 
     try:
-        dados = consultar_eventos(dispositivo, dias=dias)
-        return jsonify({'total': len(dados), 'dados': dados}), 200
+        dados = frota.identificar_registros(consultar_eventos(dispositivo, dias=dias) if dispositivo else [])
+        return jsonify({'total': len(dados), 'dados': dados, **frota.contexto()}), 200
     except Exception as exc:
         return _erro('falha_na_consulta', exc, 502)
 
@@ -290,8 +295,8 @@ def resumo():
     dias = _parse_int(request.args.get('dias', '7'), 7, minimum=1)
 
     try:
-        dados = consultar_resumo(dispositivo, dias=dias)
-        return jsonify({'total': len(dados), 'dados': dados}), 200
+        dados = consultar_resumo(dispositivo, dias=dias) if dispositivo else []
+        return jsonify({'total': len(dados), 'dados': dados, **frota.contexto()}), 200
     except Exception as exc:
         return _erro('falha_na_consulta', exc, 502)
 
@@ -302,8 +307,8 @@ def scores():
     dias = _parse_int(request.args.get('dias', '7'), 7, minimum=1)
 
     try:
-        eventos = consultar_eventos(dispositivo, dias=dias)
-        return jsonify(calcular_scores(dispositivo, dias, eventos)), 200
+        eventos = consultar_eventos(dispositivo, dias=dias) if dispositivo else []
+        return jsonify({**calcular_scores(dispositivo, dias, eventos), **frota.contexto()}), 200
     except Exception as exc:
         return _erro('falha_na_consulta', exc, 502)
 
@@ -314,9 +319,10 @@ def relatorio_bruto():
     dias = _parse_int(request.args.get('dias', '7'), 7, minimum=1)
 
     try:
-        resumo_por_dia = consultar_resumo(dispositivo, dias=dias)
-        eventos = consultar_eventos(dispositivo, dias=dias)
+        resumo_por_dia = consultar_resumo(dispositivo, dias=dias) if dispositivo else []
+        eventos = frota.identificar_registros(consultar_eventos(dispositivo, dias=dias) if dispositivo else [])
         relatorio = montar_relatorio_bruto(dispositivo, dias, resumo_por_dia, eventos)
+        relatorio.update(frota.contexto())
         return jsonify(relatorio), 200
     except Exception as exc:
         return _erro('falha_na_geracao_do_relatorio', exc, 502)
@@ -328,9 +334,9 @@ def relatorio_risco():
     dias = _parse_int(request.args.get('dias', '7'), 7, minimum=1)
 
     try:
-        resumo_por_dia = consultar_resumo(dispositivo, dias=dias)
-        eventos = consultar_eventos(dispositivo, dias=dias)
-        resultado = montar_relatorio_risco(dispositivo, dias, resumo_por_dia, eventos)
+        resumo_por_dia = consultar_resumo(dispositivo, dias=dias) if dispositivo else []
+        eventos = frota.identificar_registros(consultar_eventos(dispositivo, dias=dias) if dispositivo else [])
+        resultado = montar_relatorio_risco(dispositivo, dias, resumo_por_dia, eventos, contexto=frota.contexto())
         return jsonify(resultado), 200
     except Exception as exc:
         return _erro('falha_na_geracao_do_relatorio', exc, 502)
@@ -343,9 +349,9 @@ def relatorio_risco_docx():
     dias = _parse_int(request.args.get('dias', '7'), 7, minimum=1)
 
     try:
-        resumo_por_dia = consultar_resumo(dispositivo, dias=dias)
-        eventos = consultar_eventos(dispositivo, dias=dias)
-        relatorio = montar_relatorio_risco(dispositivo, dias, resumo_por_dia, eventos)
+        resumo_por_dia = consultar_resumo(dispositivo, dias=dias) if dispositivo else []
+        eventos = frota.identificar_registros(consultar_eventos(dispositivo, dias=dias) if dispositivo else [])
+        relatorio = montar_relatorio_risco(dispositivo, dias, resumo_por_dia, eventos, contexto=frota.contexto())
         conteudo = documento.montar_docx(relatorio, eventos)
 
         carimbo = datetime.now(documento.FUSO_BRASILIA).strftime('%Y%m%d_%H%M')

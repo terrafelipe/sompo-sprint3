@@ -7,6 +7,17 @@ import llm
 
 
 @pytest.fixture(autouse=True)
+def _postgrest_offline():
+    """Legados não têm cadastro; chamadas novas devem fornecer fixture explícita."""
+    def responder(method, table, params=None, payload=None):
+        if method == 'GET' and table == 'equipamentos':
+            return []
+        raise AssertionError(f'Consulta PostgREST sem fixture: {method} {table}')
+    with patch('supabase_client._request_json', side_effect=responder):
+        yield
+
+
+@pytest.fixture(autouse=True)
 def _limpar_cache_llm():
     # Zera o cache da analise antes e depois de cada teste, para um teste nao
     # reaproveitar a resposta (mockada) de outro.

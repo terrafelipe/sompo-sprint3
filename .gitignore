@@ -6,6 +6,8 @@
 **/segredos.h
 
 # Python
+.worktrees/
+.superpowers/
 **/venv/
 **/.venv/
 **/__pycache__/
