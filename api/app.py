@@ -86,6 +86,13 @@ def exigir_login_painel():
     if SOMPO_API_KEY and hmac.compare_digest(request.headers.get('X-API-Key', ''), SOMPO_API_KEY):
         return None
     if session.get('logado'):
+        # Cookies remain signed after a deletion; revalidate database identities.
+        try:
+            atual = buscar_usuario(session.get('usuario', ''))
+        except Exception as exc:
+            return _erro('autenticacao_indisponivel', exc, 502)
+        if (atual and atual.get('excluido_em')) or (session.get('usuario_id') and not atual):
+            session.clear()
         # Timeout absoluto: expira SESSAO_HORAS apos o login, independente de atividade.
         if time.time() - session.get('login_em', 0) < _SESSAO_SEGUNDOS:
             return None
@@ -112,10 +119,13 @@ def _autenticar(usuario: str, senha: str) -> Dict[str, Any] | None:
         u = buscar_usuario(usuario)
     except Exception as exc:
         app.logger.warning('login: busca de usuario indisponivel: %s', exc)
-        u = None
+        return None  # Fail closed: an excluded login must not use the env fallback.
+    if u and u.get('excluido_em'):
+        return None
     if u and hmac.compare_digest(str(u.get('senha', '')), senha):
         faz = u.get('fazenda') or {}
         return {
+            'usuario_id': u.get('id_usuario'),
             'usuario': usuario,
             'role': u.get('role', 'sompo'),
             'fazenda_id': u.get('fk_fazenda_id_fazenda'),
@@ -143,6 +153,7 @@ def login():
             session['logado'] = True
             session['login_em'] = time.time()  # inicio da sessao, para o timeout absoluto
             session['usuario'] = perfil['usuario']
+            session['usuario_id'] = perfil.get('usuario_id')
             session['role'] = perfil['role']
             session['fazenda_id'] = perfil['fazenda_id']
             session['fazenda_nome'] = perfil['fazenda_nome']
@@ -509,6 +520,47 @@ def usuarios_criar():
         if '23505' in texto or 'duplicate' in texto:
             return jsonify({'erro': 'usuario_ja_existe'}), 409
         return _erro('falha_ao_criar_usuario', exc, 502)
+
+
+@app.get('/usuarios/<int:value>')
+@somente_sompo
+def usuario_detalhe(value):
+    try:
+        from supabase_client import consultar_usuario
+        usuario = consultar_usuario(value)
+        if not usuario:
+            return jsonify(erro='nao_encontrado'), 404
+        return jsonify(usuario=usuario)
+    except Exception as exc:
+        return _erro('falha_na_consulta', exc, 502)
+
+
+@app.delete('/clientes/<int:value>', defaults={'tipo': 'clientes'})
+@app.delete('/fazendas/<int:value>', defaults={'tipo': 'fazendas'})
+@app.delete('/usuarios/<int:value>', defaults={'tipo': 'usuarios'})
+@app.delete('/operadores/<int:value>', defaults={'tipo': 'operadores'})
+@app.delete('/equipamentos/<int:value>', defaults={'tipo': 'equipamentos'})
+def cadastro_excluir(tipo, value):
+    # Scope is checked even for repeated deletions. Only the trusted server may
+    # invoke the transactional RPC; caller identity never comes from JSON.
+    papel = frota.papel()
+    if tipo not in {'operadores', 'equipamentos'} and papel != 'sompo':
+        return jsonify(erro='proibido'), 403
+    try:
+        if tipo == 'operadores':
+            frota.operador(value, historico=True)
+        elif tipo == 'equipamentos':
+            frota.equipamento(value, historico=True)
+        from supabase_client import chamar_rpc
+        resultado = chamar_rpc('excluir_cadastro', {
+            'p_tipo': tipo, 'p_id': value, 'p_usuario': session.get('usuario')})
+        codigo = resultado.get('erro')
+        status = 404 if codigo == 'nao_encontrado' else (409 if codigo else 200)
+        return jsonify(resultado), status
+    except frota.FrotaErro:
+        raise
+    except Exception as exc:
+        return _erro('falha_ao_excluir', exc, 502)
 
 
 if __name__ == '__main__':

@@ -5,8 +5,8 @@
 
 ## Frota, RFID e painel atual
 
-- Cada cliente possui fazendas; cada fazenda possui máquinas. O backend deriva o cliente
-  proprietário da fazenda escolhida, sem confiar em um cliente enviado pelo formulário.
+- Cada cliente possui fazendas; cada fazenda possui máquinas. O backend deriva o cliente  
+  proprietário da fazenda escolhida, sem confiar em um cliente enviado pelo formulário.  
   `id_equipamento` é o ID cadastral; `dispositivo_id` identifica o ESP32 exclusivo vinculado.
   Fabricação e última manutenção são datas; valor segurado é decimal em reais, opcional.
 - Operador não é usuário de login. Nome e UID do crachá são necessários; matrícula é
