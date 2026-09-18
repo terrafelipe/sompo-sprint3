@@ -111,7 +111,7 @@ def consultar_resumo(dispositivo: str, dias: int = 7) -> List[Dict[str, Any]]:
 def consultar_clientes() -> List[Dict[str, Any]]:
     # Traz tambem os dados de contato, para o modal de detalhe do cliente no painel.
     # O dropdown de "dono da fazenda" usa so id+nome; os campos extras nao atrapalham.
-    return consultar_tabela('cliente', select='id_cliente,nome,cnpj,telefone,endereco,email', order='nome.asc', limite=200)
+    return consultar_tabela('cliente', filtros={'excluido_em': 'is.null'}, select='id_cliente,nome,cnpj,telefone,endereco,email', order='nome.asc', limite=200)
 
 
 def consultar_fazendas() -> List[Dict[str, Any]]:
@@ -119,6 +119,7 @@ def consultar_fazendas() -> List[Dict[str, Any]]:
     # modal de detalhe da fazenda.
     return consultar_tabela(
         'fazenda',
+        filtros={'excluido_em': 'is.null'},
         select='*,cliente(nome,cnpj,telefone,email)',
         order='criado_em.desc',
         limite=200,
@@ -129,10 +130,19 @@ def consultar_usuarios() -> List[Dict[str, Any]]:
     # Lista de logins do painel SEM a senha, com o nome da fazenda vinculada embutido.
     return consultar_tabela(
         'usuario',
+        filtros={'excluido_em': 'is.null'},
         select='id_usuario,usuario,role,fk_fazenda_id_fazenda,fazenda(nome)',
         order='usuario.asc',
         limite=200,
     )
+
+
+def consultar_usuario(value):
+    linhas = consultar_tabela('usuario', filtros={
+        'id_usuario': f'eq.{value}', 'excluido_em': 'is.null'}, limite=1,
+        select='id_usuario,usuario,role,criado_em,fk_fazenda_id_fazenda,'
+               'fazenda(nome,localizacao,cliente(nome,cnpj,telefone,email))')
+    return linhas[0] if linhas else None
 
 
 def buscar_usuario(usuario: str) -> Optional[Dict[str, Any]]:

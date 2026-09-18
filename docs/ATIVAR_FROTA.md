@@ -6,7 +6,7 @@ Esta evolução é aditiva: preserva telemetria e eventos existentes e mantém r
 
 No SQL Editor do Supabase, execute [`firmware/sql/frota.sql`](../firmware/sql/frota.sql). O script é idempotente e pode ser executado novamente. Ele cria as tabelas de operadores, vínculos, credenciais e sessões, acrescenta os campos históricos e instala as RPCs usadas pelos ESP32.
 
-Antes de continuar, publique a API atualizada. As telas **Máquinas**, **Operadores** e **Histórico** devem aparecer no painel.
+Antes de publicar a API atualizada, aplique também `firmware/sql/exclusoes.sql`, após `usuarios.sql` e `frota.sql`. Veja [exclusões e detalhes dos usuários](EXCLUSOES.md). As telas **Máquinas**, **Operadores** e **Histórico** devem aparecer no painel.
 
 ## 2. Cadastrar e provisionar cada máquina
 

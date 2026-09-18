@@ -67,24 +67,28 @@ def obter(tabela, pk, value):
     return rows[0]
 
 
-def equipamento(value):
+def equipamento(value, historico=False):
     papel()
     row = obter('equipamentos', 'id_equipamento', value)
     autorizar_fazenda(row.get('fk_fazenda_id_fazenda'))
+    if row.get('excluido_em') and not historico:
+        raise FrotaErro('nao_encontrado', 404)
     return row
 
 
-def operador(value):
+def operador(value, historico=False):
     papel()
     row = obter('operadores', 'id_operador', value)
     autorizar_fazenda(row.get('fk_fazenda_id_fazenda'))
+    if row.get('excluido_em') and not historico:
+        raise FrotaErro('nao_encontrado', 404)
     return row
 
 
 def filtros_fazenda():
     role = papel()
     value = session['fazenda_id'] if role == 'gestor_fazenda' else request.args.get('fazenda')
-    return {'fk_fazenda_id_fazenda': f'eq.{inteiro(value)}'} if value else {}
+    return {'excluido_em': 'is.null', **({'fk_fazenda_id_fazenda': f'eq.{inteiro(value)}'} if value else {})}
 
 
 def corpo_json():
@@ -113,6 +117,8 @@ def fazenda_cadastro(corpo, atual=None):
         raise FrotaErro('transferencia_nao_permitida', 409)
     autorizar_fazenda(fazenda_id)
     faz = obter('fazenda', 'id_fazenda', fazenda_id)
+    if faz.get('excluido_em'):
+        raise FrotaErro('fazenda_excluida', 409)
     if not faz.get('fk_cliente_id_cliente'):
         raise FrotaErro('fazenda_sem_cliente', 409)
     return faz
@@ -277,7 +283,7 @@ def resolver_equipamento():
     if not eid and not dev:
         raise FrotaErro('equipamento_obrigatorio')
     if eid:
-        eq = equipamento(eid)
+        eq = equipamento(eid, historico=True)
         if dev and dev != eq.get('dispositivo_id'):
             raise FrotaErro('seletores_incompativeis')
     else:
@@ -332,10 +338,10 @@ def listar_operacoes():
     elif request.args.get('fazenda'):
         filtros['fazenda_id'] = f'eq.{inteiro(request.args["fazenda"], "fazenda")}'
     if request.args.get('equipamento'):
-        eq = equipamento(request.args['equipamento'])
+        eq = equipamento(request.args['equipamento'], historico=True)
         filtros['equipamento_id'] = f'eq.{eq["id_equipamento"]}'
     if request.args.get('operador'):
-        op = operador(request.args['operador'])
+        op = operador(request.args['operador'], historico=True)
         filtros['operador_id'] = f'eq.{op["id_operador"]}'
     rows = db.consultar_periodo('sessoes_operacao', filtros, periodo(),
                                campo='recebido_em', order='recebido_em.desc,sessao_id.asc')
@@ -349,7 +355,9 @@ def listar_operacoes():
 def resumo_fazenda(value):
     autorizar_fazenda(value)
     faz = obter('fazenda', 'id_fazenda', value)
-    maquinas = db.consultar_todos('equipamentos', filtros={'fk_fazenda_id_fazenda': f'eq.{value}'},
+    if faz.get('excluido_em'):
+        raise FrotaErro('nao_encontrado', 404)
+    maquinas = db.consultar_todos('equipamentos', filtros={'fk_fazenda_id_fazenda': f'eq.{value}', 'excluido_em': 'is.null'},
                                   order='nome.asc,id_equipamento.asc')
     devices = [m['dispositivo_id'] for m in maquinas if m.get('dispositivo_id')]
     filtros = {'dispositivo_id': 'in.(' + ','.join(devices) + ')'}

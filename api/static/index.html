@@ -7,6 +7,15 @@
 <style>
   [hidden]{display:none!important}
   button:disabled{opacity:.55;cursor:not-allowed}
+  #equipamentoSelWrap{width:22rem;max-width:100%;min-width:0}
+  #equipamentoSel{width:100%;box-sizing:border-box;min-width:0;text-overflow:ellipsis}
+  #equipamentoSel > button{display:flex;min-width:0;width:100%;overflow:hidden;font:inherit}
+  #equipamentoSel selectedcontent{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #confirmarExclusao{border:0;border-radius:1rem;padding:1.5rem;width:min(28rem,calc(100% - 2rem));box-sizing:border-box;color:#2a1613;background:#fff}
+  #confirmarExclusao::backdrop{background:#0006;backdrop-filter:blur(3px)}
+  #detTitulo{overflow-wrap:anywhere;min-width:0}
+  #listaOperadores > div{flex-wrap:wrap}
+  #listaOperadores .flex-1{min-width:0;overflow-wrap:anywhere}
   @layer base{html,body{margin:0;padding:0}}
   ::-webkit-scrollbar{width:8px;height:8px}
   ::-webkit-scrollbar-thumb{background:#e9bcb5;border-radius:8px}
@@ -137,7 +146,7 @@
     </div>
     <div id="equipamentoSelWrap" class="relative hidden">
       <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant pointer-events-none">agriculture</span>
-      <select id="equipamentoSel" title="Máquina"
+      <select id="equipamentoSel" title="Máquina" aria-label="Máquina"
               class="appearance-none w-52 bg-surface-container-lowest rounded-full py-2 pl-9 pr-9 text-sm text-on-surface font-medium outline-none shadow-sm cursor-pointer focus:ring-2 focus:ring-primary/20"></select>
       <span class="sel-seta material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant pointer-events-none">expand_more</span>
     </div>
@@ -515,6 +524,17 @@
   </div>
 </div>
 
+<dialog id="confirmarExclusao" aria-labelledby="exclusaoTitulo" aria-describedby="exclusaoDescricao">
+  <h3 id="exclusaoTitulo" class="text-lg font-bold mb-3">Excluir cadastro</h3>
+  <p id="exclusaoDescricao" class="text-sm break-words"></p>
+  <p id="exclusaoErro" role="alert" class="text-error text-sm mt-3"></p>
+  <div class="flex justify-end gap-3 mt-5">
+    <button id="exclusaoCancelar" class="px-4 py-2 rounded-lg bg-surface-container" autofocus>Cancelar</button>
+    <button id="exclusaoConfirmar" class="px-4 py-2 rounded-lg bg-error text-on-error font-semibold">Excluir</button>
+  </div>
+</dialog>
+<div id="cadastroAviso" role="status" class="hidden fixed bottom-4 right-4 z-[70] max-w-[90vw] bg-surface-container-lowest shadow-lg rounded-xl p-4 text-sm"></div>
+
 <script>
 const $ = id => document.getElementById(id);
 let contextoVersao = 0;
@@ -619,6 +639,8 @@ function limparMaquina(){
   ['barFurto','barIncendio'].forEach(id => $(id).style.width = '0%');
   $('cardRisco').dataset.risco = 'seguro';
   $('equipamentoSel').value = '';
+  $('equipamentoSel').title = 'Selecione uma máquina';
+  $('dispositivo').value = '';
   fecharDetalhe(); fecharEvento();
 }
 async function trocarFazenda(id){
@@ -627,7 +649,7 @@ async function trocarFazenda(id){
   if(maquinaEditando) fecharFormMaquina();   // não editar máquina de outra fazenda
   ['listaMaquinas','listaOperadores','listaHistorico'].forEach(id => $(id).innerHTML = '');
   $('resumoFazendaNome').textContent = 'Carregando…';
-  $('equipamentoSel').innerHTML = '<option value="">Selecione uma máquina</option>';
+  preencherSeletorMaquinas([]);
   $('fazendaSel').value = String(id);
   opcoesFazenda($('maqFazenda'),id); opcoesFazenda($('opFazenda'),id);
   setView(viewAtual);
@@ -873,13 +895,15 @@ function abrirEvento(e){
 const fecharEvento = ()=> $('modalEvento').classList.add('hidden');
 
 /* ---------- Detalhe de cliente / fazenda (modal) ---------- */
+let detalheVersao=0;
 function abrirDetalhe(titulo, icone, corpoHTML){
+  detalheVersao++;
   $('detTitulo').textContent = titulo;
   $('detIcone').querySelector('span').textContent = icone;
   $('detCorpo').innerHTML = corpoHTML;
   $('modalDetalhe').classList.remove('hidden');
 }
-const fecharDetalhe = ()=> $('modalDetalhe').classList.add('hidden');
+const fecharDetalhe = ()=>{ detalheVersao++; $('modalDetalhe').classList.add('hidden'); };
 
 function abrirCliente(c){
   if(!c) return;
@@ -899,7 +923,7 @@ function abrirCliente(c){
   } else {
     html += `<div class="mt-4 text-[13px] text-on-surface-variant italic">Nenhuma fazenda vinculada a este cliente.</div>`;
   }
-  abrirDetalhe(c.nome || 'Cliente', 'person', html);
+  abrirDetalhe(c.nome || 'Cliente', 'person', html + botaoExcluir('clientes',c.id_cliente,c.nome));
 }
 
 function abrirFazenda(f){
@@ -915,7 +939,7 @@ function abrirFazenda(f){
            + linhaDet('Dispositivo', f.dispositivo_id || '— (sem dispositivo)');
   const botao = `<button data-vertelemetria="${f.id_fazenda}" class="mt-4 inline-flex items-center gap-1.5 bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg shadow-md hover:bg-on-primary-fixed-variant transition-all">
         <span class="material-symbols-outlined text-[18px]">sensors</span> Ver telemetria</button>`;
-  abrirDetalhe(f.nome || 'Fazenda', 'landscape', html + botao);
+  abrirDetalhe(f.nome || 'Fazenda', 'landscape', html + botao + botaoExcluir('fazendas',f.id_fazenda,f.nome));
 }
 
 /* ---------- Fazendas (cadastro) ---------- */
@@ -1052,11 +1076,12 @@ async function carregarUsuarios(){
           <span class="material-symbols-outlined text-primary">${u.role==='sompo'?'shield_person':'account_circle'}</span>
         </div>
         <div class="flex-1 min-w-0">
-          <div class="font-semibold text-on-surface">${u.usuario}</div>
+          <div class="font-semibold text-on-surface break-words">${escapar(u.usuario)}</div>
           <div class="text-[13px] text-on-surface-variant flex flex-wrap gap-x-4 gap-y-0.5 mt-0.5">
             <span class="inline-flex items-center gap-1"><span class="material-symbols-outlined text-[15px]">badge</span>${role}</span>
-            ${faz?`<span class="inline-flex items-center gap-1"><span class="material-symbols-outlined text-[15px]">landscape</span>${faz}</span>`:''}
+            ${faz?`<span class="inline-flex items-center gap-1"><span class="material-symbols-outlined text-[15px]">landscape</span>${escapar(faz)}</span>`:''}
           </div>
+          <div class="flex flex-wrap gap-3 mt-2"><button data-usuario-detalhe="${u.id_usuario}" class="text-primary underline">Detalhes</button>${botaoExcluir('usuarios',u.id_usuario,u.usuario)}</div>
         </div>
       </div>`;
     }).join('');
@@ -1093,6 +1118,12 @@ async function criarUsuario(ev){
 /* ---------- Frota, operadores e histórico ---------- */
 const COMUNICACAO = {recente:['Online','#10b981'], atrasada:['Atrasada','#f59e0b'], sem_dados:['Sem dados','#545f73'], sem_dispositivo:['Sem ESP32','#545f73']};
 
+function preencherSeletorMaquinas(maquinas){
+  $('equipamentoSel').innerHTML = '<button type="button"><selectedcontent></selectedcontent></button><option value="">Selecione uma máquina</option>' + maquinas.map(m=>`<option value="${m.id_equipamento}">${escapar(m.nome)}</option>`).join('');
+  $('equipamentoSel').value = equipamentoSelecionado || '';
+  $('equipamentoSel').title = maquinas.find(m=>String(m.id_equipamento)===String(equipamentoSelecionado))?.nome || 'Selecione uma máquina';
+}
+
 function opcoesFazenda(select, selecionada){
   const fs = fazendasCache.length ? fazendasCache : (fazendaSelecionada ? [{id_fazenda:fazendaSelecionada,nome:'Minha fazenda'}] : []);
   select.innerHTML = fs.map(f=>`<option value="${f.id_fazenda}">${f.nome}</option>`).join('');
@@ -1111,8 +1142,7 @@ async function carregarResumoFazenda(){
     $('frotaEstado').textContent = '';
     maquinasCache = d.equipamentos || [];
     $('resumoFazendaNome').textContent = (d.fazenda && d.fazenda.nome) || 'Fazenda selecionada';
-    $('equipamentoSel').innerHTML = '<option value="">Selecione uma máquina</option>' + maquinasCache.map(m=>`<option value="${m.id_equipamento}">${m.nome}</option>`).join('');
-    $('equipamentoSel').value = equipamentoSelecionado || '';
+    preencherSeletorMaquinas(maquinasCache);
     $('equipamentoSelWrap').classList.remove('hidden');
     if(!maquinasCache.length){ $('listaMaquinas').innerHTML='<div class="col-span-full text-on-surface-variant italic py-4">Nenhuma máquina cadastrada nesta fazenda.</div>'; return; }
     $('listaMaquinas').innerHTML = maquinasCache.map(m=>{
@@ -1123,6 +1153,7 @@ async function carregarResumoFazenda(){
         <div class="grid grid-cols-2 gap-3 my-4 text-xs"><div><span class="text-on-surface-variant">Risco máximo</span><div class="font-bold text-lg">${risco}</div></div><div><span class="text-on-surface-variant">Operador</span><div class="font-semibold mt-1">${m.operador_nome||'Não identificado'}</div></div></div>
         <div class="text-xs text-on-surface-variant mb-4">${m.dispositivo_id||'ESP32 ainda não vinculado'}${m.config_pendente?' · configuração pendente':''}</div>
         <div class="flex gap-2 flex-wrap"><button data-detalhe-maquina="${m.id_equipamento}" class="text-primary underline text-xs">Detalhes</button><button data-abrir-maquina="${m.id_equipamento}" class="bg-primary text-on-primary font-semibold px-3 py-2 rounded-lg text-xs">Abrir painel</button><button data-editar-maquina="${m.id_equipamento}" class="bg-surface-container-high text-primary font-semibold px-3 py-2 rounded-lg text-xs inline-flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">edit</span>Editar</button><button data-autorizar-maquina="${m.id_equipamento}" class="bg-surface-container-high text-primary font-semibold px-3 py-2 rounded-lg text-xs">Crachás autorizados</button></div>
+        ${botaoExcluir('equipamentos',m.id_equipamento,m.nome)}
       </article>`;
     }).join('');
   }catch(e){ if(e.obsoleto) return;
@@ -1139,6 +1170,7 @@ async function selecionarMaquina(id, view = 'visao'){
   dispositivo = m.dispositivo_id || '';
   $('dispositivo').value = dispositivo;
   $('equipamentoSel').value = String(id);
+  $('equipamentoSel').title = m.nome;
   setView(view);
   await carregarTudo();
 }
@@ -1194,7 +1226,7 @@ async function carregarOperadores(){
   try{
     const q = perfilRole==='sompo' && fazendaSelecionada ? `?fazenda=${fazendaSelecionada}` : '';
     const d=await getJSON('/operadores'+q); operadoresCache=d.dados||[];
-    $('listaOperadores').innerHTML = operadoresCache.length ? operadoresCache.map(o=>`<div class="flex items-center gap-3 p-4 rounded-xl bg-surface-container-low"><span class="material-symbols-outlined text-primary">badge</span><div class="flex-1"><div class="font-semibold">${o.nome}</div><div class="text-xs text-on-surface-variant">UID ${o.uid}${o.matricula?' · Matrícula '+o.matricula:''}</div></div><span class="text-xs font-semibold ${o.ativo?'text-secondary':'text-on-surface-variant'}">${o.ativo?'Ativo':'Inativo'}</span></div>`).join('') : '<div class="text-on-surface-variant italic py-4">Nenhum operador cadastrado.</div>';
+    $('listaOperadores').innerHTML = operadoresCache.length ? operadoresCache.map(o=>`<div class="flex items-center gap-3 p-4 rounded-xl bg-surface-container-low"><span class="material-symbols-outlined text-primary">badge</span><div class="flex-1"><div class="font-semibold">${o.nome}</div><div class="text-xs text-on-surface-variant">UID ${o.uid}${o.matricula?' · Matrícula '+o.matricula:''}</div></div><span class="text-xs font-semibold ${o.ativo?'text-secondary':'text-on-surface-variant'}">${o.ativo?'Ativo':'Inativo'}</span>${botaoExcluir('operadores',o.id_operador,o.nome)}</div>`).join('') : '<div class="text-on-surface-variant italic py-4">Nenhum operador cadastrado.</div>';
   }catch(e){ if(e.obsoleto) return; $('listaOperadores').innerHTML=erroLista('Operadores indisponíveis.'); }
 }
 
@@ -1267,7 +1299,14 @@ async function carregarSeletorFazendas(){
     const fs = d.dados||[];
     fazendasCache = fs;
     $('frotaEstado').textContent = '';
-    if(!fs.length){ $('frotaEstado').textContent = 'Nenhuma fazenda cadastrada. Cadastre uma em Fazendas.'; return; }
+    if(!fs.length){
+      limparMaquina(); fazendaSelecionada=null; maquinasCache=[]; operadoresCache=[];
+      $('fazendaSel').innerHTML=''; $('fazendaSelWrap').classList.add('hidden');
+      preencherSeletorMaquinas([]); $('equipamentoSelWrap').classList.add('hidden');
+      $('maqFazenda').innerHTML=''; $('opFazenda').innerHTML='';
+      $('resumoFazendaNome').textContent='Nenhuma fazenda selecionada';
+      $('frotaEstado').textContent = 'Nenhuma fazenda cadastrada. Cadastre uma em Fazendas.'; return;
+    }
     $('fazendaSel').innerHTML = fs.map(f=>`<option value="${f.id_fazenda}">${f.nome}</option>`).join('');
     $('fazendaSelWrap').classList.remove('hidden');
     $('deviceWrap').classList.add('hidden');
@@ -1365,6 +1404,72 @@ $('detCorpo').addEventListener('click', async e=>{
 });
 
 const escapar = v => String(v ?? '—').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function botaoExcluir(tipo,id,nome){
+  if(!['equipamentos','operadores'].includes(tipo) && perfilRole!=='sompo') return '';
+  return `<button data-excluir-tipo="${tipo}" data-excluir-id="${id}" data-excluir-nome="${escapar(nome)}" class="text-error font-semibold text-xs px-3 py-2 rounded-lg hover:bg-error/10">Excluir</button>`;
+}
+let exclusaoPendente=null, exclusaoEnviando=false;
+function solicitarExclusao(botao){
+  if(exclusaoEnviando) return;
+  exclusaoPendente={tipo:botao.dataset.excluirTipo,id:botao.dataset.excluirId,nome:botao.dataset.excluirNome};
+  $('exclusaoDescricao').textContent=`Excluir “${exclusaoPendente.nome}”? O cadastro deixará de estar disponível para uso. O histórico será preservado.`;
+  $('exclusaoErro').textContent='';
+  $('confirmarExclusao').showModal();
+}
+async function confirmarExclusao(){
+  if(!exclusaoPendente || exclusaoEnviando) return;
+  const alvo=exclusaoPendente;
+  exclusaoEnviando=true; $('exclusaoConfirmar').disabled=true; $('exclusaoCancelar').disabled=true;
+  $('exclusaoErro').textContent='';
+  try{
+    const r=await fetch(`/${alvo.tipo}/${alvo.id}`,{method:'DELETE',headers:{Accept:'application/json'}});
+    if(r.status===401){ window.location='/login'; return; }
+    const d=await r.json();
+    if(!r.ok){
+      const erros={propria_conta:'Você não pode excluir sua própria conta.',ultimo_sompo:'É necessário manter pelo menos um usuário Sompo.',proibido:'Você não tem permissão para excluir este cadastro.',nao_encontrado:'Cadastro não encontrado.'};
+      const dependencias=Object.entries(d.dependencias||{}).map(([k,v])=>`${v} ${k==='usuarios'?'usuários':k==='maquinas'?'máquinas':k}`).join(', ');
+      throw new Error(d.erro==='cadastro_com_vinculos'?`Exclua primeiro os cadastros vinculados: ${dependencias}.`:erros[d.erro]||'Não foi possível excluir. Tente novamente.');
+    }
+    contextoVersao++; // Discard reads issued before the deletion.
+    if((alvo.tipo==='equipamentos' && String(equipamentoSelecionado)===alvo.id) ||
+       (alvo.tipo==='fazendas' && String(fazendaSelecionada)===alvo.id)) limparMaquina();
+    if(alvo.tipo==='equipamentos' && String(maquinaEditando?.id_equipamento)===alvo.id) fecharFormMaquina();
+    $('confirmarExclusao').close(); fecharDetalhe(); $('detCorpo').replaceChildren(); exclusaoPendente=null;
+    $('cadastroAviso').textContent='Cadastro excluído. Histórico preservado.';
+    $('cadastroAviso').classList.remove('hidden');
+    setTimeout(()=>$('cadastroAviso').classList.add('hidden'),5000);
+    if(perfilRole==='sompo'){
+      await carregarSeletorFazendas();
+      await Promise.all([carregarClientes(),carregarFazendas(),carregarListaClientes(),carregarUsuarios(),carregarUsuariosFazendaSelect()]);
+    }
+    await Promise.all([carregarResumoFazenda(),carregarOperadores()]);
+    setView(viewAtual);
+    await carregarTudo();
+  }catch(e){
+    $('exclusaoErro').textContent=e.message || 'Não foi possível excluir. Tente novamente.';
+  }finally{ exclusaoEnviando=false; $('exclusaoConfirmar').disabled=false; $('exclusaoCancelar').disabled=false; }
+}
+async function abrirUsuario(id){
+  abrirDetalhe('Detalhes do usuário','account_circle','<p>Carregando…</p>');
+  const versao=detalheVersao;
+  try{
+    const {usuario:u}=await getJSON(`/usuarios/${id}`);
+    if(versao!==detalheVersao || $('modalDetalhe').classList.contains('hidden')) return;
+    const f=u.fazenda, c=f?.cliente;
+    const campos=[['ID',u.id_usuario],['Login',u.usuario],['Perfil',ROLE_ROTULO[u.role]||u.role],
+      ['Data de cadastro',u.criado_em?new Date(u.criado_em).toLocaleString('pt-BR'):null],
+      ['Fazenda',f?.nome],['Localização',f?.localizacao],['Cliente',c?.nome],
+      ['CNPJ',c?.cnpj],['Telefone do cliente',c?.telefone],['E-mail do cliente',c?.email]];
+    abrirDetalhe(u.usuario,'account_circle',campos.map(([k,v])=>linhaDet(k,escapar(v??'Não informado'))).join('')+botaoExcluir('usuarios',u.id_usuario,u.usuario));
+  }catch(e){ if(!e.obsoleto && versao===detalheVersao) $('detCorpo').textContent='Não foi possível carregar os detalhes do usuário.'; }
+}
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-excluir-tipo]'); if(b) solicitarExclusao(b);
+  const u=e.target.closest('[data-usuario-detalhe]'); if(u) abrirUsuario(u.dataset.usuarioDetalhe);
+});
+$('exclusaoConfirmar').addEventListener('click',confirmarExclusao);
+$('exclusaoCancelar').addEventListener('click',()=>$('confirmarExclusao').close());
+$('confirmarExclusao').addEventListener('cancel',e=>{ if(exclusaoEnviando) e.preventDefault(); });
 function detalheMaquina(m){
   const faz = fazendasCache.find(f=>String(f.id_fazenda)===String(m.fk_fazenda_id_fazenda));
   const cliente = faz?.cliente || clientesCache.find(c=>String(c.id_cliente)===String(m.fk_cliente_id_cliente));

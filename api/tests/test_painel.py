@@ -20,7 +20,7 @@ def painel(request):
         browser = p.chromium.launch(channel=os.getenv('SOMPO_TEST_BROWSER') or None)
         page = browser.new_page(viewport={'width': request.param, 'height': 900})
         state = dict(role='sompo', fail=set(), posts=[], held=[], hold=None, errors=[],
-                     sem_esp32=False, sem_maquinas=False)
+                     sem_esp32=False, sem_maquinas=False, deleted=set(), deletes=[], delete_error=None)
         page.on('pageerror', lambda e: state['errors'].append(str(e)))
 
         def route(r):
@@ -37,6 +37,14 @@ def painel(request):
             if path in state['fail']:
                 r.fulfill(status=502, json={'erro': 'indisponivel'})
                 return
+            if r.request.method == 'DELETE':
+                state['deletes'].append(path)
+                if state['delete_error']:
+                    r.fulfill(status=409, json=state['delete_error'])
+                else:
+                    state['deleted'].add(path)
+                    r.fulfill(json={'ok': True})
+                return
             if r.request.method in ('POST', 'PATCH'):
                 state['posts'].append((path, r.request.post_data_json))
                 if r.request.method == 'PATCH':
@@ -50,12 +58,18 @@ def painel(request):
             if path == '/me':
                 data = dict(role=state['role'], fazenda_id=1, fazenda_nome='Fazenda 1')
             elif path == '/fazendas':
-                data = {'dados': FARMS}
+                data = {'dados': [f for f in FARMS if f'/fazendas/{f["id_fazenda"]}' not in state['deleted']]}
             elif path == '/clientes':
-                data = {'dados': [dict(id_cliente=i, nome=f'Cliente {i}') for i in (1, 2)]}
+                data = {'dados': [dict(id_cliente=i, nome=f'Cliente {i}') for i in (1, 2) if f'/clientes/{i}' not in state['deleted']]}
+            elif path == '/usuarios':
+                data = {'dados': [] if '/usuarios/7' in state['deleted'] else [dict(id_usuario=7, usuario='gestor.teste', role='gestor_fazenda', fazenda=FARMS[0])]}
+            elif path == '/usuarios/7':
+                data = {'usuario': dict(id_usuario=7, usuario='gestor.teste', role='gestor_fazenda', criado_em='2026-09-01T12:00:00Z', fazenda=FARMS[0])}
+            elif path == '/operadores':
+                data = {'dados': [] if '/operadores/7' in state['deleted'] else [dict(id_operador=7, nome='Ana', uid='01020304', ativo=True)]}
             elif path.endswith('/resumo'):
                 i = int(path.split('/')[2])
-                data = dict(fazenda=FARMS[i-1], equipamentos=[] if state['sem_maquinas'] else [dict(
+                data = dict(fazenda=FARMS[i-1], equipamentos=[] if state['sem_maquinas'] or f'/equipamentos/{i}' in state['deleted'] else [dict(
                     id_equipamento=i, nome=f'Trator {i}', fk_fazenda_id_fazenda=i, fk_cliente_id_cliente=i,
                     dispositivo_id=None if state['sem_esp32'] else f'ESP-{i}', fabricacao='2020-01-02',
                     ultima_manutencao='2026-09-01', valor_segurado='150000.50')])
@@ -308,3 +322,110 @@ def test_selects_estilizados(painel):
     assert aparencia == ['base-select'] * len(ids)
     assert page.evaluate("getComputedStyle(document.getElementById('equipamentoSel'), '::picker-icon').display") == 'none'
     assert page.evaluate("getComputedStyle(document.getElementById('historicoDias'), '::picker-icon').display") != 'none'
+
+
+def test_nome_longo_maquina_sem_sobrepor_seta(painel):
+    page, state = painel
+    nome = 'Escavadeira Hidráulica 01'
+    page.evaluate('(nome)=>{maquinasCache[0].nome=nome; preencherSeletorMaquinas(maquinasCache)}', nome)
+    page.select_option('#equipamentoSel', '1')
+    pw.expect(page.locator('#equipamentoSel')).to_have_attribute('title', nome)
+    assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
+    assert page.locator('#equipamentoSel').evaluate('''s=>{
+      const text=s.querySelector('selectedcontent'), r=text.getBoundingClientRect();
+      const arrow=s.nextElementSibling.getBoundingClientRect();
+      return r.right<=arrow.left && text.scrollWidth<=text.clientWidth;
+    }''')
+    captura(page, 'seletor-nome-completo')
+    page.evaluate("maquinasCache[0].nome='Escavadeira '+ 'muito longa '.repeat(12); preencherSeletorMaquinas(maquinasCache)")
+    assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
+    assert page.locator('selectedcontent').evaluate('e=>getComputedStyle(e).textOverflow') == 'ellipsis'
+
+
+@pytest.mark.parametrize('tipo,view,id', [('equipamentos','maquinas',1), ('operadores','operadores',7),
+    ('clientes','clientes',1), ('fazendas','fazendas',1), ('usuarios','usuarios',7)])
+def test_excluir_cadastro_confirma_cancela_e_atualiza(painel, tipo, view, id):
+    page, state = painel
+    if tipo == 'equipamentos':
+        page.select_option('#equipamentoSel', '1')
+    nav(page, view)
+    if tipo == 'clientes':
+        page.locator('[data-cli="0"]').click()
+    elif tipo == 'fazendas':
+        page.locator('[data-faz="0"]').click()
+    botao = page.locator(f'[data-excluir-tipo="{tipo}"][data-excluir-id="{id}"]:visible')
+    botao.click()
+    pw.expect(page.locator('#confirmarExclusao')).to_be_visible()
+    pw.expect(page.locator('#exclusaoDescricao')).to_contain_text('histórico será preservado')
+    page.locator('#exclusaoCancelar').click()
+    assert not state['deletes']
+    botao.click()
+    page.locator('#exclusaoConfirmar').click()
+    pw.expect(page.locator('#confirmarExclusao')).not_to_be_visible()
+    assert state['deletes'] == [f'/{tipo}/{id}']
+    pw.expect(page.locator('#cadastroAviso')).to_contain_text('Cadastro excluído')
+    pw.expect(page.locator(f'[data-excluir-tipo="{tipo}"][data-excluir-id="{id}"]')).to_have_count(0)
+    if tipo == 'equipamentos':
+        assert page.evaluate('equipamentoSelecionado') is None
+        pw.expect(page.locator('#btnBaixar')).to_be_disabled()
+        pw.expect(page.locator('#listaMaquinas')).to_contain_text('Nenhuma máquina')
+    if tipo == 'fazendas':
+        pw.expect(page.locator('#fazendaSel')).to_have_value('2')
+
+
+def test_exclusao_bloqueada_exibe_dependencias(painel):
+    page, state = painel
+    state['delete_error'] = {'erro': 'cadastro_com_vinculos', 'dependencias': {'maquinas': 2, 'usuarios': 1}}
+    nav(page, 'fazendas')
+    page.locator('[data-faz="0"]').click()
+    page.locator('[data-excluir-tipo="fazendas"]').click()
+    page.locator('#exclusaoConfirmar').click()
+    pw.expect(page.locator('#exclusaoErro')).to_contain_text('2 máquinas, 1 usuários')
+    pw.expect(page.locator('#confirmarExclusao')).to_be_visible()
+    assert not state['deleted']
+
+
+def test_detalhe_usuario_completo(painel):
+    page, state = painel
+    nav(page, 'usuarios')
+    page.locator('[data-usuario-detalhe="7"]').click()
+    pw.expect(page.locator('#detTitulo')).to_have_text('gestor.teste')
+    for texto in ['Fazenda 1', 'Cliente 1', 'Data de cadastro', '01/09/2026', 'Não informado']:
+        pw.expect(page.locator('#detCorpo')).to_contain_text(texto)
+    pw.expect(page.locator('#detCorpo')).not_to_contain_text('Senha')
+    captura(page, 'usuario-detalhes')
+
+
+def test_excluir_ultima_fazenda_limpa_seletores(painel):
+    page, state = painel
+    state['deleted'].add('/fazendas/2')
+    nav(page, 'fazendas')
+    page.locator('[data-faz="0"]').click()
+    page.locator('[data-excluir-tipo="fazendas"]').click()
+    page.locator('#exclusaoConfirmar').click()
+    pw.expect(page.locator('#fazendaSelWrap')).not_to_be_visible()
+    pw.expect(page.locator('#equipamentoSelWrap')).not_to_be_visible()
+    assert page.evaluate('[fazendaSelecionada,equipamentoSelecionado]') == [None, None]
+    nav(page, 'maquinas')
+    pw.expect(page.locator('#listaMaquinas')).to_contain_text('Nenhuma fazenda selecionada')
+
+
+def test_excluir_erro_e_envio_unico(painel):
+    page, state = painel
+    nav(page, 'operadores')
+    state['fail'].add('/operadores/7')
+    page.locator('[data-excluir-tipo="operadores"]').click()
+    page.locator('#exclusaoConfirmar').click()
+    pw.expect(page.locator('#exclusaoErro')).to_contain_text('Não foi possível excluir')
+    pw.expect(page.locator('#exclusaoConfirmar')).to_be_enabled()
+    state['fail'].clear()
+    state['hold'] = '/operadores/7'
+    page.locator('#exclusaoConfirmar').click()
+    pw.expect(page.locator('#exclusaoConfirmar')).to_be_disabled()
+    page.keyboard.press('Escape')
+    pw.expect(page.locator('#confirmarExclusao')).to_be_visible()
+    page.evaluate('confirmarExclusao()')
+    assert len(state['held']) == 1
+    state['deleted'].add('/operadores/7')
+    state['held'][0].fulfill(json={'ok': True})
+    pw.expect(page.locator('#confirmarExclusao')).not_to_be_visible()
