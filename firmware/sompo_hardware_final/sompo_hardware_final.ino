@@ -379,17 +379,26 @@ namespace Frota {
     if (!equipamento || !versao || lista < 0) return false;
     Operador novos[MAX_OPERADORES_CACHE];
     size_t total = 0;
-    int p = lista;
-    while (total < MAX_OPERADORES_CACHE && (p = corpo.indexOf("\"operador_id\"", p)) >= 0) {
-      uint64_t id = numeroApos(corpo, "\"operador_id\"", p);
-      String uid = textoApos(corpo, "\"uid\"", p);
+    // Percorre objeto a objeto ({...}) porque o jsonb do Postgres ordena as chaves
+    // por tamanho: "uid" vem antes de "operador_id", entao nao da para procurar
+    // uma chave "a partir" da outra.
+    int p = corpo.indexOf('[', lista);
+    int fimLista = p < 0 ? -1 : corpo.indexOf(']', p);
+    while (total < MAX_OPERADORES_CACHE && p >= 0 && fimLista >= 0) {
+      int abre = corpo.indexOf('{', p);
+      if (abre < 0 || abre > fimLista) break;
+      int fecha = corpo.indexOf('}', abre);
+      if (fecha < 0) break;
+      String obj = corpo.substring(abre, fecha + 1);
+      uint64_t id = numeroApos(obj, "\"operador_id\"");
+      String uid = textoApos(obj, "\"uid\"");
       if (id && (uid.length() == 8 || uid.length() == 14 || uid.length() == 20)) {
         novos[total].id = id;
         uid.toUpperCase();
         uid.toCharArray(novos[total].uid, sizeof(novos[total].uid));
         total++;
       }
-      p += 13;
+      p = fecha + 1;
     }
     equipamentoId = equipamento; configVersao = versao; totalOperadores = total;
     memcpy(operadores, novos, total * sizeof(Operador));
@@ -1093,7 +1102,8 @@ p/SgguMh1YQdc4acLa/KNJvxn7kjNuK8YAOdgLOaVsjh4rsUecrNIdSUtUlD
     String resposta = codigo >= 200 && codigo < 300 ? http.getString() : String();
     http.end();
     bool sucesso = codigo >= 200 && codigo < 300 && Frota::aplicarConfig(resposta);
-    if (sucesso) Serial.println("[FROTA] autorizacoes sincronizadas");
+    if (sucesso) Serial.printf("[FROTA] autorizacoes sincronizadas: versao %llu, %u operador(es)\n",
+                               (unsigned long long)Frota::configVersao, (unsigned)Frota::totalOperadores);
     else Serial.printf("[FROTA] sincronizacao falhou HTTP %d; cache preservado\n", codigo);
     return sucesso;
   }

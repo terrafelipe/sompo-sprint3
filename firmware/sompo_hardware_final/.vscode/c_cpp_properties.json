@@ -4,27 +4,29 @@
             "name": "esp32:esp32:esp32",
             "includePath": [
                 "${workspaceFolder}/**",
-                "C:\\Users\\USUARIO\\AppData\\Local\\Temp\\vs-arduino-sketch-LCRyIA\\sompo_hardware_final",
-                "C:\\Users\\USUARIO\\AppData\\Local\\Arduino15\\packages\\esp32\\tools\\esp32-libs\\3.3.11/qio_qspi/include",
-                "C:\\Users\\USUARIO\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.11\\cores\\esp32",
-                "C:\\Users\\USUARIO\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.11\\variants\\esp32",
-                "C:\\Users\\USUARIO\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.11\\libraries\\Wire\\src",
-                "C:\\Users\\USUARIO\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.11\\libraries\\SPI\\src",
-                "c:\\Users\\USUARIO\\OneDrive\\Documentos\\Arduino\\libraries\\Adafruit_MPU6050",
-                "c:\\Users\\USUARIO\\OneDrive\\Documentos\\Arduino\\libraries\\Adafruit_BusIO",
-                "c:\\Users\\USUARIO\\OneDrive\\Documentos\\Arduino\\libraries\\Adafruit_Unified_Sensor",
-                "c:\\Users\\USUARIO\\OneDrive\\Documentos\\Arduino\\libraries\\Adafruit_AHTX0",
-                "c:\\Users\\USUARIO\\OneDrive\\Documentos\\Arduino\\libraries\\TinyGPSPlus\\src",
-                "c:\\Users\\USUARIO\\OneDrive\\Documentos\\Arduino\\libraries\\MFRC522\\src",
-                "c:\\Users\\USUARIO\\OneDrive\\Documentos\\Arduino\\libraries\\MAX6675",
-                "C:\\Users\\USUARIO\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.11\\libraries\\WiFi\\src",
-                "C:\\Users\\USUARIO\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.11\\libraries\\Network\\src",
-                "C:\\Users\\USUARIO\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.11\\libraries\\NetworkClientSecure\\src",
-                "C:\\Users\\USUARIO\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.11\\libraries\\HTTPClient\\src",
-                "C:\\Users\\USUARIO\\AppData\\Local\\Arduino15\\packages\\esp32\\tools\\esp-x32\\2601\\xtensa-esp32-elf\\include"
+                "C:\\Users\\felip\\AppData\\Local\\Temp\\vs-arduino-sketch-mNf1Yg\\sompo_hardware_final",
+                "C:\\Users\\felip\\AppData\\Local\\Arduino15\\packages\\esp32\\tools\\esp32-libs\\3.3.11/qio_qspi/include",
+                "C:\\Users\\felip\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.11\\cores\\esp32",
+                "C:\\Users\\felip\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.11\\variants\\esp32",
+                "C:\\Users\\felip\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.11\\libraries\\Wire\\src",
+                "C:\\Users\\felip\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.11\\libraries\\SPI\\src",
+                "C:\\Users\\felip\\OneDrive\\Documentos\\Arduino\\libraries\\Adafruit_MPU6050",
+                "C:\\Users\\felip\\OneDrive\\Documentos\\Arduino\\libraries\\Adafruit_BusIO",
+                "C:\\Users\\felip\\OneDrive\\Documentos\\Arduino\\libraries\\Adafruit_Unified_Sensor",
+                "C:\\Users\\felip\\OneDrive\\Documentos\\Arduino\\libraries\\Adafruit_AHTX0",
+                "C:\\Users\\felip\\OneDrive\\Documentos\\Arduino\\libraries\\TinyGPSPlus\\src",
+                "C:\\Users\\felip\\OneDrive\\Documentos\\Arduino\\libraries\\MFRC522\\src",
+                "C:\\Users\\felip\\OneDrive\\Documentos\\Arduino\\libraries\\MAX6675",
+                "C:\\Users\\felip\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.11\\libraries\\WiFi\\src",
+                "C:\\Users\\felip\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.11\\libraries\\Network\\src",
+                "C:\\Users\\felip\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.11\\libraries\\NetworkClientSecure\\src",
+                "C:\\Users\\felip\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.11\\libraries\\HTTPClient\\src",
+                "C:\\Users\\felip\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.11\\libraries\\LittleFS\\src",
+                "C:\\Users\\felip\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.11\\libraries\\FS\\src",
+                "C:\\Users\\felip\\AppData\\Local\\Arduino15\\packages\\esp32\\tools\\esp-x32\\2601\\xtensa-esp32-elf\\include"
             ],
             "forcedInclude": [
-                "C:\\Users\\USUARIO\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.11\\cores\\esp32\\Arduino.h"
+                "C:\\Users\\felip\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.11\\cores\\esp32\\Arduino.h"
             ],
             "defines": [
                 "F_CPU=240000000L",
@@ -42,7 +44,7 @@
                 "ARDUINO_EVENT_RUNNING_CORE=1",
                 "ARDUINO_USB_CDC_ON_BOOT=0"
             ],
-            "compilerPath": "C:\\Users\\USUARIO\\AppData\\Local\\Arduino15\\packages\\esp32\\tools\\esp-x32\\2601/bin/xtensa-esp32-elf-g++",
+            "compilerPath": "C:\\Users\\felip\\AppData\\Local\\Arduino15\\packages\\esp32\\tools\\esp-x32\\2601/bin/xtensa-esp32-elf-g++",
             "cStandard": "c11",
             "cppStandard": "c++17",
             "intelliSenseMode": "gcc-x64"
