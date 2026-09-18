@@ -339,7 +339,26 @@ def test_nome_longo_maquina_sem_sobrepor_seta(painel):
     captura(page, 'seletor-nome-completo')
     page.evaluate("maquinasCache[0].nome='Escavadeira '+ 'muito longa '.repeat(12); preencherSeletorMaquinas(maquinasCache)")
     assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
-    assert page.locator('selectedcontent').evaluate('e=>getComputedStyle(e).textOverflow') == 'ellipsis'
+    assert page.locator('#equipamentoSel selectedcontent').evaluate('e=>getComputedStyle(e).textOverflow') == 'ellipsis'
+
+
+def test_seletores_header_alinhados_e_fazenda_sem_sobrepor_seta(painel):
+    page, state = painel
+    nome = 'Fazenda Santo Antônio'
+    page.locator('#fazendaSel option[value="1"]').evaluate('(o,n)=>o.textContent=n', nome)
+    page.select_option('#fazendaSel', '2')
+    page.select_option('#fazendaSel', '1')
+
+    larguras = page.evaluate('''()=>['fazendaSelWrap','equipamentoSelWrap']
+      .map(id=>document.getElementById(id).getBoundingClientRect().width)''')
+    assert abs(larguras[0] - larguras[1]) <= 1
+    assert page.locator('#fazendaSel').evaluate('''s=>{
+      const text=s.querySelector('selectedcontent');
+      if(!text) return false;
+      const r=text.getBoundingClientRect(), arrow=s.nextElementSibling.getBoundingClientRect();
+      return r.right<=arrow.left && text.scrollWidth<=text.clientWidth;
+    }''')
+    captura(page, 'seletores-header')
 
 
 @pytest.mark.parametrize('tipo,view,id', [('equipamentos','maquinas',1), ('operadores','operadores',7),

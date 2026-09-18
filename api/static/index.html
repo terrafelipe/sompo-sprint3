@@ -7,10 +7,10 @@
 <style>
   [hidden]{display:none!important}
   button:disabled{opacity:.55;cursor:not-allowed}
-  #equipamentoSelWrap{width:22rem;max-width:100%;min-width:0}
-  #equipamentoSel{width:100%;box-sizing:border-box;min-width:0;text-overflow:ellipsis}
-  #equipamentoSel > button{display:flex;min-width:0;width:100%;overflow:hidden;font:inherit}
-  #equipamentoSel selectedcontent{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #fazendaSelWrap,#equipamentoSelWrap{width:22rem;max-width:100%;min-width:0}
+  #fazendaSel,#equipamentoSel{width:100%;box-sizing:border-box;min-width:0;text-overflow:ellipsis}
+  #fazendaSel > button,#equipamentoSel > button{display:flex;min-width:0;width:100%;overflow:hidden;font:inherit}
+  #fazendaSel selectedcontent,#equipamentoSel selectedcontent{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   #confirmarExclusao{border:0;border-radius:1rem;padding:1.5rem;width:min(28rem,calc(100% - 2rem));box-sizing:border-box;color:#2a1613;background:#fff}
   #confirmarExclusao::backdrop{background:#0006;backdrop-filter:blur(3px)}
   #detTitulo{overflow-wrap:anywhere;min-width:0}
@@ -1307,7 +1307,7 @@ async function carregarSeletorFazendas(){
       $('resumoFazendaNome').textContent='Nenhuma fazenda selecionada';
       $('frotaEstado').textContent = 'Nenhuma fazenda cadastrada. Cadastre uma em Fazendas.'; return;
     }
-    $('fazendaSel').innerHTML = fs.map(f=>`<option value="${f.id_fazenda}">${f.nome}</option>`).join('');
+    $('fazendaSel').innerHTML = '<button type="button"><selectedcontent></selectedcontent></button>' + fs.map(f=>`<option value="${f.id_fazenda}">${f.nome}</option>`).join('');
     $('fazendaSelWrap').classList.remove('hidden');
     $('deviceWrap').classList.add('hidden');
     fazendaSelecionada = fs.some(f=>String(f.id_fazenda)===String(fazendaSelecionada)) ? fazendaSelecionada : fs[0].id_fazenda;
