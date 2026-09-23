@@ -29,9 +29,20 @@ function Invoke-Aws {
 }
 
 function Test-Aws {
-    # Roda o aws CLI so para saber se deu certo (ex.: recurso ja existe?).
+    # Tentativa nao fatal (ex.: reservar concorrencia): so diz se deu certo.
     & aws @args --region $Regiao --output json 2>$null | Out-Null
     return ($LASTEXITCODE -eq 0)
+}
+
+function Test-Existe {
+    # O recurso existe? So 'NotFound' significa "nao existe"; qualquer outro erro
+    # (credencial do lab expirada, AccessDenied, throttling) aborta com a causa real,
+    # em vez de o script cair no ramo de criacao e falhar com erro enganoso.
+    $saida = & aws @args --region $Regiao --output json 2>&1
+    if ($LASTEXITCODE -eq 0) { return $true }
+    $erro = ($saida | Out-String)
+    if ($erro -match 'NotFound') { return $false }
+    throw "Falhou: aws $($args -join ' ')`n$erro"
 }
 
 function Wait-Funcao([string]$Estado) {
@@ -45,9 +56,17 @@ if (-not (Test-Path $arquivoEnv)) { throw "Crie $arquivoEnv a partir de infra/.e
 $variaveis = [ordered]@{}
 foreach ($linha in Get-Content $arquivoEnv -Encoding UTF8) {
     $linha = $linha.Trim()
-    if ($linha -eq '' -or $linha.StartsWith('#')) { continue }
+    if ($linha -eq '' -or $linha.StartsWith('#') -or -not $linha.Contains('=')) { continue }
     $partes = $linha.Split('=', 2)
-    $variaveis[$partes[0].Trim()] = $partes[1].Trim()
+    $valor = $partes[1].Trim()
+    # Mesma leitura do python-dotenv (api/.env): aspas envolventes saem; sem aspas,
+    # ' #' inicia comentario. Assim da para colar os valores do api/.env como estao.
+    if ($valor.Length -ge 2 -and ($valor[0] -eq '"' -or $valor[0] -eq "'") -and $valor[-1] -eq $valor[0]) {
+        $valor = $valor.Substring(1, $valor.Length - 2)
+    } elseif ($valor -match '^(.*?)\s+#') {
+        $valor = $Matches[1]
+    }
+    $variaveis[$partes[0].Trim()] = $valor
 }
 foreach ($obrigatoria in 'SUPABASE_URL', 'SUPABASE_SECRET_KEY', 'PAINEL_SENHA', 'SECRET_KEY') {
     if (-not $variaveis[$obrigatoria]) { throw "$obrigatoria vazia em infra/.env.aws" }
@@ -57,8 +76,6 @@ if ($variaveis['SOMPO_API_KEY']) { throw 'SOMPO_API_KEY deve ficar VAZIA (senao 
 $variaveis['PORT'] = '8080'
 $variaveis['AWS_LWA_READINESS_CHECK_PATH'] = '/login'
 $variaveis['COOKIE_SEGURO'] = 'true'
-$envJson = Join-Path ([IO.Path]::GetTempPath()) 'sompo-lambda-env.json'
-[IO.File]::WriteAllText($envJson, (@{ Variables = $variaveis } | ConvertTo-Json -Depth 3), $utf8SemBom)
 
 # --- 2. Conta, role e repositorio ECR ---------------------------------------------
 $conta = (Invoke-Aws sts get-caller-identity | ConvertFrom-Json).Account
@@ -66,7 +83,7 @@ $roleArn = "arn:aws:iam::${conta}:role/LabRole"
 $registro = "$conta.dkr.ecr.$Regiao.amazonaws.com"
 Write-Host "Conta $conta, regiao $Regiao"
 
-if (-not (Test-Aws ecr describe-repositories --repository-names $Repositorio)) {
+if (-not (Test-Existe ecr describe-repositories --repository-names $Repositorio)) {
     Write-Host "Criando repositorio ECR $Repositorio..."
     Invoke-Aws ecr create-repository --repository-name $Repositorio | Out-Null
 }
@@ -90,30 +107,39 @@ docker push $imagem
 if ($LASTEXITCODE -ne 0) { throw 'docker push falhou' }
 
 # --- 4. Cria ou atualiza a funcao -------------------------------------------------
-if (Test-Aws lambda get-function --function-name $Funcao) {
-    Write-Host 'Atualizando codigo da funcao...'
-    Invoke-Aws lambda update-function-code --function-name $Funcao --image-uri $imagem | Out-Null
-    Wait-Funcao 'function-updated-v2'
-    Invoke-Aws lambda update-function-configuration --function-name $Funcao `
-        --environment "file://$envJson" --memory-size 512 --timeout 60 | Out-Null
-    Wait-Funcao 'function-updated-v2'
-} else {
-    Write-Host 'Criando funcao...'
-    Invoke-Aws lambda create-function --function-name $Funcao --package-type Image `
-        --code "ImageUri=$imagem" --role $roleArn --architectures x86_64 `
-        --memory-size 512 --timeout 60 --environment "file://$envJson" | Out-Null
-    Wait-Funcao 'function-active-v2'
+# O JSON com os segredos so existe durante este passo e e apagado mesmo se algo falhar.
+$envJson = Join-Path ([IO.Path]::GetTempPath()) 'sompo-lambda-env.json'
+try {
+    [IO.File]::WriteAllText($envJson, (@{ Variables = $variaveis } | ConvertTo-Json -Depth 3), $utf8SemBom)
+    if (Test-Existe lambda get-function --function-name $Funcao) {
+        # Variaveis antes do codigo: var nova e ignorada pela imagem antiga, mas imagem
+        # nova com var velha pode quebrar (ex.: PORT do adapter).
+        Write-Host 'Atualizando variaveis da funcao...'
+        Invoke-Aws lambda update-function-configuration --function-name $Funcao `
+            --environment "file://$envJson" --memory-size 512 --timeout 60 | Out-Null
+        Wait-Funcao 'function-updated-v2'
+        Write-Host 'Atualizando codigo da funcao...'
+        Invoke-Aws lambda update-function-code --function-name $Funcao --image-uri $imagem | Out-Null
+        Wait-Funcao 'function-updated-v2'
+    } else {
+        Write-Host 'Criando funcao...'
+        Invoke-Aws lambda create-function --function-name $Funcao --package-type Image `
+            --code "ImageUri=$imagem" --role $roleArn --architectures x86_64 `
+            --memory-size 512 --timeout 60 --environment "file://$envJson" | Out-Null
+        Wait-Funcao 'function-active-v2'
+    }
+} finally {
+    Remove-Item $envJson -Force -ErrorAction SilentlyContinue
 }
-Remove-Item $envJson -Force
 
-# Teto de execucoes simultaneas: protege os creditos do lab contra abuso. Nao e fatal:
-# contas com limite baixo de concorrencia recusam reservas.
+# Teto de execucoes simultaneas contra abuso. Nao e fatal: a AWS exige 10 execucoes
+# sem reserva, entao contas com limite 10 (comum no Learner Lab) recusam a reserva.
 if (-not (Test-Aws lambda put-function-concurrency --function-name $Funcao --reserved-concurrent-executions 5)) {
     Write-Warning 'Nao foi possivel reservar concorrencia (limite da conta); seguindo sem teto.'
 }
 
 # --- 5. Function URL publica (o login do Flask protege o site) ---------------------
-if (-not (Test-Aws lambda get-function-url-config --function-name $Funcao)) {
+if (-not (Test-Existe lambda get-function-url-config --function-name $Funcao)) {
     Write-Host 'Criando Function URL...'
     Invoke-Aws lambda create-function-url-config --function-name $Funcao --auth-type NONE | Out-Null
 }
@@ -121,7 +147,7 @@ if (-not (Test-Aws lambda get-function-url-config --function-name $Funcao)) {
 # script se recuperar de uma execucao interrompida no meio.
 # '--principal=*' grudado: no pwsh do Linux um '*' solto vira glob (lista de arquivos).
 $politica = ''
-if (Test-Aws lambda get-policy --function-name $Funcao) {
+if (Test-Existe lambda get-policy --function-name $Funcao) {
     $politica = Invoke-Aws lambda get-policy --function-name $Funcao
 }
 if ($politica -notmatch 'FunctionURLAllowPublicAccess') {
