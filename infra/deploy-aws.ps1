@@ -116,13 +116,23 @@ if (-not (Test-Aws lambda put-function-concurrency --function-name $Funcao --res
 if (-not (Test-Aws lambda get-function-url-config --function-name $Funcao)) {
     Write-Host 'Criando Function URL...'
     Invoke-Aws lambda create-function-url-config --function-name $Funcao --auth-type NONE | Out-Null
-    # Desde out/2025 a URL publica exige as DUAS permissoes.
+}
+# Desde out/2025 a URL publica exige as DUAS permissoes. Checadas uma a uma para o
+# script se recuperar de uma execucao interrompida no meio.
+# '--principal=*' grudado: no pwsh do Linux um '*' solto vira glob (lista de arquivos).
+$politica = ''
+if (Test-Aws lambda get-policy --function-name $Funcao) {
+    $politica = Invoke-Aws lambda get-policy --function-name $Funcao
+}
+if ($politica -notmatch 'FunctionURLAllowPublicAccess') {
     Invoke-Aws lambda add-permission --function-name $Funcao `
         --statement-id FunctionURLAllowPublicAccess --action lambda:InvokeFunctionUrl `
-        --principal '*' --function-url-auth-type NONE | Out-Null
+        '--principal=*' --function-url-auth-type NONE | Out-Null
+}
+if ($politica -notmatch 'FunctionURLInvokeAllowPublicAccess') {
     Invoke-Aws lambda add-permission --function-name $Funcao `
         --statement-id FunctionURLInvokeAllowPublicAccess --action lambda:InvokeFunction `
-        --principal '*' --invoked-via-function-url | Out-Null
+        '--principal=*' --invoked-via-function-url | Out-Null
 }
 $url = (Invoke-Aws lambda get-function-url-config --function-name $Funcao | ConvertFrom-Json).FunctionUrl
 
