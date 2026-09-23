@@ -1,0 +1,14 @@
+// Config do Cloudflare Worker que da a URL limpa do painel
+// (https://sompo-painel.felipepicolloterra.workers.dev). O Worker foi criado pelo
+// dashboard; este arquivo permite recria-lo com: cd infra; npx wrangler deploy
+{
+  "name": "sompo-painel",
+  "main": "cloudflare-worker.js",
+  "compatibility_date": "2026-09-01",
+  "workers_dev": true,
+  "vars": {
+    // Function URL da Lambda (sem barra final). Nao e segredo: o login do Flask
+    // protege o site. Atualizar se a Lambda for recriada.
+    "LAMBDA_URL": "https://wtyrjjdaask5krlxdhtt57eidq0kdqsn.lambda-url.us-east-1.on.aws"
+  }
+}
