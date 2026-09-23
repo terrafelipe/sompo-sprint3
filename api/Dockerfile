@@ -11,6 +11,10 @@ WORKDIR /app
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Extensao AWS Lambda Web Adapter: na Lambda ela repassa os eventos HTTP para o
+# waitress (porta $PORT). Fora da Lambda (Docker local, Render) fica inerte.
+COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:1.1.0 /lambda-adapter /opt/extensions/lambda-adapter
+
 # Copia o codigo da API (o .dockerignore mantem venv/.env/tests fora da imagem).
 COPY . .
 
