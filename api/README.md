@@ -134,7 +134,7 @@ header `X-API-Key` com o valor da chave. Sem o header, ou com valor errado, a AP
 Exemplo de chamada autenticada (curl):
 
 ```bash
-curl -H "X-API-Key: SUA_CHAVE" "https://sompo-painel.felipepicolloterra.workers.dev/telemetria?dispositivo=SOMPO-ESP32"
+curl -H "X-API-Key: SUA_CHAVE" "https://<host-da-api>/telemetria?dispositivo=SOMPO-ESP32"
 ```
 
 No Postman: aba **Headers** → `Key = X-API-Key`, `Value = SUA_CHAVE`.

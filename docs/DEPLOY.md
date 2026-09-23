@@ -33,6 +33,11 @@ A conta AWS é a do **Learner Lab** da FIAP. Isso impõe regras:
 
 ## 2. Variáveis de ambiente (`infra/.env.aws`)
 
+> **Antes de expor numa conta nova:** as chaves antigas do Supabase já circularam (zip, Downloads).
+> Siga [`SEGURANCA.md`](SEGURANCA.md): gere **novas** chaves publishable/secret, confirme o **RLS**
+> (`firmware/sql/preparar_supabase.sql`) e use a **nova secret key** abaixo. Cadastros de
+> validação só em ambiente de teste — preserve os dados existentes.
+
 Copie `infra/.env.aws.example` para `infra/.env.aws` (**gitignorado**) e preencha:
 
 | Variável | Valor |
@@ -78,7 +83,9 @@ credenciais do lab — não precisa de nada instalado no PC.
 O script é **idempotente**: na 1ª vez cria o repositório ECR, a função (`sompo-painel`, 512 MB,
 timeout 60 s, `LabRole`), a Function URL pública com as duas permissões e a retenção de logs de
 7 dias; nas seguintes só publica a imagem nova e atualiza as variáveis. No fim imprime a
-**Function URL**. Também tenta limitar a 5 execuções simultâneas (protege os créditos).
+**Function URL**. Também tenta limitar a 5 execuções simultâneas, mas a AWS exige que sobrem 10
+execuções sem reserva — em contas com limite 10 (comum no Learner Lab) a reserva é recusada e o
+script só avisa.
 
 ### Alternativa: pelo Windows
 
@@ -140,6 +147,8 @@ Sem Docker, o modo de desenvolvimento é `cd api && venv\Scripts\python.exe app.
 - **Login obrigatório** no site inteiro (`PAINEL_SENHA` definida; o script exige).
 - **Segredos fora do repo** — só em `api/.env` / `infra/.env.aws` (gitignorados) e nas envs da
   Lambda; o `.dockerignore` garante que nenhum `.env` entra na imagem.
-- **Teto de concorrência** na Lambda limita o estrago de um abuso nos créditos.
+- **Abuso nos créditos:** a Function URL é pública (o login barra os dados, mas cada acesso
+  ainda é uma invocação). O teto de concorrência só vale se a conta aceitar a reserva (ver
+  seção 3); na prática o risco é baixo — o free tier cobre 1 milhão de invocações/mês.
 - **RLS no Supabase** limita a chave do ESP32 (publishable) a INSERT; a secret key vive só na API.
 - Detalhes e endurecimento em [`SEGURANCA.md`](SEGURANCA.md).

@@ -73,11 +73,28 @@ def test_sem_sessao_e_sem_chave_com_login_ligado_retorna_401():
     assert response.status_code == 401
 
 
-def test_cookie_seguro_liga_flag_secure_da_sessao(monkeypatch):
-    # COOKIE_SEGURO=true (producao com HTTPS) -> cookie de sessao com flag Secure.
+def test_cookie_seguro_parse_da_env(monkeypatch):
     import config
     monkeypatch.setenv('COOKIE_SEGURO', 'true')
     assert config._get_bool('COOKIE_SEGURO') is True
     monkeypatch.setenv('COOKIE_SEGURO', '')
     assert config._get_bool('COOKIE_SEGURO') is False
-    assert app.config['SESSION_COOKIE_SECURE'] is config.COOKIE_SEGURO
+
+
+def _set_cookie_do_login(secure):
+    # Login real pela credencial do env (tabela usuario mockada vazia).
+    client = app.test_client()
+    with patch('app.PAINEL_SENHA', 'senha-do-painel'),          patch('app.PAINEL_USUARIO', 'sompo'),          patch('app.buscar_usuario', return_value=None),          patch.dict(app.config, {'SESSION_COOKIE_SECURE': secure}):
+        response = client.post('/login', data={'usuario': 'sompo', 'senha': 'senha-do-painel'})
+    assert response.status_code == 302
+    return response.headers['Set-Cookie']
+
+
+def test_cookie_seguro_ligado_marca_sessao_como_secure():
+    # Producao (COOKIE_SEGURO=true -> SESSION_COOKIE_SECURE): cookie so em HTTPS.
+    assert 'Secure' in _set_cookie_do_login(True)
+
+
+def test_cookie_seguro_desligado_mantem_sessao_sem_secure():
+    # Dev local em http://: sem Secure, senao o navegador descartaria o cookie.
+    assert 'Secure' not in _set_cookie_do_login(False)
