@@ -9,15 +9,16 @@
 export default {
   async fetch(request, env) {
     const origem = new URL(request.url);
-    const destino = new URL(origem.pathname + origem.search, env.LAMBDA_URL);
-
-    const headers = new Headers(request.headers);
-    headers.set('X-Forwarded-Host', origem.host);
-    headers.set('X-Forwarded-Proto', 'https');
+    // Host fixo na Function URL; so path e query vem do pedido. NAO usar
+    // new URL(path, base): um path '//evil.com/x' vira URL absoluta e o Worker
+    // mandaria o cookie de sessao da vitima para outro host (proxy aberto).
+    const destino = new URL(env.LAMBDA_URL);
+    destino.pathname = origem.pathname;
+    destino.search = origem.search;
 
     return fetch(destino, {
       method: request.method,
-      headers, // o fetch troca o Host pelo da Function URL automaticamente
+      headers: request.headers, // o fetch troca o Host pelo da Function URL
       body: ['GET', 'HEAD'].includes(request.method) ? undefined : request.body,
       redirect: 'manual', // redirects (ex.: /login) voltam para o navegador
     });
