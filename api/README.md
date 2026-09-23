@@ -27,7 +27,7 @@ api/
 ├── .env / .env.example  # segredos (o .env fica local, gitignorado)
 ├── .gitignore
 ├── README.md
-├── Dockerfile           # imagem de producao (waitress) usada pelo Render
+├── Dockerfile           # imagem de producao (waitress + Lambda Web Adapter) usada na AWS Lambda
 ├── .dockerignore
 ├── static/
 │   └── index.html       # painel (dashboard) HTML
@@ -49,8 +49,8 @@ api/
     └── test_contrato_firmware.py   # firmware (.ino) x schema (.sql) x scores.py
 ```
 
-> Os guias (COMO_TESTAR, SEGURANCA, DEPLOY) ficam em [`../docs/`](../docs). O arquivo de deploy
-> (`render.yaml`) fica na raiz do repo.
+> Os guias (COMO_TESTAR, SEGURANCA, DEPLOY) ficam em [`../docs/`](../docs). O deploy na AWS fica
+> em [`../infra/`](../infra) (script + Cloudflare Worker); o `render.yaml` da raiz e o plano B.
 
 ## Instalação
 
@@ -86,10 +86,11 @@ PAINEL_USUARIO=sompo
 PAINEL_SENHA=
 SECRET_KEY=
 SESSAO_HORAS=24
+COOKIE_SEGURO=false
 ```
 
 Variáveis de segurança:
-- `SOMPO_API_KEY` — deve ficar vazia no Render com o painel atual, autenticado por sessão.
+- `SOMPO_API_KEY` — deve ficar vazia em produção (Lambda) com o painel atual, autenticado por sessão.
   Vazia desliga somente a exigência do header; o login continua ativo. Se definido,
   toda rota (menos `/saude`) exige o header `X-API-Key` com esse valor.
 - `CORS_ORIGINS` — origens liberadas para CORS, separadas por vírgula. Vazio = nenhuma.
@@ -97,6 +98,8 @@ Variáveis de segurança:
   site** (painel + endpoints) exige login em `/login`. `PAINEL_USUARIO` é o usuário (padrão `sompo`).
 - `SECRET_KEY` — assina o cookie de sessão; vazio gera uma aleatória por start.
 - `SESSAO_HORAS` — horas até a sessão expirar e exigir novo login (padrão 24).
+- `COOKIE_SEGURO` — `true` marca o cookie de sessão como `Secure` (só HTTPS). Ligado em
+  produção pelo `infra/deploy-aws.ps1`; deixe `false` no dev local em `http://`.
 
 Detalhes e passos manuais (RLS no Supabase, rotação de chaves, modo produção) em
 [`docs/SEGURANCA.md`](../docs/SEGURANCA.md). Para publicar o painel na internet, ver
@@ -131,13 +134,13 @@ header `X-API-Key` com o valor da chave. Sem o header, ou com valor errado, a AP
 Exemplo de chamada autenticada (curl):
 
 ```bash
-curl -H "X-API-Key: SUA_CHAVE" "https://sua-api.onrender.com/telemetria?dispositivo=SOMPO-ESP32"
+curl -H "X-API-Key: SUA_CHAVE" "https://sompo-painel.felipepicolloterra.workers.dev/telemetria?dispositivo=SOMPO-ESP32"
 ```
 
 No Postman: aba **Headers** → `Key = X-API-Key`, `Value = SUA_CHAVE`.
 
 Com `SOMPO_API_KEY` vazia, nenhuma rota exige o header. Esta é a configuração do painel
-no Render: a sessão de login protege o acesso quando `PAINEL_SENHA` está definida.
+em produção: a sessão de login protege o acesso quando `PAINEL_SENHA` está definida.
 
 ## Endpoints
 

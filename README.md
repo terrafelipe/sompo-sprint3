@@ -95,7 +95,7 @@ venv\Scripts\python.exe app.py             # sobe a API em localhost:5000
 Configuração em `.env` (copie de `.env.example`): URL/secret do Supabase e a chave do Gemini.
 
 **Painel público:** o `GET /` serve o dashboard visual. Para publicá-lo na internet com HTTPS e
-login no **Render**, veja [`docs/DEPLOY.md`](docs/DEPLOY.md).
+login na **AWS Lambda** (URL limpa via Cloudflare Worker), veja [`docs/DEPLOY.md`](docs/DEPLOY.md).
 
 ## Endpoints da API
 
@@ -142,7 +142,7 @@ tabela `usuario` e semeia os logins de teste).
 | `gestor.valeverde` | `valeverde123` | Gestor de Fazenda | só a Fazenda Vale Verde (`SOMPO-ESP32-SIM`) |
 
 > Para demonstrar a troca de perfis ao vivo, o login precisa estar ligado (`PAINEL_SENHA` definida
-> no `.env`/Render). A credencial antiga (`PAINEL_USUARIO`/`PAINEL_SENHA`) continua valendo como um
+> no `.env`/`infra/.env.aws`). A credencial antiga (`PAINEL_USUARIO`/`PAINEL_SENHA`) continua valendo como um
 > login Sompo de reserva. Senhas em texto plano são intencionais aqui (demo); não use em produção.
 
 ## Segurança
@@ -150,7 +150,7 @@ tabela `usuario` e semeia os logins de teste).
 - **Segredos nunca vão para o repositório.** `api/.env` e
   `firmware/sompo_hardware_final/segredos.h` estão no `.gitignore`; o repositório traz só os
   modelos (`.env.example`, `segredos.exemplo.h`).
-- **Painel no Render:** usa sessão de login; mantenha `PAINEL_SENHA` definida e
+- **Painel publicado (AWS Lambda):** usa sessão de login; mantenha `PAINEL_SENHA` definida e
   **`SOMPO_API_KEY` vazia**. A chave por header é opcional para clientes externos;
   habilitá-la exige `X-API-Key` nas rotas de dados e impede o painel atual de consultá-las.
 - O ESP32 usará apenas a **publishable key** do Supabase, limitada a INSERT por políticas de RLS

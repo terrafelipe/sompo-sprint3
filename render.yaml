@@ -1,3 +1,4 @@
+# PLANO B de deploy (o principal e a AWS Lambda, ver docs/DEPLOY.md).
 # Blueprint do Render para o painel + API SOMPO (precisa ficar na RAIZ do repo).
 # No Render: New > Blueprint > aponte para este repo. As envs com sync:false
 # NAO ficam no repositorio - voce preenche os valores no painel do Render.
@@ -36,3 +37,6 @@ services:
       # Horas ate a sessao expirar e exigir novo login.
       - key: SESSAO_HORAS
         value: "24"
+      # Cookie de sessao so em HTTPS (o Render fornece HTTPS).
+      - key: COOKIE_SEGURO
+        value: "true"

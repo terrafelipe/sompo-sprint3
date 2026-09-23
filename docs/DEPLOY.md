@@ -1,71 +1,131 @@
-# Deploy — Painel SOMPO no Render
+# Deploy — Painel SOMPO na AWS Lambda + Cloudflare Worker
 
-Este guia sobe o **painel + API** (o mesmo app Flask) para a internet com **HTTPS** e **login**,
-usando o **[Render](https://render.com)** a partir do `render.yaml` da raiz do repo. O Render lê o
-`api/Dockerfile` (imagem com **waitress**) e provê HTTPS automaticamente.
+O **painel + API** (o mesmo app Flask) roda na **AWS Lambda** como imagem Docker, exposto por uma
+**Function URL** (HTTPS). Na frente dela, um **Cloudflare Worker** grátis dá a URL limpa:
+
+**https://sompo-painel.felipepicolloterra.workers.dev**
+
+```
+navegador ──► Cloudflare Worker ──► Function URL ──► Lambda (waitress + Lambda Web Adapter) ──► Supabase
+             (workers.dev)          (lambda-url…on.aws)      imagem de api/Dockerfile                 │
+                                                                                  Google Gemini ◄────┘
+```
 
 O ESP32 continua falando direto com o Supabase — publicar o painel **não** muda nada no firmware.
 
-Esta correção de navegação/formulários não exige nova migração nem alteração do contrato
-da API. Preserve os cadastros existentes. Após o deploy de `main`, confira login, menus
-sem máquina, seleção, refresh e download Word. Cadastros de validação devem ocorrer
-somente em ambiente de teste; mantenha `SOMPO_API_KEY` vazia no Render.
-
-> Por que um app só: a rota `/` serve o dashboard (`api/static/index.html`) e a página busca os
-> dados por caminhos relativos (`/saude`, `/relatorio/risco`, ...). Painel e API sobem juntos, na
-> mesma origem — nada de `localhost` no código, nada para reconfigurar.
+> Por que Lambda: o app é **stateless** (dados no Supabase, sessão em cookie assinado, `.docx`
+> gerado em memória). A Lambda escala a zero sozinha — fica em ~US$ 0 — e acorda em ~1–2 s
+> (o Render free levava ~50 s). O Render continua como [plano B](#6-plano-b-render).
 
 ---
 
-## 1. Antes de expor: rotacione as chaves do Supabase
+## 1. Onde roda: AWS Academy Learner Lab
 
-As chaves atuais já circularam (zip, Downloads). Antes de deixar público, siga
-[`SEGURANCA.md`](SEGURANCA.md): gere **novas** chaves publishable/secret e confirme que o **RLS**
-está aplicado (rode `firmware/sql/preparar_supabase.sql`). Use a **nova secret key** nas variáveis
-abaixo.
+A conta AWS é a do **Learner Lab** da FIAP. Isso impõe regras:
 
-## 2. Escolha o usuário e a senha do painel
+- Região **`us-east-1`** (o lab só libera `us-east-1`/`us-west-2`).
+- Não dá para criar roles IAM: a função usa a **`LabRole`** pronta.
+- As credenciais são temporárias (por sessão) → **não há deploy automático pelo GitHub**; o deploy
+  é o script `infra/deploy-aws.ps1`, rodado à mão.
+- A Lambda **continua no ar com o lab encerrado** (testado). EC2 não serviria: para com a sessão.
+- ⚠️ **A conta é apagada quando o curso termina.** Aí: novo lab/conta + rodar o script de novo, ou
+  voltar ao [Render](#6-plano-b-render) e trocar a `LAMBDA_URL` do Worker (ou apontar o link).
 
-O login cobre o site inteiro. Defina:
-- `PAINEL_USUARIO` — ex.: `sompo`
-- `PAINEL_SENHA` — uma senha forte (guarde num gerenciador de senhas)
+## 2. Variáveis de ambiente (`infra/.env.aws`)
 
-Enquanto `PAINEL_SENHA` estiver **vazia**, o login fica **desligado** (modo demo aberto). Os perfis
-de acesso (Sompo × Gestor de Fazenda) só funcionam com o login **ligado** — ver o README.
-
-## 3. Deploy pelo Blueprint
-
-1. **New → Blueprint** no painel do Render e aponte para o repositório. Ele lê o
-   [`render.yaml`](../render.yaml) e cria o serviço `sompo-painel` (Docker, contexto `api/`, plano
-   free).
-2. Em **Environment**, preencha as variáveis da seção 4.
-3. Ao final o Render dá uma URL `https://sompo-painel.onrender.com`, já com HTTPS. Todo push no
-   `main` dispara um novo deploy automaticamente.
-
-> **Plano free:** hiberna após inatividade; o **primeiro acesso** depois disso demora ~50 s para
-> acordar. É esperado — basta aguardar o carregamento.
-
-## 4. Variáveis de ambiente (no painel do Render)
-
-As envs com `sync: false` no `render.yaml` **não** ficam no repositório — preencha no Render:
+Copie `infra/.env.aws.example` para `infra/.env.aws` (**gitignorado**) e preencha:
 
 | Variável | Valor |
 |---|---|
 | `SUPABASE_URL` | a **Project URL** (`https://<ref>.supabase.co`) |
 | `SUPABASE_SECRET_KEY` | a **secret/service_role** key (fica só na API) |
-| `LLM_API_KEY` | a chave do Google Gemini (para a IA redigir o relatório) |
-| `LLM_MODEL` | `gemini-flash-lite-latest` (já vem no `render.yaml`) |
-| `PAINEL_USUARIO` / `PAINEL_SENHA` | credenciais do login do painel |
-| `SECRET_KEY` | gerada pelo Render (`generateValue`) — mantém a sessão entre deploys |
+| `LLM_API_KEY` / `LLM_MODEL` | chave do Google Gemini / `gemini-flash-lite-latest` |
+| `PAINEL_USUARIO` / `PAINEL_SENHA` | credenciais do login do painel (senha **obrigatória**) |
+| `SECRET_KEY` | **fixa**: `python -c "import secrets; print(secrets.token_hex(32))"` |
+| `SESSAO_HORAS` | `24` |
+| `SOMPO_API_KEY` | **VAZIA** |
 
-> ⚠️ **`SOMPO_API_KEY` DEVE ficar VAZIA no Render.** Se preenchida, a API passa a exigir o header
-> `X-API-Key` em toda rota de dados, e o painel embutido (que usa a sessão de login, não o header)
-> recebe **401** → **dashboard vazio**. O login (`PAINEL_SENHA`) já protege o site. A `SOMPO_API_KEY`
-> só faz sentido se um cliente externo (script/outro front) for consumir a API por header.
+O script injeta sozinho as fixas do ambiente Lambda: `PORT=8080` (porta do waitress/adapter),
+`AWS_LWA_READINESS_CHECK_PATH=/login` (rota que responde sem sessão) e `COOKIE_SEGURO=true`
+(cookie `Secure`, só HTTPS).
 
-## 5. (Opcional) Rodar a mesma imagem localmente
+> ⚠️ **`SOMPO_API_KEY` DEVE ficar VAZIA.** Se preenchida, a API passa a exigir o header `X-API-Key`
+> em toda rota de dados, e o painel (que usa a sessão de login) recebe **401** → **dashboard
+> vazio**. O script recusa rodar se ela estiver preenchida.
+>
+> ⚠️ **`SECRET_KEY` precisa ser fixa.** Vazia, o `config.py` gera outra a cada cold start e todo
+> mundo é deslogado.
 
-Útil para testar a imagem de produção antes de subir (usa o mesmo `api/Dockerfile`/waitress):
+## 3. Deploy pelo AWS CloudShell (recomendado)
+
+O CloudShell (ícone `>_` no console) já tem Docker, AWS CLI, git e PowerShell (`pwsh`) com as
+credenciais do lab — não precisa de nada instalado no PC.
+
+1. Learner Lab → **Start Lab** → abra o console → região **N. Virginia (us-east-1)** → CloudShell.
+2. Primeira vez:
+   ```bash
+   git clone https://github.com/terrafelipe/sompo-sprint3.git
+   cd sompo-sprint3
+   cp infra/.env.aws.example infra/.env.aws
+   nano infra/.env.aws        # preencher (seção 2); Ctrl+O, Enter, Ctrl+X
+   pwsh infra/deploy-aws.ps1
+   ```
+3. Próximos deploys (o `.env.aws` continua lá):
+   ```bash
+   cd sompo-sprint3 && git pull && pwsh infra/deploy-aws.ps1
+   ```
+
+O script é **idempotente**: na 1ª vez cria o repositório ECR, a função (`sompo-painel`, 512 MB,
+timeout 60 s, `LabRole`), a Function URL pública com as duas permissões e a retenção de logs de
+7 dias; nas seguintes só publica a imagem nova e atualiza as variáveis. No fim imprime a
+**Function URL**. Também tenta limitar a 5 execuções simultâneas (protege os créditos).
+
+### Alternativa: pelo Windows
+
+Precisa do **Docker Desktop** rodando (exige **SVM Mode** ligado na BIOS — em AMD; "Intel VT-x" em
+Intel) e do **AWS CLI** (`winget install Amazon.AWSCLI`). Cole as credenciais de **AWS Details**
+do lab em `%USERPROFILE%\.aws\credentials` e rode, na raiz do repo:
+```powershell
+powershell -ExecutionPolicy Bypass -File infra\deploy-aws.ps1
+```
+
+## 4. URL limpa: Cloudflare Worker
+
+`infra/cloudflare-worker.js` repassa cada requisição para a Function URL e devolve a resposta sem
+alteração. O cookie de sessão não tem `Domain`, então fica gravado no domínio do Worker, e os
+redirects do Flask são relativos — o navegador nunca sai do `workers.dev`.
+
+- **Pelo dashboard** (como foi feito): Workers & Pages → Create → Hello World → nome
+  `sompo-painel` → **Edit code** (colar o `cloudflare-worker.js`) → Deploy → **Settings →
+  Variables and Secrets** → `LAMBDA_URL` = Function URL **sem barra final** (tipo Text).
+- **Pela linha de comando:** `cd infra; npx wrangler deploy` (usa `infra/wrangler.jsonc`).
+- Deixe o **Cloudflare Access desligado** — o login do Flask já protege o site.
+- Se a Lambda for recriada (URL nova), atualize a `LAMBDA_URL` no Worker e no `wrangler.jsonc`.
+
+## 5. Verificação e pega-ratões
+
+Depois de cada deploy, pela URL do Worker: login → menus sem máquina → seleção de fazenda/máquina →
+F5 (sessão se mantém) → relatório de risco → download Word → logout. Rápido pelo terminal:
+`/login` → 200, `/saude` → 401 sem login.
+
+- **500 no Worker logo após publicar** → é a propagação da versão nova; some em segundos.
+- **Function URL pública precisa de 2 permissões** (`lambda:InvokeFunctionUrl` +
+  `lambda:InvokeFunction` com `--invoked-via-function-url`, exigência desde out/2025). O script cria.
+- **No `pwsh` do Linux um `*` vira glob** (lista de arquivos). Por isso o script usa
+  `--principal=*` grudado.
+- **Logs:** CloudWatch → Log groups → `/aws/lambda/sompo-painel`.
+- **Créditos do lab:** confira no painel do Learner Lab; o uso normal é praticamente zero.
+
+## 6. Plano B: Render
+
+O `render.yaml` da raiz continua válido (a imagem com o adapter roda normalmente fora da Lambda).
+Para voltar: no Render, reative o serviço `sompo-painel` (ou **New → Blueprint** apontando para o
+repo), preencha as mesmas variáveis da seção 2 no painel (com `COOKIE_SEGURO=true` e
+`SOMPO_API_KEY` **vazia**) e troque a `LAMBDA_URL` do Worker pela URL do Render. O plano free
+hiberna (~50 s no 1º acesso).
+
+## 7. Rodar a mesma imagem localmente
+
 ```bash
 docker build -t sompo-painel api
 docker run -p 5000:5000 --env-file api/.env sompo-painel
@@ -74,12 +134,12 @@ docker run -p 5000:5000 --env-file api/.env sompo-painel
 Sem Docker, o modo de desenvolvimento é `cd api && venv\Scripts\python.exe app.py` (ver
 [`COMO_TESTAR.md`](COMO_TESTAR.md)).
 
-## 6. Segurança em resumo
+## 8. Segurança em resumo
 
-- **HTTPS** automático do Render — os dados da seguradora não trafegam em texto puro.
-- **Login obrigatório** no site inteiro quando `PAINEL_SENHA` está definida (página `/login` +
-  sessão, comparação em tempo constante). Sem a senha, ninguém com a URL vê os dados.
-- **Segredos fora do repo** — só em `api/.env` (gitignorado) e nas envs do Render; o `.dockerignore`
-  garante que o `.env` não entra na imagem.
+- **HTTPS** ponta a ponta (Cloudflare → Function URL) e cookie de sessão `Secure` + `HttpOnly`.
+- **Login obrigatório** no site inteiro (`PAINEL_SENHA` definida; o script exige).
+- **Segredos fora do repo** — só em `api/.env` / `infra/.env.aws` (gitignorados) e nas envs da
+  Lambda; o `.dockerignore` garante que nenhum `.env` entra na imagem.
+- **Teto de concorrência** na Lambda limita o estrago de um abuso nos créditos.
 - **RLS no Supabase** limita a chave do ESP32 (publishable) a INSERT; a secret key vive só na API.
 - Detalhes e endurecimento em [`SEGURANCA.md`](SEGURANCA.md).

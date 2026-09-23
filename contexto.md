@@ -43,7 +43,7 @@
   máquina dessa fazenda; fazendas vazias mostram a solicitação de seleção.
 - Carregando, vazio e indisponível são estados distintos. Consultas com falha oferecem
   nova tentativa e não impedem o acesso às outras abas. Histórico vazio não é erro de banco.
-- Deploy: painel e API Flask usam a sessão de login. No Render, `PAINEL_SENHA` definida,
+- Deploy: painel e API Flask usam a sessão de login. Na Lambda, `PAINEL_SENHA` definida,
   `SECRET_KEY` persistente e **`SOMPO_API_KEY` vazia**. Não colocar chave de API no frontend.
 - Testes: `api/tests/test_painel.py` executa fluxos em navegador desktop (1280 px) e mobile
   (390 px), com HTTP simulado. `test_frota.py` valida cadastro completo, operador sem
@@ -78,7 +78,8 @@ tecnológica** em máquinas agrícolas. Colisão, medição de distância e prev
 estão **fora de escopo**: máquinas novas já saem de fábrica com esses sensores.
 
 - **Repositório:** `github.com/terrafelipe/sompo-sprint3` (branch principal: `main`)
-- **Produção (painel):** deploy no **Render**, auto-deploy a cada push no `main`.
+- **Produção (painel):** **AWS Lambda** (Learner Lab) atrás de um **Cloudflare Worker** —
+  https://sompo-painel.felipepicolloterra.workers.dev. Deploy manual por script (§9).
 - **Banco:** projeto **Supabase** `ljkfuwvkmczpmjupxnxw.supabase.co`.
 
 ---
@@ -121,10 +122,16 @@ Pontos-chave da arquitetura:
 sompo-sprint3/
 ├── README.md                  # Visão geral do projeto
 ├── contexto.md                # (este arquivo)
-├── render.yaml                # Blueprint de deploy no Render (fica na RAIZ)
+├── render.yaml                # Blueprint do Render (plano B de deploy; fica na RAIZ)
 ├── setup.ps1                  # Setup one-shot (venv + deps + .env + segredos.h)
 ├── .gitignore                 # Rede de segurança de segredos do monorepo
 ├── nginx/                     # (vazio — resquício de arquitetura antiga)
+│
+├── infra/                     # Deploy na AWS Lambda + Cloudflare Worker
+│   ├── deploy-aws.ps1         # Script idempotente (Windows ou AWS CloudShell)
+│   ├── .env.aws(.example)     # Envs da Lambda (gitignorado) / molde versionado
+│   ├── cloudflare-worker.js   # Proxy da URL limpa (workers.dev)
+│   └── wrangler.jsonc         # Config do Worker (npx wrangler deploy)
 │
 ├── api/                       # API REST em Flask (Python) + painel
 │   ├── app.py                 # Rotas, login, API key, perfis (role-based)
@@ -135,7 +142,7 @@ sompo-sprint3/
 │   ├── llm.py                 # Camada de IA (Google Gemini) + cache + origem
 │   ├── documento.py           # Gera o relatório de risco em .docx (python-docx)
 │   ├── requirements.txt       # Flask, requests, python-docx, waitress, pytest...
-│   ├── Dockerfile             # Imagem de produção (python:3.12-slim + waitress)
+│   ├── Dockerfile             # Imagem de produção (python:3.12-slim + waitress + Lambda Web Adapter)
 │   ├── .env / .env.example    # Segredos (gitignorado) / molde versionado
 │   ├── static/index.html      # Painel/dashboard (SPA, Tailwind CDN, JS vanilla)
 │   ├── templates/login.html   # Página de login do painel
@@ -156,7 +163,7 @@ sompo-sprint3/
 │
 └── docs/
     ├── COMO_TESTAR.md         # Roteiro completo de teste (API + placa)
-    ├── DEPLOY.md              # Deploy no Render, passo a passo
+    ├── DEPLOY.md              # Deploy na AWS Lambda + Cloudflare (Render = plano B)
     └── SEGURANCA.md           # Endurecimento aplicado + passos manuais
 ```
 
@@ -409,22 +416,26 @@ uma flag/env desligada por padrão.
 
 ---
 
-## 9. Deploy (Render)
+## 9. Deploy (AWS Lambda + Cloudflare Worker)
 
-- **Blueprint `render.yaml`** na raiz: serviço `sompo-painel`, runtime **Docker**
-  (`api/Dockerfile`, contexto `api/`), plano **free**. Push no `main` → **auto-deploy**.
-- **HTTPS automático** do Render. Sem `healthCheckPath` (com login ligado, `/saude` também
-  pede senha; o Render só checa a porta).
-- **Variáveis (`sync:false`) preenchidas À MÃO no painel do Render** (não vão no repo):
-  `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `LLM_API_KEY`, `PAINEL_USUARIO`, `PAINEL_SENHA`.
-  `SECRET_KEY` é gerada pelo Render; `LLM_MODEL` e `SESSAO_HORAS` já vêm no yaml.
-- ⚠️ **`SOMPO_API_KEY` DEVE ficar VAZIA no Render.** Se preenchida, o `before_request`
-  passa a exigir `X-API-Key` em toda rota de dados, e o painel embutido (que usa a sessão de
-  login, não o header) leva **401 → dashboard vazio** mesmo com o Supabase cheio. O login já
-  protege o site; a API key só faz sentido para um cliente externo por header.
-- **Free tier hiberna:** o 1º acesso depois de inatividade demora ~50 s para acordar.
-- `docs/DEPLOY.md` tem o passo a passo. (A pasta `nginx/` está vazia — resquício de uma
-  arquitetura EC2/Docker que foi removida; o deploy é focado no Render.)
+- **Onde:** AWS Lambda (imagem Docker em ECR, `us-east-1`, role `LabRole`) no **AWS Academy
+  Learner Lab**, exposta por **Function URL**; um **Cloudflare Worker** dá a URL limpa
+  `https://sompo-painel.felipepicolloterra.workers.dev`. Escala a zero (~US$ 0), cold start ~1–2 s.
+- **Imagem:** o mesmo `api/Dockerfile`, com a extensão **Lambda Web Adapter** (repassa os
+  eventos para o waitress na porta 8080; inerte fora da Lambda).
+- **Deploy manual** (credenciais do lab são temporárias → sem CI): `pwsh infra/deploy-aws.ps1`
+  no **AWS CloudShell** (já tem Docker) ou no Windows. Idempotente: cria/atualiza ECR, função,
+  Function URL + 2 permissões, logs com retenção de 7 dias.
+- **Variáveis** em `infra/.env.aws` (gitignorado): `SUPABASE_URL`, `SUPABASE_SECRET_KEY`,
+  `LLM_API_KEY`, `LLM_MODEL`, `PAINEL_USUARIO`, `PAINEL_SENHA`, **`SECRET_KEY` fixa**,
+  `SESSAO_HORAS`. O script injeta `PORT=8080`, `AWS_LWA_READINESS_CHECK_PATH=/login` e
+  `COOKIE_SEGURO=true`.
+- ⚠️ **`SOMPO_API_KEY` DEVE ficar VAZIA** (o script recusa rodar se não estiver). Se
+  preenchida, o `before_request` passa a exigir `X-API-Key` em toda rota de dados, e o painel
+  embutido (que usa a sessão de login, não o header) leva **401 → dashboard vazio**.
+- A Lambda **segue no ar com o lab encerrado**; a conta **some no fim do curso**.
+- **Plano B:** `render.yaml` (Render free, hiberna ~50 s). `docs/DEPLOY.md` tem o passo a passo
+  de tudo. (A pasta `nginx/` está vazia — resquício de uma arquitetura EC2 antiga.)
 
 ---
 
@@ -515,15 +526,19 @@ de reserva. Os perfis só funcionam com o **login ligado** (`PAINEL_SENHA` defin
 
 ## 14. Pontos de atenção (o que já custou debug)
 
-- **`SOMPO_API_KEY` vazia no Render** (senão dashboard vazio — ver §9).
+- **`SOMPO_API_KEY` vazia na Lambda** (senão dashboard vazio — ver §9).
 - **Duas chaves Supabase, papéis diferentes:** API usa a **secret** (service_role, ignora
   RLS); ESP32 usa a **publishable/anon** (só INSERT). Erro numa não aparece na outra.
-- **`api/.env` não vai pro Render** (gitignorado) — variáveis preenchidas à mão no painel.
+- **`api/.env` não vai pra Lambda** (gitignorado) — as envs de produção ficam em
+  `infra/.env.aws` (também gitignorado) e o script as envia.
 - **ESP32 só enxerga Wi-Fi 2.4 GHz** (use hotspot do celular em 2.4).
 - **Sem driver CP2102** o Windows não cria a porta COM.
 - **KY-026 lido pelo A0 (GPIO35)** — D0 queimado; calibrar `LIMIAR_CHAMA` no Serial.
 - **MAX6675 lendo 0 °C fixo** → fiação; trocar SO↔SCK.
-- **Free tier do Render hiberna** (~50 s no 1º acesso).
+- **Learner Lab expira no fim do curso** — a Lambda some junto; plano B no Render (§9).
+- **Docker local exige SVM Mode ligado na BIOS** (sem ele o Docker Desktop mostra
+  "Virtualization support not detected"); o CloudShell dispensa o Docker local.
+- **No `pwsh` do Linux, `*` solto vira glob** — por isso o script usa `--principal=*`.
 
 ---
 
@@ -535,4 +550,5 @@ MPU-6050, AHT10, MAX6675, KY-026, RC522, reed switches, GPS NEO-6M, buzzer, pote
 **Backend:** Python 3.12 · Flask · waitress · requests · python-docx · pytest.
 **IA:** Google Gemini (Generative Language API).
 **Frontend:** HTML + TailwindCSS (CDN) + JavaScript vanilla + Material Symbols.
-**Infra:** Docker · Render (deploy) · Git/GitHub.
+**Infra:** Docker · AWS Lambda + ECR (Learner Lab) · Cloudflare Workers · Render (plano B) ·
+Git/GitHub.
