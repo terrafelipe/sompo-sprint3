@@ -71,3 +71,13 @@ def test_sem_sessao_e_sem_chave_com_login_ligado_retorna_401():
          patch('app.SOMPO_API_KEY', _CHAVE):
         response = client.get('/telemetria')
     assert response.status_code == 401
+
+
+def test_cookie_seguro_liga_flag_secure_da_sessao(monkeypatch):
+    # COOKIE_SEGURO=true (producao com HTTPS) -> cookie de sessao com flag Secure.
+    import config
+    monkeypatch.setenv('COOKIE_SEGURO', 'true')
+    assert config._get_bool('COOKIE_SEGURO') is True
+    monkeypatch.setenv('COOKIE_SEGURO', '')
+    assert config._get_bool('COOKIE_SEGURO') is False
+    assert app.config['SESSION_COOKIE_SECURE'] is config.COOKIE_SEGURO

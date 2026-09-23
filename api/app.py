@@ -22,6 +22,7 @@ from flask_cors import CORS
 import documento
 import frota
 from config import (
+    COOKIE_SEGURO,
     CORS_ORIGINS,
     FLASK_DEBUG,
     FLASK_HOST,
@@ -52,11 +53,12 @@ app.register_blueprint(frota.bp)
 app.secret_key = SECRET_KEY
 _SESSAO_SEGUNDOS = SESSAO_HORAS * 3600
 app.permanent_session_lifetime = timedelta(hours=SESSAO_HORAS)
-# Cookie de sessao mais seguro (HttpOnly, SameSite). Sem refresh a cada request: o
+# Cookie de sessao mais seguro (HttpOnly, SameSite; Secure via COOKIE_SEGURO). Sem refresh a cada request: o
 # prazo conta a partir do login, forcando novo login depois de SESSAO_HORAS.
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE='Lax',
+    SESSION_COOKIE_SECURE=COOKIE_SEGURO,
     SESSION_REFRESH_EACH_REQUEST=False,
 )
 # CORS restrito as origens de CORS_ORIGINS (vazio = nenhuma origem cross-origin).

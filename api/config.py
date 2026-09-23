@@ -18,7 +18,11 @@ LLM_API_KEY = _get_env('LLM_API_KEY')
 LLM_MODEL = _get_env('LLM_MODEL', 'gemini-flash-lite-latest')
 FLASK_HOST = _get_env('FLASK_HOST', '127.0.0.1')
 FLASK_PORT = int(_get_env('FLASK_PORT', '5000'))
-FLASK_DEBUG = _get_env('FLASK_DEBUG', 'false').lower() in {'1', 'true', 'yes', 'y'}
+def _get_bool(name: str, default: str = 'false') -> bool:
+    return _get_env(name, default).lower() in {'1', 'true', 'yes', 'y'}
+
+
+FLASK_DEBUG = _get_bool('FLASK_DEBUG')
 
 # Seguranca da API (ver docs/SEGURANCA.md)
 # SOMPO_API_KEY vazia = autenticacao desligada (modo demo). Definida = toda rota
@@ -37,6 +41,9 @@ try:
     SESSAO_HORAS = int(_get_env('SESSAO_HORAS', '24'))
 except ValueError:
     SESSAO_HORAS = 24
+# COOKIE_SEGURO=true marca o cookie de sessao como Secure (so trafega em HTTPS).
+# Ligar em producao (Lambda/Render); deixar desligado no dev local em http://.
+COOKIE_SEGURO = _get_bool('COOKIE_SEGURO')
 # CORS_ORIGINS: lista separada por virgula. Vazia = nenhuma origem cross-origin
 # liberada (padrao seguro). Ex.: "http://localhost:3000,https://painel.exemplo.com".
 CORS_ORIGINS = [o.strip() for o in _get_env('CORS_ORIGINS').split(',') if o.strip()]
