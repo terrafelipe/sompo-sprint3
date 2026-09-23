@@ -50,7 +50,7 @@ api/
 ```
 
 > Os guias (COMO_TESTAR, SEGURANCA, DEPLOY) ficam em [`../docs/`](../docs). O deploy na AWS fica
-> em [`../infra/`](../infra) (script + Cloudflare Worker); o `render.yaml` da raiz e o plano B.
+> em [`../infra/`](../infra) (script + proxy do Cloudflare Pages); o `render.yaml` da raiz e o plano B.
 
 ## Instalação
 

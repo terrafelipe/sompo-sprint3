@@ -1,13 +1,13 @@
-# Deploy — Painel SOMPO na AWS Lambda + Cloudflare Worker
+# Deploy — Painel SOMPO na AWS Lambda + Cloudflare Pages
 
 O **painel + API** (o mesmo app Flask) roda na **AWS Lambda** como imagem Docker, exposto por uma
-**Function URL** (HTTPS). Na frente dela, um **Cloudflare Worker** grátis dá a URL limpa:
+**Function URL** (HTTPS). Na frente dela, um proxy grátis no **Cloudflare Pages** dá a URL limpa:
 
-**https://sompo-painel.felipepicolloterra.workers.dev**
+**https://sompo-painel.pages.dev**
 
 ```
-navegador ──► Cloudflare Worker ──► Function URL ──► Lambda (waitress + Lambda Web Adapter) ──► Supabase
-             (workers.dev)          (lambda-url…on.aws)      imagem de api/Dockerfile                 │
+navegador ──► Cloudflare Pages  ──► Function URL ──► Lambda (waitress + Lambda Web Adapter) ──► Supabase
+             (_worker.js)           (lambda-url…on.aws)      imagem de api/Dockerfile                 │
                                                                                   Google Gemini ◄────┘
 ```
 
@@ -29,7 +29,7 @@ A conta AWS é a do **Learner Lab** da FIAP. Isso impõe regras:
   é o script `infra/deploy-aws.ps1`, rodado à mão.
 - A Lambda **continua no ar com o lab encerrado** (testado). EC2 não serviria: para com a sessão.
 - ⚠️ **A conta é apagada quando o curso termina.** Aí: novo lab/conta + rodar o script de novo, ou
-  voltar ao [Render](#6-plano-b-render) e trocar a `LAMBDA_URL` do Worker (ou apontar o link).
+  voltar ao [Render](#6-plano-b-render) e trocar a `LAMBDA_URL_PADRAO` do proxy (seção 4).
 
 ## 2. Variáveis de ambiente (`infra/.env.aws`)
 
@@ -96,26 +96,30 @@ do lab em `%USERPROFILE%\.aws\credentials` e rode, na raiz do repo:
 powershell -ExecutionPolicy Bypass -File infra\deploy-aws.ps1
 ```
 
-## 4. URL limpa: Cloudflare Worker
+## 4. URL limpa: Cloudflare Pages
 
-`infra/cloudflare-worker.js` repassa cada requisição para a Function URL e devolve a resposta sem
-alteração. O cookie de sessão não tem `Domain`, então fica gravado no domínio do Worker, e os
-redirects do Flask são relativos — o navegador nunca sai do `workers.dev`.
+`infra/pages/_worker.js` (modo avançado do Pages) repassa cada requisição para a Function URL e
+devolve a resposta sem alteração. O cookie de sessão não tem `Domain`, então fica gravado no
+domínio do Pages, e os redirects do Flask são relativos — o navegador nunca sai do `pages.dev`.
+O host de destino é fixo: um caminho `//outro-host` **não** vira proxy aberto.
 
-- **Pelo dashboard** (como foi feito): Workers & Pages → Create → Hello World → nome
-  `sompo-painel` → **Edit code** (colar o `cloudflare-worker.js`) → Deploy → **Settings →
-  Variables and Secrets** → `LAMBDA_URL` = Function URL **sem barra final** (tipo Text).
-- **Pela linha de comando:** `cd infra; npx wrangler deploy` (usa `infra/wrangler.jsonc`).
+- **Pelo dashboard** (como foi feito): Workers & Pages → Create → aba **Pages** → **Drag and drop
+  your files** → projeto `sompo-painel` → arrastar a pasta `infra/pages` → Deploy. (Não usar
+  "Upload your static files" da tela de Workers — isso cria um Worker em `*.workers.dev`.)
+- **Atualizar:** projeto `sompo-painel` → **Create deployment** → arrastar a pasta de novo. Ou
+  `npx wrangler pages deploy infra/pages --project-name sompo-painel`.
+- A URL da Lambda está no próprio `_worker.js` (`LAMBDA_URL_PADRAO`; não é segredo). Uma variável
+  `LAMBDA_URL` no projeto Pages, se criada, tem prioridade. Se a Lambda for recriada, atualize e
+  publique de novo.
 - Deixe o **Cloudflare Access desligado** — o login do Flask já protege o site.
-- Se a Lambda for recriada (URL nova), atualize a `LAMBDA_URL` no Worker e no `wrangler.jsonc`.
 
 ## 5. Verificação e pega-ratões
 
-Depois de cada deploy, pela URL do Worker: login → menus sem máquina → seleção de fazenda/máquina →
+Depois de cada deploy, pela URL do Pages: login → menus sem máquina → seleção de fazenda/máquina →
 F5 (sessão se mantém) → relatório de risco → download Word → logout. Rápido pelo terminal:
 `/login` → 200, `/saude` → 401 sem login.
 
-- **500 no Worker logo após publicar** → é a propagação da versão nova; some em segundos.
+- **500 no proxy logo após publicar** → é a propagação da versão nova; some em segundos.
 - **Function URL pública precisa de 2 permissões** (`lambda:InvokeFunctionUrl` +
   `lambda:InvokeFunction` com `--invoked-via-function-url`, exigência desde out/2025). O script cria.
 - **No `pwsh` do Linux um `*` vira glob** (lista de arquivos). Por isso o script usa
@@ -128,7 +132,7 @@ F5 (sessão se mantém) → relatório de risco → download Word → logout. R�
 O `render.yaml` da raiz continua válido (a imagem com o adapter roda normalmente fora da Lambda).
 Para voltar: no Render, reative o serviço `sompo-painel` (ou **New → Blueprint** apontando para o
 repo), preencha as mesmas variáveis da seção 2 no painel (com `COOKIE_SEGURO=true` e
-`SOMPO_API_KEY` **vazia**) e troque a `LAMBDA_URL` do Worker pela URL do Render. O plano free
+`SOMPO_API_KEY` **vazia**) e troque a `LAMBDA_URL_PADRAO` do `_worker.js` pela URL do Render. O plano free
 hiberna (~50 s no 1º acesso).
 
 ## 7. Rodar a mesma imagem localmente

@@ -172,4 +172,4 @@ if (-not (Test-Aws logs put-retention-policy --log-group-name $grupo --retention
 Write-Host ''
 Write-Host "Deploy ok: $imagem"
 Write-Host "Function URL: $url"
-Write-Host 'Coloque essa URL na variavel LAMBDA_URL do Worker no Cloudflare.'
+Write-Host 'Se a URL mudou, atualize LAMBDA_URL_PADRAO em infra/pages/_worker.js e publique no Pages.'

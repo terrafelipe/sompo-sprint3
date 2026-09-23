@@ -78,8 +78,8 @@ tecnológica** em máquinas agrícolas. Colisão, medição de distância e prev
 estão **fora de escopo**: máquinas novas já saem de fábrica com esses sensores.
 
 - **Repositório:** `github.com/terrafelipe/sompo-sprint3` (branch principal: `main`)
-- **Produção (painel):** **AWS Lambda** (Learner Lab) atrás de um **Cloudflare Worker** —
-  https://sompo-painel.felipepicolloterra.workers.dev. Deploy manual por script (§9).
+- **Produção (painel):** **AWS Lambda** (Learner Lab) atrás do **Cloudflare Pages** —
+  https://sompo-painel.pages.dev. Deploy manual por script (§9).
 - **Banco:** projeto **Supabase** `ljkfuwvkmczpmjupxnxw.supabase.co`.
 
 ---
@@ -127,11 +127,10 @@ sompo-sprint3/
 ├── .gitignore                 # Rede de segurança de segredos do monorepo
 ├── nginx/                     # (vazio — resquício de arquitetura antiga)
 │
-├── infra/                     # Deploy na AWS Lambda + Cloudflare Worker
+├── infra/                     # Deploy na AWS Lambda + proxy no Cloudflare Pages
 │   ├── deploy-aws.ps1         # Script idempotente (Windows ou AWS CloudShell)
 │   ├── .env.aws(.example)     # Envs da Lambda (gitignorado) / molde versionado
-│   ├── cloudflare-worker.js   # Proxy da URL limpa (workers.dev)
-│   └── wrangler.jsonc         # Config do Worker (npx wrangler deploy)
+│   └── pages/_worker.js       # Proxy da URL limpa (sompo-painel.pages.dev)
 │
 ├── api/                       # API REST em Flask (Python) + painel
 │   ├── app.py                 # Rotas, login, API key, perfis (role-based)
@@ -416,11 +415,11 @@ uma flag/env desligada por padrão.
 
 ---
 
-## 9. Deploy (AWS Lambda + Cloudflare Worker)
+## 9. Deploy (AWS Lambda + Cloudflare Pages)
 
 - **Onde:** AWS Lambda (imagem Docker em ECR, `us-east-1`, role `LabRole`) no **AWS Academy
-  Learner Lab**, exposta por **Function URL**; um **Cloudflare Worker** dá a URL limpa
-  `https://sompo-painel.felipepicolloterra.workers.dev`. Escala a zero (~US$ 0), cold start ~1–2 s.
+  Learner Lab**, exposta por **Function URL**; um proxy no **Cloudflare Pages** dá a URL limpa
+  `https://sompo-painel.pages.dev`. Escala a zero (~US$ 0), cold start ~1–2 s.
 - **Imagem:** o mesmo `api/Dockerfile`, com a extensão **Lambda Web Adapter** (repassa os
   eventos para o waitress na porta 8080; inerte fora da Lambda).
 - **Deploy manual** (credenciais do lab são temporárias → sem CI): `pwsh infra/deploy-aws.ps1`
@@ -550,5 +549,5 @@ MPU-6050, AHT10, MAX6675, KY-026, RC522, reed switches, GPS NEO-6M, buzzer, pote
 **Backend:** Python 3.12 · Flask · waitress · requests · python-docx · pytest.
 **IA:** Google Gemini (Generative Language API).
 **Frontend:** HTML + TailwindCSS (CDN) + JavaScript vanilla + Material Symbols.
-**Infra:** Docker · AWS Lambda + ECR (Learner Lab) · Cloudflare Workers · Render (plano B) ·
+**Infra:** Docker · AWS Lambda + ECR (Learner Lab) · Cloudflare Pages · Render (plano B) ·
 Git/GitHub.

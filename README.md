@@ -95,7 +95,7 @@ venv\Scripts\python.exe app.py             # sobe a API em localhost:5000
 Configuração em `.env` (copie de `.env.example`): URL/secret do Supabase e a chave do Gemini.
 
 **Painel público:** o `GET /` serve o dashboard visual. Para publicá-lo na internet com HTTPS e
-login na **AWS Lambda** (URL limpa via Cloudflare Worker), veja [`docs/DEPLOY.md`](docs/DEPLOY.md).
+login na **AWS Lambda** (URL limpa via Cloudflare Pages: https://sompo-painel.pages.dev), veja [`docs/DEPLOY.md`](docs/DEPLOY.md).
 
 ## Endpoints da API
 
