@@ -237,10 +237,16 @@ def _pontos_acumulados(detalhamento: Dict[str, Any]) -> Dict[str, int]:
     return total
 
 
-def montar_relatorio_risco(dispositivo: str, dias: int, resumo_por_dia: List[Dict[str, Any]], eventos: List[Dict[str, Any]], contexto=None, forcar: bool = False) -> Dict[str, Any]:
+def montar_relatorio_risco(dispositivo: str, dias: int, resumo_por_dia: List[Dict[str, Any]], eventos: List[Dict[str, Any]], contexto=None, forcar: bool = False, usar_ia: bool = True) -> Dict[str, Any]:
     scores = calcular_scores(dispositivo, dias, eventos)
-    prompt = montar_prompt(dispositivo, dias, scores, eventos, contexto)
-    resultado = llm.analisar_risco(prompt, forcar=forcar)
+    if not usar_ia:
+        # Caminho rapido do painel (ia=0): so o calculo e o texto de template, sem o LLM.
+        # A origem e a mesma de quando nao ha chave de IA; o texto da IA e pedido a parte.
+        prompt = None
+        resultado = {'origem': 'prompt_apenas'}
+    else:
+        prompt = montar_prompt(dispositivo, dias, scores, eventos, contexto)
+        resultado = llm.analisar_risco(prompt, forcar=forcar)
     origem = resultado['origem']
 
     base = {
@@ -285,7 +291,8 @@ def montar_relatorio_risco(dispositivo: str, dias: int, resumo_por_dia: List[Dic
                 base['complementado_pelo_sistema'].append(campo)
     elif origem == 'prompt_apenas':
         base.update(montar_fallback(scores))
-        base['prompt_gerado'] = prompt
+        if prompt is not None:
+            base['prompt_gerado'] = prompt
     else:  # fallback
         base.update(montar_fallback(scores, erro=resultado.get('erro')))
         base['prompt_gerado'] = prompt

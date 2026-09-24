@@ -26,7 +26,7 @@ from config import LLM_API_KEY, LLM_MODEL
 
 # Endpoint da Google Generative Language API (Gemini).
 URL_BASE = 'https://generativelanguage.googleapis.com/v1beta/models'
-TIMEOUT = 20
+TIMEOUT = 45   # o Gemini tem levado 25 a 40 s em horario de pico; a Lambda tem 60 s
 
 # Cache em memoria para nao chamar o Gemini a cada refresh (evita o 429 do tier
 # gratuito): mesma pergunta (prompt) reaproveita a resposta por um tempo.
