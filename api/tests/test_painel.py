@@ -129,6 +129,9 @@ def painel(request):
 
 
 def nav(page, view):
+    # No celular o menu mora na gaveta: abre pelo botao antes de escolher a tela.
+    if page.locator('#btnMenu').is_visible():
+        page.locator('#btnMenu').click()
     page.locator(f'[data-nav="{view}"]:visible').click()
     pw.expect(page.locator('#tituloView')).to_have_text({
         'inicio': 'Início', 'visao': 'Painel da máquina', 'maquinas': 'Máquinas', 'operadores': 'Operadores',
@@ -637,11 +640,11 @@ def test_ocorrencias_quadro_move_e_edita(painel):
     nav(page, 'ocorrencias')
     pw.expect(page.locator('[data-coluna="aberta"] [data-oc]')).to_have_count(1)
     pw.expect(page.locator('[data-coluna="em_verificacao"] [data-oc]')).to_have_count(1)
-    pw.expect(page.locator('[data-contador-ocorr]:visible')).to_have_text('2')
+    pw.expect(page.locator('#sidebar [data-contador-ocorr]')).to_have_text('2')
     page.locator('[data-oc="1"] [data-mover="resolvida"]').click()
     pw.expect(page.locator('[data-coluna="resolvida"] [data-oc="1"]')).to_have_count(1)
     assert ('/ocorrencias/1', {'status': 'resolvida'}) in state['posts']
-    pw.expect(page.locator('[data-contador-ocorr]:visible')).to_have_text('1')
+    pw.expect(page.locator('#sidebar [data-contador-ocorr]')).to_have_text('1')
     # Detalhe: responsavel e nota.
     page.locator('[data-oc="2"] [data-abrir-oc]').click()
     page.locator('#ocResponsavel').select_option('1')
@@ -677,4 +680,30 @@ def test_ocorrencias_sem_migracao_avisa(painel):
     page.route('**/ocorrencias', lambda r: r.fulfill(status=409, json={'erro': 'migracao_pendente'}))
     nav(page, 'ocorrencias')
     pw.expect(page.locator('#ocAviso')).to_contain_text('mapa_ocorrencias.sql')
+    assert not state['errors']
+
+
+def test_menu_em_gaveta_no_celular(painel):
+    page, state = painel
+    menu = page.locator('#btnMenu')
+    if page.viewport_size['width'] >= 1024:
+        pw.expect(menu).to_be_hidden()
+        pw.expect(page.locator('#sidebar')).to_be_visible()
+        return
+    pw.expect(page.locator('#sidebar')).to_be_hidden()
+    menu.click()
+    pw.expect(page.locator('#sidebar')).to_be_visible()
+    pw.expect(menu).to_have_attribute('aria-expanded', 'true')
+    page.keyboard.press('Escape')
+    pw.expect(page.locator('#sidebar')).to_be_hidden()
+    menu.click()
+    page.locator('#gavetaFundo').click(position=dict(x=370, y=400))
+    pw.expect(page.locator('#sidebar')).to_be_hidden()
+    menu.click()
+    page.locator('#sidebar [data-nav="historico"]').click()
+    pw.expect(page.locator('#sidebar')).to_be_hidden()
+    pw.expect(page.locator('#tituloView')).to_have_text('Histórico')
+    pw.expect(menu).to_be_focused()
+    # O cabecalho cabe numa linha so.
+    assert page.locator('header').bounding_box()['height'] <= 60
     assert not state['errors']
