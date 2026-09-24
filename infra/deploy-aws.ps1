@@ -116,7 +116,7 @@ try {
         # nova com var velha pode quebrar (ex.: PORT do adapter).
         Write-Host 'Atualizando variaveis da funcao...'
         Invoke-Aws lambda update-function-configuration --function-name $Funcao `
-            --environment "file://$envJson" --memory-size 512 --timeout 60 | Out-Null
+            --environment "file://$envJson" --memory-size 1024 --timeout 60 | Out-Null
         Wait-Funcao 'function-updated-v2'
         Write-Host 'Atualizando codigo da funcao...'
         Invoke-Aws lambda update-function-code --function-name $Funcao --image-uri $imagem | Out-Null
@@ -125,7 +125,7 @@ try {
         Write-Host 'Criando funcao...'
         Invoke-Aws lambda create-function --function-name $Funcao --package-type Image `
             --code "ImageUri=$imagem" --role $roleArn --architectures x86_64 `
-            --memory-size 512 --timeout 60 --environment "file://$envJson" | Out-Null
+            --memory-size 1024 --timeout 60 --environment "file://$envJson" | Out-Null
         Wait-Funcao 'function-active-v2'
     }
 } finally {

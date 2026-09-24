@@ -10,6 +10,11 @@ from config import SUPABASE_URL, SUPABASE_SECRET_KEY, get_supabase_headers, vali
 
 BASE_URL = f'{SUPABASE_URL.rstrip("/")}/rest/v1' if SUPABASE_URL else ''
 
+# Uma sessao so para o processo: reaproveita a conexao TCP+TLS entre consultas. A Lambda
+# roda nos EUA e o Supabase em Sao Paulo; conexao nova a cada consulta custava ~3 idas e
+# voltas em vez de 1, e cada rota faz de 2 a 5 consultas.
+_sessao = requests.Session()
+
 
 class SupabaseError(RuntimeError):
     def __init__(self, status, codigo=''):
@@ -24,7 +29,7 @@ def _request_json(method: str, table: str, params: Optional[Dict[str, str]] = No
     headers = get_supabase_headers()
     if method in {'POST', 'PATCH'}:
         headers = {**headers, 'Prefer': 'return=representation'}
-    response = requests.request(
+    response = _sessao.request(
         method=method,
         url=url,
         headers=headers,
@@ -171,7 +176,7 @@ def inserir_tabela(tabela: str, dados: Dict[str, Any]) -> Dict[str, Any]:
     validate_supabase_config()
     url = f'{BASE_URL}/{tabela}'
     headers = {**get_supabase_headers(), 'Prefer': 'return=representation'}
-    response = requests.post(url, headers=headers, json=dados, timeout=10)
+    response = _sessao.post(url, headers=headers, json=dados, timeout=10)
     if response.status_code >= 400:
         detail = response.text[:500]
         raise RuntimeError(f'Erro ao inserir no Supabase: {response.status_code} - {detail}')

@@ -87,7 +87,7 @@ credenciais do lab — não precisa de nada instalado no PC.
 
 Confira se a linha `Deploy ok` termina com o hash do commit esperado.
 
-O script é **idempotente**: na 1ª vez cria o repositório ECR, a função (`sompo-painel`, 512 MB,
+O script é **idempotente**: na 1ª vez cria o repositório ECR, a função (`sompo-painel`, 1024 MB,
 timeout 60 s, `LabRole`), a Function URL pública com as duas permissões e a retenção de logs de
 7 dias; nas seguintes só publica a imagem nova e atualiza as variáveis. No fim imprime a
 **Function URL**. O painel faz várias requisições em paralelo, então um teto baixo de concorrência

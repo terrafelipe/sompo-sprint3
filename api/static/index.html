@@ -1259,6 +1259,16 @@ async function getJSON(path, {tempoLimite = TEMPO_LIMITE_MS} = {}){
     await new Promise(ok => setTimeout(ok, ESPERAS_REPETIR_MS[tentativa] * (0.8 + Math.random() * 0.4)));
   }
 }
+// /fazendas compartilhada: chamadas ao mesmo tempo (seletor do topo, Inicio, lista, formularios)
+// dividem uma unica requisicao em voo, em vez de pedir a mesma coisa varias vezes.
+let fazendasEmVoo = null;
+function buscarFazendas(){
+  if(!fazendasEmVoo) fazendasEmVoo = getJSON('/fazendas').finally(() => { fazendasEmVoo = null; });
+  return fazendasEmVoo;
+}
+// Formularios que so precisam da lista uma vez (select de cliente, select de fazenda do usuario).
+const carregadosUmaVez = new Set();
+function umaVez(chave, fn){ if(carregadosUmaVez.has(chave)) return; carregadosUmaVez.add(chave); fn(); }
 // Faixa "Sem conexao": aparece quando a API nao responde e some sozinha quando volta.
 function conexao(ok){ const a = $('avisoConexao'); if(a) a.hidden = ok; }
 const erroLista = mensagem => `<div role="alert" class="col-span-full text-error py-4">${mensagem} <button data-tentar class="underline font-semibold">Tentar novamente</button></div>`;
@@ -1744,7 +1754,7 @@ async function carregarCarteira(){
     await carregarResumoFazenda();
     return {fazendas: fazendasCache, resumos: [resumoFazenda]};
   }
-  const d = await getJSON('/fazendas');
+  const d = await buscarFazendas();
   const fs = d.dados || [];
   fazendasCache = fs;
   const resumos = await Promise.all(fs.map(f => getJSON(`/fazendas/${f.id_fazenda}/resumo?dias=7`).catch(() => null)));
@@ -3400,7 +3410,7 @@ const fmtArea = a => (a==null||a==='') ? '' : (Number(a).toLocaleString('pt-BR')
 async function carregarFazendas(){
   iniciando('listaFazendas');
   try{
-    const d = await getJSON('/fazendas');
+    const d = await buscarFazendas();
     const fs = d.dados||[];
     fazendasCache = fs;
     $('contaFazendas').textContent = fs.length || '';
@@ -3486,7 +3496,7 @@ const ERRO_USUARIO = {
 
 async function carregarUsuariosFazendaSelect(){
   try{
-    const d = await getJSON('/fazendas');
+    const d = await buscarFazendas();
     const fs = d.dados||[];
     $('usFazenda').innerHTML = '<option value="">Selecione a fazenda</option>' +
       fs.map(f=>`<option value="${f.id_fazenda}">${escapar(f.nome)}</option>`).join('');
@@ -3777,7 +3787,7 @@ async function aplicarPerfil(){
   } else {
     $('perfilTxt').textContent = me.usuario ? 'Sompo · Portfólio' : 'Portfólio';
     $('deviceWrap').classList.add('hidden');       // o seletor de fazenda substitui o input
-    await carregarSeletorFazendas();
+    carregarSeletorFazendas();   // sem await: o Inicio carrega junto (e divide a mesma /fazendas)
   }
   $('perfilBadge').classList.remove('hidden');
   $('sideUsuario').textContent = me.usuario || 'Modo demonstração';
@@ -3788,7 +3798,7 @@ async function aplicarPerfil(){
 async function carregarSeletorFazendas(){
   // Cada fazenda carrega sua própria frota; dispositivo pertence à máquina.
   try{
-    const d = await getJSON('/fazendas');
+    const d = await buscarFazendas();
     const fs = d.dados||[];
     fazendasCache = fs;
     $('frotaEstado').textContent = '';
@@ -3844,9 +3854,9 @@ async function atualizarView(){
   if(viewAtual === 'ocorrencias'){ await Promise.all([carregarSaude(), carregarOcorrencias()]); $('ultima').textContent = new Date().toLocaleTimeString('pt-BR'); return; }
   if(viewAtual === 'exposicao'){ await Promise.all([carregarSaude(), carregarExposicao()]); $('ultima').textContent = new Date().toLocaleTimeString('pt-BR'); return; }
   if(viewAtual === 'manutencao'){ await Promise.all([carregarSaude(), carregarManutencao()]); $('ultima').textContent = new Date().toLocaleTimeString('pt-BR'); return; }
-  if(viewAtual === 'fazendas'){ await carregarFazendas(); return; }
+  if(viewAtual === 'fazendas'){ umaVez('clientesDoFormulario', carregarClientes); await carregarFazendas(); return; }
   if(viewAtual === 'clientes'){ await carregarListaClientes(); return; }
-  if(viewAtual === 'usuarios'){ await carregarUsuarios(); return; }
+  if(viewAtual === 'usuarios'){ umaVez('fazendasDoFormulario', carregarUsuariosFazendaSelect); await carregarUsuarios(); return; }
   if(!equipamentoSelecionado){ setView(viewAtual); return; }
   await Promise.all([carregarSaude(), carregarRisco(), carregarTelemetria(), carregarEventos(), carregarTempDia(),
                      viewAtual === 'visao' ? carregarLinhaTempo() : null]);
@@ -4219,15 +4229,7 @@ document.querySelector('#avisoPausa [data-retomar]').addEventListener('click', r
 (async function init(){
   await aplicarPerfil();
   if(perfilRole === 'gestor_fazenda' || (perfilRole === 'sompo' && !fazendaSelecionada)) setView('inicio');
-  if(perfilRole === 'sompo'){
-    carregarClientes();
-    carregarFazendas();
-    carregarListaClientes();
-    carregarUsuarios();
-    carregarUsuariosFazendaSelect();
-  }
-  await carregarResumoFazenda();
-  carregarOperadores();
+  // Cadastros (clientes, usuarios, operadores...) carregam quando a tela deles abre: o Inicio sai primeiro.
   iniciado = true;
   if(document.hidden) pausar('aba'); else retomar();
 })();
