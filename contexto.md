@@ -32,7 +32,8 @@
   detalhes), reaproveitando o mesmo formulário do cadastro em modo edição via
   `PATCH /equipamentos/<id>`. A fazenda fica travada (recusa 409 `transferencia_nao_permitida`);
   o ID do ESP32 é editável e reaproveitável, e o histórico segue a máquina (`esp32_por_maquina.sql`).
-  Ao trocar o ID, apague o LittleFS da placa ao regravar (a fila antiga, com o ID velho, seria recusada).
+  Ao trocar o ID, o firmware descarta da fila os registros gravados com o ID velho (recusados
+  pelo `registrar_dispositivo` com 42501 "Equipamento alheio a credencial"); qualquer outra falha fica na fila.
 - Os `<select>` do painel usam `appearance: base-select` (Chrome/Edge 135+): a lista de
   opções segue o design do painel; navegadores sem suporte mostram a lista nativa.
 - Máquinas, Operadores, Histórico, Fazendas, Clientes e Usuários carregam sem máquina.

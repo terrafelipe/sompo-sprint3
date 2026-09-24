@@ -1049,7 +1049,11 @@ p/SgguMh1YQdc4acLa/KNJvxn7kjNuK8YAOdgLOaVsjh4rsUecrNIdSUtUlD
     return true;
   }
 
-  bool postarRpc(const char* categoria, const char* json) {
+  // Resultado do envio: ENVIADO; FALHOU (rede, 5xx, token... tenta de novo depois);
+  // RECUSADO = o servidor recusou ESTE registro em definitivo e reenviar nunca vai passar.
+  enum Envio { ENVIADO, FALHOU, RECUSADO };
+
+  Envio postarRpc(const char* categoria, const char* json) {
     WiFiClientSecure cliente;
     // Autentica pelo CA raiz embutido. O firmware antigo usava setInsecure()
     // porque o simulador nao trazia o bundle de CAs; com internet real nao ha
@@ -1061,7 +1065,7 @@ p/SgguMh1YQdc4acLa/KNJvxn7kjNuK8YAOdgLOaVsjh4rsUecrNIdSUtUlD
     snprintf(url, sizeof(url), "%s/rest/v1/rpc/registrar_dispositivo", SUPABASE_URL_CFG);
 
     HTTPClient http;
-    if (!http.begin(cliente, url)) { Serial.println("[REDE] http.begin() falhou"); return false; }
+    if (!http.begin(cliente, url)) { Serial.println("[REDE] http.begin() falhou"); return FALHOU; }
     http.setTimeout(TIMEOUT_HTTP);
     http.addHeader("apikey", SUPABASE_CHAVE_CFG);
     http.addHeader("Authorization", "Bearer " SUPABASE_CHAVE_CFG);
@@ -1074,15 +1078,21 @@ p/SgguMh1YQdc4acLa/KNJvxn7kjNuK8YAOdgLOaVsjh4rsUecrNIdSUtUlD
     corpo += json;
     corpo += '}';
     int codigo = http.POST((uint8_t*)corpo.c_str(), corpo.length());
-    bool sucesso = (codigo >= 200 && codigo < 300);
-    if (!sucesso) {
+    Envio resultado = (codigo >= 200 && codigo < 300) ? ENVIADO : FALHOU;
+    if (resultado != ENVIADO) {
       // O corpo do erro do PostgREST diz exatamente o que esta errado (coluna
       // inexistente, RLS negando, JSON invalido). Sem isso a depuracao e cega.
       String erro = (codigo > 0) ? http.getString() : String(http.errorToString(codigo));
       Serial.printf("[REDE] falha no envio - %s HTTP %d: %.120s\n", categoria, codigo, erro.c_str());
+      // Registro gravado com o ID antigo do ESP32 (a maquina trocou de ID): o token
+      // ja foi aceito, entao o problema e so este registro. Sem descartar, ele
+      // travaria a fila para sempre. Token invalido (28000) ou permissao geral
+      // negada tem outra mensagem e continua na fila.
+      if (codigo >= 400 && codigo < 500 && erro.indexOf("42501") >= 0 &&
+          erro.indexOf("alheio a credencial") >= 0) resultado = RECUSADO;
     }
     http.end();
-    return sucesso;
+    return resultado;
   }
 
   bool sincronizar() {
@@ -1122,19 +1132,22 @@ p/SgguMh1YQdc4acLa/KNJvxn7kjNuK8YAOdgLOaVsjh4rsUecrNIdSUtUlD
 
       String categoria, json;
       if (Frota::proximoDuravel(categoria, json)) {
-        bool enviou = false;
-        for (int t = 1; t <= MAX_TENTATIVAS_ENVIO && !enviou; t++) {
-          enviou = postarRpc(categoria.c_str(), json.c_str());
-          if (!enviou) vTaskDelay(pdMS_TO_TICKS(500 * t));   // recuo progressivo
+        Envio envio = FALHOU;
+        for (int t = 1; t <= MAX_TENTATIVAS_ENVIO && envio == FALHOU; t++) {
+          envio = postarRpc(categoria.c_str(), json.c_str());
+          if (envio == FALHOU) vTaskDelay(pdMS_TO_TICKS(500 * t));   // recuo progressivo
         }
-        if (enviou && Frota::confirmarDuravel()) { ok++; }
+        if (envio == RECUSADO && Frota::confirmarDuravel()) {
+          falha++;
+          Serial.printf("[FROTA] registro %s de outro ID do ESP32 descartado da fila\n", categoria.c_str());
+        } else if (envio == ENVIADO && Frota::confirmarDuravel()) { ok++; }
         else {
           falha++;
           vTaskDelay(pdMS_TO_TICKS(PAUSA_SEM_REDE));
         }
       } else if (xQueueReceive(caixaTelemetria, &p, 0) == pdTRUE) {
         // Telemetria nao volta para a fila: a proxima amostra ja e melhor.
-        if (postarRpc(p.categoria, p.json)) ok++; else falha++;
+        if (postarRpc(p.categoria, p.json) == ENVIADO) ok++; else falha++;
       } else {
         vTaskDelay(pdMS_TO_TICKS(PAUSA_ENVIO));
         continue;
