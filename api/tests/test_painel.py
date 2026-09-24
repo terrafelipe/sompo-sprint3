@@ -91,6 +91,8 @@ def painel(request):
 
         page.route('**/*', route)
         page.goto('http://painel.test/')
+        # O perfil Sompo abre no Inicio (carteira); a fazenda e escolhida pelo cartao.
+        page.locator('[data-abrir-fazenda="1"]').click()
         pw.expect(page.locator('#listaMaquinas')).to_contain_text('Trator 1')
         yield page, state
         assert not state['errors']
@@ -100,7 +102,7 @@ def painel(request):
 def nav(page, view):
     page.locator(f'[data-nav="{view}"]:visible').click()
     pw.expect(page.locator('#tituloView')).to_have_text({
-        'visao': 'Painel da máquina', 'risco': 'Análise de Risco', 'telemetria': 'Telemetria',
+        'inicio': 'Início', 'visao': 'Painel da máquina', 'risco': 'Análise de Risco', 'telemetria': 'Telemetria',
         'alertas': 'Alertas', 'maquinas': 'Máquinas', 'operadores': 'Operadores',
         'historico': 'Histórico', 'fazendas': 'Fazendas', 'clientes': 'Clientes', 'usuarios': 'Usuários'}[view])
 
@@ -121,6 +123,22 @@ def captura(page, nome):
         path = Path(destino)
         path.mkdir(parents=True, exist_ok=True)
         page.screenshot(path=str(path / f'{nome}-{page.viewport_size["width"]}.png'), full_page=True)
+
+
+def test_inicio_mostra_carteira_e_abre_a_fazenda(painel):
+    page, state = painel
+    nav(page, 'inicio')
+    pw.expect(page.locator('#barraContexto')).to_be_hidden()
+    cards = page.locator('#listaInicio [data-abrir-fazenda]')
+    pw.expect(cards).to_have_count(2)
+    pw.expect(page.locator('#inicioResumo')).to_contain_text('2 fazendas · 2 máquinas')
+    pw.expect(cards.nth(1)).to_contain_text('Fazenda 2')
+    page.locator('[data-busca="listaInicio"]').fill('fazenda 2')
+    pw.expect(page.locator('#listaInicio [data-abrir-fazenda]:visible')).to_have_count(1)
+    page.locator('[data-abrir-fazenda="2"]').click()
+    pw.expect(page.locator('#tituloView')).to_have_text('Máquinas')
+    pw.expect(page.locator('#listaMaquinas')).to_contain_text('Trator 2')
+    assert page.evaluate('String(fazendaSelecionada)') == '2'
 
 
 def test_menus_sem_maquina_refresh_e_word(painel):
@@ -409,7 +427,10 @@ def test_excluir_cadastro_confirma_cancela_e_atualiza(painel, tipo, view, id):
         pw.expect(page.locator('#btnBaixar')).to_be_disabled()
         pw.expect(page.locator('#listaMaquinas')).to_contain_text('Nenhuma máquina')
     if tipo == 'fazendas':
-        pw.expect(page.locator('#fazendaSel')).to_have_value('2')
+        # Sem escolha automatica: excluida a fazenda aberta, nenhuma fica selecionada
+        # (a proxima e escolhida pelo usuario no Inicio ou no seletor).
+        pw.expect(page.locator('#fazendaSel')).to_have_value('')
+        assert page.evaluate('fazendaSelecionada') is None
 
 
 def test_exclusao_bloqueada_exibe_dependencias(painel):
