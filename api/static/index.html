@@ -38,6 +38,8 @@
     --v-card:#ffffff; --v-suave:#fafafa; --v-hover:#f4f4f5; --v-borda:#e4e4e7; --v-borda-forte:#d4d4d8;
     --v-texto:#09090b; --v-texto2:#71717a; --v-texto3:#a1a1aa; --v-texto-sec:#52525b;
     --v-faixa-b:#d1fae5; --v-faixa-m:#fef3c7; --v-faixa-a:#fee2e2;
+    /* gravidade 1..5: uma cor, do claro ao escuro (validada com --ordinal no fundo branco) */
+    --g1:#ee8080; --g2:#dd5555; --g3:#c42f2f; --g4:#9c1c1c; --g5:#6e0e0e;
     /* series dos graficos (validadas no dataviz, uma paleta por tema) */
     --s-furto:#2a78d6; --s-incendio:#b70100; --s-media:#eb6834; --s-ambiente:#2a78d6;
   }
@@ -72,6 +74,8 @@
     --v-card:#111113; --v-suave:#18181b; --v-hover:#27272a; --v-borda:#27272a; --v-borda-forte:#3f3f46;
     --v-texto:#fafafa; --v-texto2:#a1a1aa; --v-texto3:#71717a; --v-texto-sec:#d4d4d8;
     --v-faixa-b:#064e3b; --v-faixa-m:#713f12; --v-faixa-a:#7f1d1d;
+    /* no escuro a mais grave e a mais clara (mais saliente); validada no fundo #111113 */
+    --g1:#8a2c2c; --g2:#b13a3a; --g3:#d94f4f; --g4:#f07676; --g5:#ffa3a3;
     --s-furto:#3987e5; --s-incendio:#e5484d; --s-media:#c98500; --s-ambiente:#3987e5;
   }
   :root[data-tema="escuro"] .kpi{background:linear-gradient(to top, rgba(229,72,77,.08), var(--v-card) 65%)}
@@ -236,10 +240,6 @@
     option[value=""]:checked{ background:var(--v-hover); color:var(--v-texto2); font-weight:500; }
   }
 
-  /* Pulso no seletor de máquina quando "Selecionar máquina" não consegue abrir a lista. */
-  @keyframes sel-pulso{ 0%,100%{ box-shadow:0 0 0 0 rgba(183,1,0,0); } 40%{ box-shadow:0 0 0 6px rgba(183,1,0,.28); } }
-  .sel-destaque{ border-radius:9999px; animation:sel-pulso .8s ease-out 2; }
-  @media (prefers-reduced-motion: reduce){ .sel-destaque{ animation:none; box-shadow:0 0 0 3px rgba(183,1,0,.35); } }
 </style>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
@@ -390,7 +390,7 @@
       </div>
     </div>
 
-    <div id="semMaquina" hidden class="bg-surface-container-lowest rounded-xl p-6 mb-6" role="status">Selecione uma máquina para consultar esta aba. <button id="selecionarNoAviso" class="inline-flex items-center gap-1 text-primary font-semibold hover:text-on-primary-fixed-variant"><span class="underline underline-offset-2">Selecionar máquina</span><span class="material-symbols-outlined text-[16px]" aria-hidden="true">arrow_outward</span></button></div>
+    <div id="semMaquina" hidden class="bg-surface-container-lowest rounded-xl p-6 mb-6" role="status"><span id="semMaquinaTxt">Selecione uma máquina no seletor acima para ver o painel.</span></div>
     <p id="wordAjuda" class="text-xs text-on-surface-variant mb-4">Selecione uma máquina para exportar o relatório Word.</p>
     <div id="frotaEstado" role="status"></div>
     <!-- STATUS AGORA (faixa no topo do Painel da maquina) -->
@@ -482,7 +482,15 @@
             </div>
             <div id="gaugeFurto" class="w-full max-w-[280px] mx-auto"></div>
             <p id="pontosFurto" class="text-xs text-on-surface-variant text-center mb-4"></p>
-            <div class="text-xs font-medium text-on-surface-variant mb-1.5">De onde vem o score <span class="font-normal">· cor = gravidade</span></div>
+            <div class="text-xs font-medium text-on-surface-variant mb-1">De onde vem o score</div>
+            <div class="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-on-surface-variant mb-2.5" aria-label="Legenda da gravidade">
+              <span>Gravidade:</span>
+              <span class="inline-flex items-center gap-1"><i class="w-2.5 h-2.5 rounded-sm" style="background:var(--g1)"></i>Baixa</span>
+              <span class="inline-flex items-center gap-1"><i class="w-2.5 h-2.5 rounded-sm" style="background:var(--g2)"></i>Moderada</span>
+              <span class="inline-flex items-center gap-1"><i class="w-2.5 h-2.5 rounded-sm" style="background:var(--g3)"></i>Média</span>
+              <span class="inline-flex items-center gap-1"><i class="w-2.5 h-2.5 rounded-sm" style="background:var(--g4)"></i>Alta</span>
+              <span class="inline-flex items-center gap-1"><i class="w-2.5 h-2.5 rounded-sm" style="background:var(--g5)"></i>Crítica</span>
+            </div>
             <div id="detFurto" class="space-y-0.5"></div>
             <p id="justFurto" class="text-[13px] leading-relaxed text-on-surface-variant mt-4"></p>
           </div>
@@ -493,7 +501,15 @@
             </div>
             <div id="gaugeIncendio" class="w-full max-w-[280px] mx-auto"></div>
             <p id="pontosIncendio" class="text-xs text-on-surface-variant text-center mb-4"></p>
-            <div class="text-xs font-medium text-on-surface-variant mb-1.5">De onde vem o score <span class="font-normal">· cor = gravidade</span></div>
+            <div class="text-xs font-medium text-on-surface-variant mb-1">De onde vem o score</div>
+            <div class="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-on-surface-variant mb-2.5" aria-label="Legenda da gravidade">
+              <span>Gravidade:</span>
+              <span class="inline-flex items-center gap-1"><i class="w-2.5 h-2.5 rounded-sm" style="background:var(--g1)"></i>Baixa</span>
+              <span class="inline-flex items-center gap-1"><i class="w-2.5 h-2.5 rounded-sm" style="background:var(--g2)"></i>Moderada</span>
+              <span class="inline-flex items-center gap-1"><i class="w-2.5 h-2.5 rounded-sm" style="background:var(--g3)"></i>Média</span>
+              <span class="inline-flex items-center gap-1"><i class="w-2.5 h-2.5 rounded-sm" style="background:var(--g4)"></i>Alta</span>
+              <span class="inline-flex items-center gap-1"><i class="w-2.5 h-2.5 rounded-sm" style="background:var(--g5)"></i>Crítica</span>
+            </div>
             <div id="detIncendio" class="space-y-0.5"></div>
             <p id="justIncendio" class="text-[13px] leading-relaxed text-on-surface-variant mt-4"></p>
           </div>
@@ -506,14 +522,14 @@
           <div class="px-4 pb-4 text-[13px] text-on-surface-variant leading-relaxed space-y-3">
             <p>Cada evento soma pontos conforme a <b class="text-on-surface">gravidade</b> dele. O score de cada eixo é a <b class="text-on-surface">soma dos pontos, limitada a 100</b>.</p>
             <div class="flex flex-wrap gap-1.5">
-              <span class="selo"><i style="background:#a1a1aa"></i>Gravidade 1 · 5 pts</span>
-              <span class="selo"><i style="background:#a1a1aa"></i>Gravidade 2 · 10 pts</span>
-              <span class="selo"><i style="background:#f59e0b"></i>Gravidade 3 · 20 pts</span>
-              <span class="selo"><i style="background:#ea580c"></i>Gravidade 4 · 40 pts</span>
-              <span class="selo"><i style="background:#ba1a1a"></i>Gravidade 5 · 70 pts</span>
+              <span class="selo"><i style="background:var(--g1)"></i>1 · Baixa · 5 pts</span>
+              <span class="selo"><i style="background:var(--g2)"></i>2 · Moderada · 10 pts</span>
+              <span class="selo"><i style="background:var(--g3)"></i>3 · Média · 20 pts</span>
+              <span class="selo"><i style="background:var(--g4)"></i>4 · Alta · 40 pts</span>
+              <span class="selo"><i style="background:var(--g5)"></i>5 · Crítica · 70 pts</span>
             </div>
             <p>Faixas: <b class="text-on-surface">Baixo</b> abaixo de 34 · <b class="text-on-surface">Médio</b> de 34 a 66 · <b class="text-on-surface">Alto</b> a partir de 67.
-              Exemplo: 5 partidas sem crachá (gravidade 3) = 5 × 20 = 100 pontos → score 100 (Alto). Por isso os <b class="text-on-surface">pontos acumulados</b> mostram o tamanho real quando o score bate no teto.</p>
+              Exemplo: 5 partidas sem crachá (gravidade 3, Média) = 5 × 20 = 100 pontos → score 100 (Alto). Por isso os <b class="text-on-surface">pontos acumulados</b> mostram o tamanho real quando o score bate no teto.</p>
           </div>
         </details>
         <div class="mt-6 pt-5 border-t border-outline-variant">
@@ -855,7 +871,8 @@
     <span class="material-symbols-outlined text-[20px] text-on-surface-variant">search</span>
     <input id="paletaInput" type="text" autocomplete="off" placeholder="Buscar máquina, fazenda, tela ou ação…"
            class="flex-1 h-12 bg-transparent outline-none text-sm" role="combobox" aria-expanded="true" aria-controls="paletaLista"/>
-    <kbd class="tecla">Esc</kbd>
+    <button type="button" id="paletaFechar" aria-label="Fechar a busca" title="Fechar"
+            class="w-8 h-8 grid place-items-center rounded-md text-on-surface-variant hover:bg-surface-container hover:text-on-surface"><span class="material-symbols-outlined text-[20px]">close</span></button>
   </div>
   <div id="paletaLista" role="listbox" class="max-h-[55vh] overflow-y-auto p-1.5"></div>
 </dialog>
@@ -958,6 +975,8 @@ function setView(view){
   document.querySelectorAll('[data-rotulo-cadastros]').forEach(el => { el.hidden = perfilRole !== 'sompo'; });
   document.querySelectorAll('[data-nav]').forEach(a => { a.hidden = restrita(a.dataset.nav); });
   $('semMaquina').hidden = !dependeMaquina(view) || !!equipamentoSelecionado;
+  $('semMaquinaTxt').textContent = fazendaSelecionada && !maquinasCache.length && !$('frotaEstado').textContent
+    ? 'Esta fazenda ainda não tem máquinas cadastradas.' : 'Selecione uma máquina no seletor acima para ver o painel.';
   // O score de risco e sempre de 7 dias: o filtro de periodo nao vale na aba Analise de Risco.
   $('periodoWrap').hidden = !dependeMaquina(view) || !equipamentoSelecionado;
   $('btnBaixar').classList.remove('hidden');
@@ -1122,7 +1141,8 @@ function medidorRisco(score, classif, faixas){
 // Lista "De onde vem o score": cada tipo e um botao que abre os alertas filtrados.
 // Cor da barra = gravidade media do tipo (pontos por evento), nao a cor do eixo:
 // azul parecia "tranquilo" mesmo com risco ALTO.
-const GRAVIDADE = [[70, 5, '#ba1a1a'], [40, 4, '#ea580c'], [20, 3, '#f59e0b'], [10, 2, '#a1a1aa'], [0, 1, '#a1a1aa']];
+const GRAVIDADE = [[70, 5, 'var(--g5)', 'Crítica'], [40, 4, 'var(--g4)', 'Alta'], [20, 3, 'var(--g3)', 'Média'],
+                   [10, 2, 'var(--g2)', 'Moderada'], [0, 1, 'var(--g1)', 'Baixa']];
 const gravidadeDe = (pontos, qtd) => { const p = qtd ? pontos / qtd : 0; return GRAVIDADE.find(([min]) => p >= min) || GRAVIDADE[GRAVIDADE.length-1]; };
 function detalhamentoRisco(el, detalhamento, eixoNome){
   const itens = Object.entries(detalhamento || {}).filter(([,v]) => v.eixo === eixoNome).sort((a,b) => b[1].pontos - a[1].pontos);
@@ -1136,7 +1156,12 @@ function detalhamentoRisco(el, detalhamento, eixoNome){
     b.title = `Ver os alertas de ${nomeTipo(tipo)} dos últimos ${periodo} dias`;
     const topo = document.createElement('div'); topo.className = 'flex items-baseline justify-between gap-3 text-sm';
     const nome = document.createElement('span'); nome.className = 'text-on-surface truncate inline-flex items-center gap-1';
+    const [, grav, corGrav, nomeGrav] = gravidadeDe(v.pontos, v.quantidade);
     nome.append(document.createTextNode(nomeTipo(tipo)));
+    // Nome da gravidade escrito ao lado: a cor nunca e o unico sinal.
+    const tagGrav = document.createElement('span'); tagGrav.className = 'text-xs text-on-surface-variant font-normal';
+    tagGrav.textContent = `· ${nomeGrav}`;
+    nome.appendChild(tagGrav);
     const seta = document.createElement('span'); seta.className = 'material-symbols-outlined text-[14px] text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity'; seta.textContent = 'arrow_outward'; seta.setAttribute('aria-hidden','true');
     nome.appendChild(seta);
     const num = document.createElement('span'); num.className = 'text-xs text-on-surface-variant whitespace-nowrap';
@@ -1145,8 +1170,7 @@ function detalhamentoRisco(el, detalhamento, eixoNome){
     topo.append(nome, num);
     const trilho = document.createElement('div'); trilho.className = 'h-1.5 mt-1 rounded-r bg-surface-container';
     const barra = document.createElement('div'); barra.className = 'h-1.5 barra-h'; barra.style.borderRadius = '0 3px 3px 0';
-    const [, grav, corGrav] = gravidadeDe(v.pontos, v.quantidade);
-    b.title += ` · gravidade ${grav}`;
+    b.title += ` · gravidade ${grav} (${nomeGrav})`;
     barra.style.width = Math.max(2, v.pontos/total*100) + '%'; barra.style.background = corGrav;
     trilho.appendChild(barra); b.append(topo, trilho); return b;
   }));
@@ -2839,14 +2863,6 @@ function detalheMaquina(m){
 // "Selecionar máquina": abre a lista do seletor do header (showPicker). Se o navegador não
 // abrir a lista (sem suporte ou ativação expirada), destaca o seletor; sem máquinas na
 // fazenda, leva para a aba Máquinas, onde dá para cadastrar.
-$('selecionarNoAviso').addEventListener('click', async ()=>{
-  if(!maquinasCache.length) await carregarResumoFazenda();
-  if(!maquinasCache.length){ setView('maquinas'); carregarTudo(); return; }
-  const sel=$('equipamentoSel'), wrap=$('equipamentoSelWrap');
-  wrap.classList.remove('hidden'); sel.focus();
-  try{ sel.showPicker(); }
-  catch(_){ wrap.classList.remove('sel-destaque'); void wrap.offsetWidth; wrap.classList.add('sel-destaque'); setTimeout(()=>wrap.classList.remove('sel-destaque'),1700); }
-});
 document.addEventListener('click', e=>{ if(e.target.closest('[data-tentar]')) carregarTudo(); if(e.target.closest('[data-retry-frota]')) carregarResumoFazenda(); });
 document.addEventListener('click', async e=>{ if(e.target.closest('[data-retry-fazendas]')){ await carregarSeletorFazendas(); await carregarResumoFazenda(); } });
 $('listaMaquinas').addEventListener('click', e=>{ const b=e.target.closest('[data-detalhe-maquina]'); if(b) detalheMaquina(maquinasCache.find(m=>String(m.id_equipamento)===b.dataset.detalheMaquina)); });
@@ -2962,6 +2978,7 @@ function executarPaleta(i){
   $('paleta').close(); it.fazer();
 }
 $('btnBusca').addEventListener('click', abrirPaleta);
+$('paletaFechar').addEventListener('click', () => $('paleta').close());
 document.addEventListener('keydown', e => {
   if((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k'){ e.preventDefault(); abrirPaleta(); }
 });

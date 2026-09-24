@@ -158,7 +158,6 @@ def test_menus_sem_maquina_refresh_e_word(painel):
     page.clock.install()
     page.clock.fast_forward(5100)
     assert page.evaluate('viewAtual') == 'telemetria'
-    page.locator('#selecionarNoAviso').click()
     page.select_option('#equipamentoSel', '1')
     pw.expect(page.locator('#btnBaixar')).to_be_enabled()
     page.clock.fast_forward(5100)
@@ -328,26 +327,6 @@ def test_editar_maquina_selecionada_atualiza_dispositivo(painel):
     assert page.evaluate('[equipamentoSelecionado, dispositivo]') == [1, 'ESP-1']
     pw.expect(page.locator('#listaMaquinas')).to_contain_text('Trator 1')
     pw.expect(page.locator('#equipamentoSel')).to_have_value('1')
-
-
-def test_selecionar_no_aviso_mantem_aba(painel):
-    page, state = painel
-    nav(page, 'risco')
-    page.locator('#selecionarNoAviso').click()
-    # Com appearance: base-select o picker abre e o foco vai para uma <option> dentro do select.
-    assert page.evaluate("document.getElementById('equipamentoSel').contains(document.activeElement)")
-    assert page.evaluate("document.getElementById('equipamentoSel').matches(':open') || document.getElementById('equipamentoSelWrap').classList.contains('sel-destaque')")
-    assert page.evaluate('viewAtual') == 'risco'
-    pw.expect(page.locator('#semMaquina')).to_be_visible()
-    page.keyboard.press('Escape')
-    state['sem_maquinas'] = True
-    page.select_option('#fazendaSel', '2')
-    pw.expect(page.locator('#resumoFazendaNome')).to_have_text('Fazenda 2')
-    nav(page, 'risco')
-    page.locator('#selecionarNoAviso').click()
-    pw.expect(page.locator('#tituloView')).to_have_text('Máquinas')
-    assert page.evaluate('viewAtual') == 'maquinas'
-    pw.expect(page.locator('#listaMaquinas')).to_contain_text('Nenhuma máquina')
 
 
 def test_selects_estilizados(painel):
