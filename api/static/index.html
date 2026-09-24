@@ -42,6 +42,8 @@
     --g1:#ee8080; --g2:#dd5555; --g3:#c42f2f; --g4:#9c1c1c; --g5:#6e0e0e;
     /* series dos graficos (validadas no dataviz, uma paleta por tema) */
     --s-furto:#2a78d6; --s-incendio:#b70100; --s-media:#eb6834; --s-ambiente:#2a78d6;
+    /* exposicao: valor em risco alto x demais maquinas */
+    --x-alto:#ba1a1a; --x-demais:#2a78d6;
   }
   :root[data-tema="escuro"]{
     color-scheme:dark;
@@ -77,6 +79,7 @@
     /* no escuro a mais grave e a mais clara (mais saliente); validada no fundo #111113 */
     --g1:#8a2c2c; --g2:#b13a3a; --g3:#d94f4f; --g4:#f07676; --g5:#ffa3a3;
     --s-furto:#3987e5; --s-incendio:#e5484d; --s-media:#c98500; --s-ambiente:#3987e5;
+    --x-alto:#e5484d; --x-demais:#3987e5;
   }
   :root[data-tema="escuro"] .kpi{background:linear-gradient(to top, rgba(229,72,77,.08), var(--v-card) 65%)}
   html{transition:background-color .2s}
@@ -274,6 +277,7 @@
       <a href="#" data-nav="inicio" title="Início" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">home</span><span class="sb-txt">Início</span></a>
       <a href="#" data-nav="maquinas" title="Máquinas" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">agriculture</span><span class="sb-txt">Máquinas</span></a>
       <a href="#" data-nav="visao" title="Painel da máquina" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">dashboard</span><span class="sb-txt">Painel da máquina</span></a>
+      <a href="#" data-nav="exposicao" title="Exposição financeira" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">payments</span><span class="sb-txt">Exposição</span></a>
     <div class="sb-txt px-2.5 pt-4 pb-1.5 text-xs font-medium text-on-surface-variant">Operação</div>
       <a href="#" data-nav="operadores" title="Operadores" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">badge</span><span class="sb-txt">Operadores</span></a>
       <a href="#" data-nav="historico" title="Histórico" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">history</span><span class="sb-txt">Histórico</span></a>
@@ -348,6 +352,7 @@
     <a href="#" data-nav="inicio"     class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Início</a>
     <a href="#" data-nav="maquinas"   class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Máquinas</a>
     <a href="#" data-nav="visao"      class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Painel</a>
+    <a href="#" data-nav="exposicao"  class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Exposição</a>
     <a href="#" data-nav="operadores" class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Operadores</a>
     <a href="#" data-nav="historico"  class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Histórico</a>
     <a href="#" data-nav="manutencao" class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Manutenção</a>
@@ -735,6 +740,46 @@
         <div id="listaOperadores"></div>
       </section>
 
+      <!-- EXPOSICAO FINANCEIRA -->
+      <section data-section="exposicao">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+          <div class="kpi">
+            <div class="kpi-ico"><span class="material-symbols-outlined">payments</span></div>
+            <h3 class="text-sm text-on-surface-variant mt-4">Valor segurado</h3>
+            <div id="xTotal" class="text-3xl font-semibold tracking-tight mt-1 tabular">–</div>
+            <p id="xTotalSub" class="text-sm text-on-surface-variant mt-1">Soma das máquinas com valor informado</p>
+          </div>
+          <div class="kpi">
+            <div class="kpi-ico"><span class="material-symbols-outlined">warning</span></div>
+            <h3 class="text-sm text-on-surface-variant mt-4">Em máquinas de risco alto</h3>
+            <div class="flex items-center gap-2 mt-1"><span id="xAlto" class="text-3xl font-semibold tracking-tight tabular">–</span><span id="xAltoPct" class="kpi-pill" style="background:var(--v-hover);color:var(--v-texto-sec);border-color:var(--v-borda)">–</span></div>
+            <p class="text-sm text-on-surface-variant mt-1">Score 67 ou mais nos últimos 7 dias</p>
+          </div>
+          <div class="kpi">
+            <div class="kpi-ico"><span class="material-symbols-outlined">help</span></div>
+            <h3 class="text-sm text-on-surface-variant mt-4">Sem valor informado</h3>
+            <div id="xSemValor" class="text-3xl font-semibold tracking-tight mt-1 tabular">–</div>
+            <p class="text-sm text-on-surface-variant mt-1">Máquinas fora da soma</p>
+          </div>
+        </div>
+        <div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)] p-5 mb-4">
+          <h2 class="text-base font-semibold text-on-surface">Valor por faixa de risco</h2>
+          <p class="text-sm text-on-surface-variant mb-4">Pior score de cada máquina (furto ou incêndio), últimos 7 dias.</p>
+          <div id="xFaixas"></div>
+        </div>
+        <div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)] p-5">
+          <div class="flex items-start justify-between gap-3 flex-wrap mb-4">
+            <div><h2 id="xPorTitulo" class="text-base font-semibold text-on-surface">Por fazenda</h2>
+              <p class="text-sm text-on-surface-variant">Do maior valor segurado para o menor.</p></div>
+            <div class="flex items-center gap-4 text-xs text-on-surface-variant pt-1">
+              <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm" style="background:var(--x-alto)"></span>Em risco alto</span>
+              <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm" style="background:var(--x-demais)"></span>Demais máquinas</span>
+            </div>
+          </div>
+          <div id="listaExposicao"></div>
+        </div>
+      </section>
+
       <!-- MANUTENCAO -->
       <section data-section="manutencao" class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)] p-6">
         <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
@@ -977,6 +1022,7 @@ const DESCRICOES = {
   inicio:'Fazendas monitoradas pela Sompo. Escolha uma para ver a frota.',
   maquinas:'Frota da fazenda selecionada, com risco e comunicação de cada máquina.',
   visao:'Tudo da máquina selecionada: status, risco, alertas e telemetria.',
+  exposicao:'Quanto está segurado e quanto está em máquinas com risco alto.',
   operadores:'Crachás RFID autorizados a operar as máquinas.',
   historico:'Sessões de operação registradas pelo crachá.',
   manutencao:'Próxima manutenção de cada máquina, da mais urgente para a mais tranquila.',
@@ -984,7 +1030,7 @@ const DESCRICOES = {
   clientes:'Empresas donas das fazendas monitoradas.',
   usuarios:'Quem acessa o painel e com qual perfil.',
 };
-const TITULOS = {inicio:'Início', maquinas:'Máquinas', visao:'Painel da máquina', operadores:'Operadores', historico:'Histórico', manutencao:'Manutenção', fazendas:'Fazendas', clientes:'Clientes', usuarios:'Usuários'};
+const TITULOS = {inicio:'Início', maquinas:'Máquinas', visao:'Painel da máquina', exposicao:'Exposição financeira', operadores:'Operadores', historico:'Histórico', manutencao:'Manutenção', fazendas:'Fazendas', clientes:'Clientes', usuarios:'Usuários'};
 // Para cada view, quais seções aparecem e com qual largura (colunas de 12).
 const VIEWS = {
   inicio:     {inicio:12},
@@ -993,6 +1039,7 @@ const VIEWS = {
   operadores: {operadores:12},
   historico:  {historico:12},
   manutencao: {manutencao:12},
+  exposicao:  {exposicao:12},
   fazendas:   {fazendas:12},
   clientes:   {clientes:12},
   usuarios:   {usuarios:12},
@@ -1037,7 +1084,7 @@ function setView(view){
   $('inicioCarteira').hidden = perfilRole === 'gestor_fazenda';
   $('inicioGestor').hidden = perfilRole !== 'gestor_fazenda';
   // Cadastros nao dependem de fazenda/maquina: a barra de contexto some.
-  $('barraContexto').hidden = ['inicio','manutencao','fazendas','clientes','usuarios'].includes(view);
+  $('barraContexto').hidden = ['inicio','manutencao','exposicao','fazendas','clientes','usuarios'].includes(view);
   document.querySelectorAll('[data-rotulo-cadastros]').forEach(el => { el.hidden = perfilRole !== 'sompo'; });
   document.querySelectorAll('[data-nav]').forEach(a => { a.hidden = restrita(a.dataset.nav); });
   $('semMaquina').hidden = !dependeMaquina(view) || !!equipamentoSelecionado;
@@ -1491,6 +1538,77 @@ async function carregarCarteira(){
   fazendasCache = fs;
   const resumos = await Promise.all(fs.map(f => getJSON(`/fazendas/${f.id_fazenda}/resumo?dias=7`).catch(() => null)));
   return {fazendas: fs, resumos};
+}
+
+/* ---------- Exposicao financeira ---------- */
+const BRL = new Intl.NumberFormat('pt-BR', {style:'currency', currency:'BRL'});
+const BRL_CURTO = new Intl.NumberFormat('pt-BR', {style:'currency', currency:'BRL', notation:'compact', maximumFractionDigits:1});
+const FAIXAS_RISCO = [['ALTO','Alto'], ['MEDIO','Médio'], ['BAIXO','Baixo']];
+const classeRisco = r => r >= 67 ? 'ALTO' : r >= 34 ? 'MEDIO' : 'BAIXO';
+function valorCurto(el, v){ el.textContent = BRL_CURTO.format(v); el.title = BRL.format(v); }
+async function carregarExposicao(){
+  try{
+    const {fazendas, resumos} = await carregarCarteira();
+    const gestor = perfilRole === 'gestor_fazenda';
+    const nomeFaz = new Map(fazendas.map(f => [String(f.id_fazenda), f.nome]));
+    const maqs = resumos.flatMap(r => (r?.equipamentos || []).map(m => {
+      const risco = Math.max(m.scores?.score_furto || 0, m.scores?.score_incendio || 0);
+      const valor = m.valor_segurado == null || m.valor_segurado === '' ? null : Number(m.valor_segurado);
+      return {...m, risco, classe: classeRisco(risco), valor: Number.isFinite(valor) ? valor : null,
+              fazenda_nome: r.fazenda?.nome || nomeFaz.get(String(m.fk_fazenda_id_fazenda)) || ''};
+    }));
+    const comValor = maqs.filter(m => m.valor != null);
+    const total = comValor.reduce((a, m) => a + m.valor, 0);
+    const alto = comValor.filter(m => m.classe === 'ALTO').reduce((a, m) => a + m.valor, 0);
+    valorCurto($('xTotal'), total);
+    $('xTotalSub').textContent = `${comValor.length} ${comValor.length === 1 ? 'máquina' : 'máquinas'} com valor informado`;
+    valorCurto($('xAlto'), alto);
+    $('xAltoPct').textContent = total ? `${Math.round(alto / total * 100)}%` : '–';
+    $('xSemValor').textContent = maqs.length - comValor.length;
+
+    // Faixas: uma barra so, um segmento por faixa com valor (rotulo e valor escritos ao lado).
+    const faixas = FAIXAS_RISCO.map(([c, nome]) => [c, nome, comValor.filter(m => m.classe === c).reduce((a, m) => a + m.valor, 0)]).filter(f => f[2] > 0);
+    $('xFaixas').innerHTML = !total ? '<p class="text-sm text-on-surface-variant italic">Nenhuma máquina com valor segurado informado.</p>'
+      : `<div class="flex h-3 w-full gap-[2px] rounded-full overflow-hidden">${faixas.map(([c, nome, v]) =>
+          `<div data-faixa="${c}" class="h-full origin-left" style="flex:${v} 1 0;background:${corRisco(c)}" title="${nome}: ${BRL.format(v)}"></div>`).join('')}</div>
+        <div class="flex flex-wrap gap-x-6 gap-y-2 mt-3 text-sm">${faixas.map(([c, nome, v]) =>
+          `<div class="inline-flex items-center gap-2">${selo(nome, corRisco(c))}<span class="font-medium text-on-surface tabular">${BRL.format(v)}</span><span class="text-on-surface-variant tabular">${Math.round(v / total * 100)}%</span></div>`).join('')}</div>`;
+
+    // Linhas: fazendas (Sompo) ou maquinas (gestor), com a barra dividida em risco alto x demais.
+    const grupos = gestor
+      ? maqs.map(m => ({nome: m.nome, maquinas: 1, total: m.valor ?? 0, alto: m.classe === 'ALTO' ? (m.valor ?? 0) : 0, pior: m.risco, semValor: m.valor == null}))
+      : fazendas.map((f, i) => {
+          const ms = (resumos[i]?.equipamentos || []).map(e => maqs.find(m => m.id_equipamento === e.id_equipamento)).filter(Boolean);
+          const cv = ms.filter(m => m.valor != null);
+          return {nome: f.nome, maquinas: ms.length, total: cv.reduce((a, m) => a + m.valor, 0),
+                  alto: cv.filter(m => m.classe === 'ALTO').reduce((a, m) => a + m.valor, 0),
+                  pior: ms.length ? Math.max(...ms.map(m => m.risco)) : null, indisponivel: !resumos[i]};
+        });
+    grupos.sort((a, b) => b.total - a.total || String(a.nome).localeCompare(String(b.nome)));
+    const maior = Math.max(1, ...grupos.map(g => g.total));
+    $('xPorTitulo').textContent = gestor ? 'Por máquina' : 'Por fazenda';
+    const cab = [gestor ? 'Máquina' : 'Fazenda', ...(gestor ? [] : ['>Máquinas']), '>Valor segurado', 'Proporção', '>Em risco alto', 'Pior risco'];
+    renderLista('listaExposicao', !grupos.length ? vazioHTML('Nenhuma máquina com valor segurado informado.') : tabelaHTML(cab, grupos.map(g => {
+      const c = g.pior == null ? null : classeRisco(g.pior);
+      return `<tr data-linha>
+        <td class="font-medium text-on-surface">${escapar(g.nome)}</td>
+        ${gestor ? '' : `<td class="text-right tabular">${g.maquinas}</td>`}
+        <td class="text-right tabular whitespace-nowrap">${g.indisponivel ? '<span class="text-error">Indisponível</span>' : g.semValor ? '<span class="text-on-surface-variant">Não informado</span>' : BRL.format(g.total)}</td>
+        <td class="w-[30%] min-w-[140px]"><div class="flex h-2 rounded-full overflow-hidden gap-[2px]" style="width:${Math.max(g.total / maior * 100, g.total ? 2 : 0)}%" title="Em risco alto: ${BRL.format(g.alto)} · Demais: ${BRL.format(g.total - g.alto)}">
+          ${g.alto ? `<div data-barra class="h-full origin-left" style="flex:${g.alto} 1 0;background:var(--x-alto)"></div>` : ''}
+          ${g.total - g.alto ? `<div data-barra class="h-full origin-left" style="flex:${g.total - g.alto} 1 0;background:var(--x-demais)"></div>` : ''}
+        </div></td>
+        <td class="text-right tabular whitespace-nowrap">${g.alto ? BRL.format(g.alto) : '<span class="text-on-surface-variant">–</span>'}</td>
+        <td>${c ? `<span class="inline-flex items-center gap-2"><span class="tabular">${g.pior}</span>${selo(c, corRisco(c))}</span>` : '<span class="text-on-surface-variant">–</span>'}</td>
+      </tr>`;
+    }).join(''), cab.length));
+
+    if(animarAgora('exposicao')){
+      entrar($('xFaixas'), () => crescer($('xFaixas').querySelectorAll('[data-faixa]'), 'X', {dur: 700, atraso: 80}));
+      entrar($('listaExposicao'), () => crescer($('listaExposicao').querySelectorAll('[data-barra]'), 'X', {dur: 700, atraso: 40}));
+      [$('xTotal'), $('xAlto')].forEach(el => entrar(el, () => fade([el], {sobe: 6, dur: 420})));
+    }
+  }catch(e){ if(e.obsoleto) return; $('listaExposicao').innerHTML = erroLista('Valores indisponíveis.'); }
 }
 
 /* ---------- Manutencao ---------- */
@@ -2959,6 +3077,7 @@ async function atualizarView(){
   if(viewAtual === 'maquinas'){ await Promise.all([carregarSaude(), carregarResumoFazenda()]); $('ultima').textContent = new Date().toLocaleTimeString('pt-BR'); return; }
   if(viewAtual === 'operadores'){ await Promise.all([carregarSaude(), carregarOperadores()]); $('ultima').textContent = new Date().toLocaleTimeString('pt-BR'); return; }
   if(viewAtual === 'historico'){ await Promise.all([carregarSaude(), carregarHistorico()]); $('ultima').textContent = new Date().toLocaleTimeString('pt-BR'); return; }
+  if(viewAtual === 'exposicao'){ await Promise.all([carregarSaude(), carregarExposicao()]); $('ultima').textContent = new Date().toLocaleTimeString('pt-BR'); return; }
   if(viewAtual === 'manutencao'){ await Promise.all([carregarSaude(), carregarManutencao()]); $('ultima').textContent = new Date().toLocaleTimeString('pt-BR'); return; }
   if(viewAtual === 'fazendas'){ await carregarFazendas(); return; }
   if(viewAtual === 'clientes'){ await carregarListaClientes(); return; }
@@ -3199,7 +3318,7 @@ $('formUsuario').addEventListener('submit', criarUsuario);
 
 // Busca rapida (Ctrl+K): maquinas da fazenda, fazendas, telas e acoes.
 const semAcento = t => String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-const ICONE_TELA = {inicio:'home', maquinas:'agriculture', visao:'dashboard',
+const ICONE_TELA = {inicio:'home', maquinas:'agriculture', visao:'dashboard', exposicao:'payments',
                     operadores:'badge', historico:'history', manutencao:'build', fazendas:'landscape', clientes:'group', usuarios:'manage_accounts'};
 let paletaItens = [], paletaSel = 0;
 function itensPaleta(){

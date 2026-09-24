@@ -22,7 +22,7 @@ def painel(request):
         browser = p.chromium.launch(channel=os.getenv('SOMPO_TEST_BROWSER') or None)
         page = browser.new_page(viewport={'width': request.param, 'height': 900})
         state = dict(role='sompo', fail=set(), posts=[], held=[], hold=None, errors=[],
-                     sem_esp32=False, sem_maquinas=False, deleted=set(), deletes=[], delete_error=None, manut={})
+                     sem_esp32=False, sem_maquinas=False, deleted=set(), deletes=[], delete_error=None, manut={}, valor={}, scores={})
         page.on('pageerror', lambda e: state['errors'].append(str(e)))
 
         def route(r):
@@ -79,7 +79,8 @@ def painel(request):
                 data = dict(fazenda=FARMS[i-1], equipamentos=[] if state['sem_maquinas'] or f'/equipamentos/{i}' in state['deleted'] else [dict(
                     id_equipamento=i, nome=f'Trator {i}', fk_fazenda_id_fazenda=i, fk_cliente_id_cliente=i,
                     dispositivo_id=None if state['sem_esp32'] else f'ESP-{i}', fabricacao='2020-01-02',
-                    ultima_manutencao=state['manut'].get(i, '2026-09-01'), valor_segurado='150000.50')])
+                    ultima_manutencao=state['manut'].get(i, '2026-09-01'), valor_segurado=state['valor'].get(i, '150000.50'),
+                    scores=state['scores'].get(i))])
                 data['alertas_recentes'] = [] if not data['equipamentos'] else [dict(
                     id=10 + k, tipo=t, severidade=sev, equipamento_id=i, equipamento_nome=f'Trator {i}',
                     horario_ocorrencia='2026-09-18T12:00:00Z', criado_em='2026-09-18T12:00:00Z')
@@ -111,7 +112,7 @@ def nav(page, view):
     page.locator(f'[data-nav="{view}"]:visible').click()
     pw.expect(page.locator('#tituloView')).to_have_text({
         'inicio': 'Início', 'visao': 'Painel da máquina', 'maquinas': 'Máquinas', 'operadores': 'Operadores',
-        'historico': 'Histórico', 'manutencao': 'Manutenção', 'fazendas': 'Fazendas', 'clientes': 'Clientes',
+        'historico': 'Histórico', 'manutencao': 'Manutenção', 'exposicao': 'Exposição financeira', 'fazendas': 'Fazendas', 'clientes': 'Clientes',
         'usuarios': 'Usuários'}[view])
 
 
@@ -533,3 +534,30 @@ def test_manutencao_do_gestor_so_tem_a_fazenda_dele(painel):
     pw.expect(page.locator('#listaManutencao [data-manut]')).to_have_count(1)
     pw.expect(page.locator('#listaManutencao')).to_contain_text('Sem registro')
     assert page.locator('#listaManutencao th', has_text='Fazenda').count() == 0
+
+
+def test_exposicao_soma_valor_e_separa_risco_alto(painel):
+    page, state = painel
+    state['scores'] = {1: dict(score_furto=80, score_incendio=0), 2: dict(score_furto=10, score_incendio=0)}
+    state['valor'] = {2: '50000'}
+    nav(page, 'exposicao')
+    pw.expect(page.locator('#xTotal')).to_have_attribute('title', re.compile(r'200\.000,50'))
+    pw.expect(page.locator('#xAlto')).to_have_attribute('title', re.compile(r'150\.000,50'))
+    pw.expect(page.locator('#xAltoPct')).to_have_text('75%')
+    linhas = page.locator('#listaExposicao [data-linha]')
+    pw.expect(linhas).to_have_count(2)
+    pw.expect(linhas.nth(0)).to_contain_text('Fazenda 1')
+    pw.expect(linhas.nth(0)).to_contain_text('ALTO')
+    pw.expect(page.locator('#xFaixas [data-faixa]')).to_have_count(2)
+    assert not state['errors']
+
+
+def test_exposicao_do_gestor_e_por_maquina_e_conta_sem_valor(painel):
+    page, state = painel
+    state['role'] = 'gestor_fazenda'
+    state['valor'] = {1: None}
+    page.reload()
+    nav(page, 'exposicao')
+    pw.expect(page.locator('#xSemValor')).to_have_text('1')
+    pw.expect(page.locator('#listaExposicao')).to_contain_text('Trator 1')
+    assert page.locator('#listaExposicao th', has_text='Fazenda').count() == 0
