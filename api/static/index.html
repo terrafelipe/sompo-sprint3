@@ -817,7 +817,7 @@
           <div><label for="maqManutencao" class="block text-xs font-semibold mb-1">Última manutenção</label><input id="maqManutencao" type="date" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2"/></div>
           <div><label for="maqValor" class="block text-xs font-semibold mb-1">Valor segurado (R$)</label><input id="maqValor" type="number" min="0" step="0.01" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2"/></div>
           <p class="text-xs">O cliente proprietário é definido pela fazenda escolhida. O ID do equipamento é gerado no cadastro; o ID do ESP32 identifica o dispositivo físico.</p>
-          <div class="md:col-span-2 flex items-center gap-3"><button type="submit" id="maqSalvar" class="bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg">Salvar máquina</button><button type="button" id="btnCancelarMaquina" class="font-semibold text-on-surface-variant px-3 py-2">Cancelar</button><span id="maqMsg" class="text-[13px] font-semibold"></span></div>
+          <div class="md:col-span-2 flex flex-wrap items-center gap-x-3 gap-y-2"><button type="submit" id="maqSalvar" class="bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg">Salvar máquina</button><button type="button" id="btnCancelarMaquina" class="font-semibold text-on-surface-variant px-3 py-2">Cancelar</button><span id="maqMsg" class="basis-full md:basis-0 md:grow text-[13px] font-semibold"></span></div>
         </form>
         <div id="listaMaquinas" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
       </section>
@@ -833,7 +833,7 @@
           <div><label for="opMatricula" class="block text-xs font-semibold text-on-surface-variant mb-1">Matrícula (opcional)</label><input aria-describedby="matriculaAjuda" id="opMatricula" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2"/><p id="matriculaAjuda" class="text-xs text-on-surface-variant mt-1">Código interno do funcionário, se houver.</p></div>
           <div><label class="block text-xs font-semibold text-on-surface-variant mb-1">UID do crachá (RFID) *</label><input id="opUid" required class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 uppercase" placeholder="8B EE BC 06" aria-description="Identificador do crachá RFID"/></div>
           <div id="opFazendaWrap"><label class="block text-xs font-semibold text-on-surface-variant mb-1">Fazenda *</label><select id="opFazenda" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"></select></div>
-          <div class="md:col-span-2 flex items-center gap-3"><button type="submit" class="bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg">Salvar operador</button><button type="button" id="btnCancelarOperador" class="font-semibold text-on-surface-variant px-3 py-2">Cancelar</button><span id="opMsg" class="text-[13px] font-semibold"></span></div>
+          <div class="md:col-span-2 flex flex-wrap items-center gap-x-3 gap-y-2"><button type="submit" class="bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg">Salvar operador</button><button type="button" id="btnCancelarOperador" class="font-semibold text-on-surface-variant px-3 py-2">Cancelar</button><span id="opMsg" class="basis-full md:basis-0 md:grow text-[13px] font-semibold"></span></div>
         </form>
         <div id="listaOperadores"></div>
       </section>
@@ -3541,7 +3541,7 @@ async function criarUsuario(ev){
   try{
     const r = await fetch('/usuarios', {method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json'}, body: JSON.stringify(payload)});
     const data = await r.json().catch(()=>({}));
-    if(!r.ok){ msg.textContent = ERRO_USUARIO[data.erro] || ('Erro ao salvar ('+(data.erro || ('HTTP '+r.status))+').'); msg.style.color='#ba1a1a'; return; }
+    if(!r.ok){ msg.textContent = ERRO_USUARIO[data.erro] || 'Não foi possível salvar agora. Tente de novo em instantes.'; msg.style.color='#ba1a1a'; return; }
     msg.textContent='Usuário criado! ✓'; msg.style.color='#10b981';
     $('formUsuario').reset(); atualizarCampoFazendaUsuario();
     await carregarUsuarios();
@@ -3550,6 +3550,30 @@ async function criarUsuario(ev){
 }
 
 /* ---------- Frota, operadores e histórico ---------- */
+// Códigos de erro da API de frota em frases: o código cru (com _) nunca vai para a tela.
+const ERRO_FROTA = {
+  cracha_ja_cadastrado:'Este crachá já pertence a outro operador ativo. Use outro crachá ou exclua o operador antigo.',
+  uid_invalido:'Crachá inválido: use o UID do cartão, com 8, 14 ou 20 caracteres (0 a 9 e A a F).',
+  nome_invalido:'Informe o nome (até 255 caracteres).', matricula_invalido:'A matrícula pode ter até 100 caracteres.',
+  tipo_invalido:'O tipo pode ter até 100 caracteres.', modelo_invalido:'O modelo pode ter até 100 caracteres.',
+  fabricacao_invalida:'Data de fabricação inválida.', ultima_manutencao_invalida:'Data da última manutenção inválida.',
+  valor_segurado_invalido:'Valor segurado inválido: use um número igual ou maior que zero.',
+  dispositivo_invalido:'ID do ESP32 inválido.', dispositivo_id_invalido:'ID do ESP32 inválido.',
+  dispositivo_ja_vinculado:'Este ESP32 já está vinculado a outra máquina.',
+  remanejamento_nao_permitido:'O ESP32 desta máquina não pode ser trocado.',
+  fazenda_invalido:'Selecione a fazenda.', fazenda_excluida:'Esta fazenda foi excluída.',
+  fazenda_sem_cliente:'Esta fazenda ainda não tem cliente vinculado.',
+  transferencia_nao_permitida:'O cadastro não pode mudar de fazenda.',
+  proibido:'Você não tem permissão para alterar este cadastro.', fazenda_nao_vinculada:'Você não tem permissão para alterar este cadastro.',
+  operador_de_outra_fazenda:'Só operadores da fazenda da máquina podem ser autorizados.',
+  operador_inativo:'Operadores inativos não podem ser autorizados.',
+  equipamento_sem_dispositivo:'Informe o ID do ESP32 da máquina antes de gerar a credencial.',
+  cadastro_duplicado:'Já existe um cadastro com esses dados.', dados_invalidos:'Confira os dados e tente de novo.',
+  operacao_em_conflito:'Outra alteração estava em andamento. Tente de novo.', nao_encontrado:'Cadastro não encontrado. Atualize a página.',
+  operador_ids_invalidos:'Seleção de operadores inválida. Atualize a página e tente de novo.',
+  frota_indisponivel:'O banco de dados não respondeu agora. Tente de novo em instantes.'
+};
+const erroFrota = d => ERRO_FROTA[d && d.erro] || 'Não foi possível salvar agora. Tente de novo em instantes.';
 const COMUNICACAO = {recente:['Online','#10b981'], atrasada:['Atrasada','#f59e0b'], sem_dados:['Sem dados','#545f73'], sem_dispositivo:['Sem ESP32','#545f73']};
 
 // Sem fazenda (ou fazenda sem máquinas) a caixa continua visível: o rótulo fica em
@@ -3661,7 +3685,7 @@ async function salvarMaquina(ev){
   const url = editando ? `/equipamentos/${editando.id_equipamento}` : '/equipamentos';
   const envio = envioMaquina;   // se o form mudar de modo enquanto o envio está pendente, a resposta não mexe nele
   msg.textContent='Salvando…'; msg.style.color=''; $('maqSalvar').disabled = true;
-  try{ const r=await fetch(url,{method:editando?'PATCH':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); const d=await r.json(); if(!r.ok) throw new Error(d.erro||`HTTP ${r.status}`);
+  try{ const r=await fetch(url,{method:editando?'PATCH':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); const d=await r.json().catch(()=>({})); if(!r.ok) throw new Error(erroFrota(d));
     if(editando && String(equipamentoSelecionado)===String(editando.id_equipamento) && d.equipamento){
       dispositivo = d.equipamento.dispositivo_id || ''; $('dispositivo').value = dispositivo;
     }
@@ -3690,8 +3714,8 @@ async function carregarOperadores(){
 async function criarOperador(ev){
   ev.preventDefault(); const msg=$('opMsg');
   const payload={nome:$('opNome').value.trim(),matricula:$('opMatricula').value.trim(),uid:$('opUid').value.trim(),fk_fazenda_id_fazenda:$('opFazenda').value};
-  msg.textContent='Salvando…';
-  try{ const r=await fetch('/operadores',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); const d=await r.json(); if(!r.ok) throw new Error(d.erro||`HTTP ${r.status}`);
+  msg.textContent='Salvando…'; msg.style.color='';
+  try{ const r=await fetch('/operadores',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); const d=await r.json().catch(()=>({})); if(!r.ok){ if(d.erro==='cracha_ja_cadastrado'||d.erro==='uid_invalido') $('opUid').focus(); throw new Error(erroFrota(d)); }
     $('formOperador').reset(); $('formOperador').classList.add('hidden'); msg.textContent=''; await carregarOperadores();
   }catch(e){ if(e.obsoleto) return; msg.textContent=e.message; msg.style.color='#ba1a1a'; }
 }
@@ -3708,12 +3732,12 @@ async function gerenciarAutorizacoes(id){
 async function salvarAutorizacoes(id){
   const ids=[...document.querySelectorAll('input[name="opAutorizado"]:checked')].map(x=>Number(x.value));
   const r=await fetch(`/equipamentos/${id}/operadores`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({operador_ids:ids})});
-  const d=await r.json(); $('autMsg').textContent=r.ok?'Autorizações salvas; o ESP32 sincroniza em até 60 segundos.':(d.erro||`HTTP ${r.status}`);
+  const d=await r.json().catch(()=>({})); $('autMsg').textContent=r.ok?'Autorizações salvas; o ESP32 sincroniza em até 60 segundos.':erroFrota(d);
 }
 
 async function gerarCredencial(id){
-  const r=await fetch(`/equipamentos/${id}/credencial`,{method:'POST'}); const d=await r.json();
-  $('autMsg').innerHTML = r.ok ? `Token exibido uma única vez. Copie para <code>DISPOSITIVO_TOKEN_CFG</code>:<div class="mt-2 p-3 rounded bg-surface-container font-mono break-all select-all">${d.token}</div>` : (d.erro||`HTTP ${r.status}`);
+  const r=await fetch(`/equipamentos/${id}/credencial`,{method:'POST'}); const d=await r.json().catch(()=>({}));
+  $('autMsg').innerHTML = r.ok ? `Token exibido uma única vez. Copie para <code>DISPOSITIVO_TOKEN_CFG</code>:<div class="mt-2 p-3 rounded bg-surface-container font-mono break-all select-all">${d.token}</div>` : escapar(erroFrota(d));
 }
 
 let historicoCache = [], historicoPagina = 0;
