@@ -41,6 +41,10 @@ select pg_temp.check_true((select e.config_versao>v.config_versao from equipamen
 select pg_temp.check_true(sincronizar_dispositivo('DEVICE-2','secret-two')->'operadores'='[]'::jsonb,'archived operator not synchronized');
 select concluir_migracao_dispositivos();
 select pg_temp.rejects($q$select definir_operadores_equipamento(3,array[2]::bigint[])$q$,'cannot reauthorize deleted operator');
+-- The badge of a deleted operator can be issued to someone new, but stays unique among live operators.
+insert into operadores(nome,uid,fk_fazenda_id_fazenda) values('Reuso','12345678',2);
+select pg_temp.check_true((select count(*)=1 from operadores where uid='12345678' and excluido_em is null),'deleted operator UID reusable');
+select pg_temp.rejects($q$insert into operadores(nome,uid,fk_fazenda_id_fazenda) values('Dup','12-34-56-78',2)$q$,'live operator UID stays unique');
 select pg_temp.check_true((excluir_cadastro('usuarios',3,null)->>'ok')::boolean,'archive farm login');
 select pg_temp.check_true((excluir_cadastro('equipamentos',2,null)->>'ok')::boolean,'archive remaining machine');
 select pg_temp.check_true((excluir_cadastro('fazendas',1,null)->>'ok')::boolean,'archive empty farm');

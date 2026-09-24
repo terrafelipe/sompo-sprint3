@@ -36,6 +36,8 @@ def banco(monkeypatch):
             elif expr.startswith('in.('):
                 values = expr[4:-1].split(',')
                 rows = [r for r in rows if str(r.get(campo)) in values]
+            elif expr == 'is.null':
+                rows = [r for r in rows if r.get(campo) is None]
         return rows[offset:offset+limite]
     def inserir(tabela, dados):
         pk = {'equipamentos': 'id_equipamento', 'operadores': 'id_operador'}[tabela]
@@ -141,6 +143,13 @@ def test_historico_vazio_diferente_de_falha(banco):
 def test_uid_invalido_ou_duplicado_nao_cria_operador(banco, uid):
     assert gestor().post('/operadores', json={'nome': 'Carlos', 'uid': uid}).status_code in (400, 409)
     assert len(banco['operadores']) == 2
+
+
+def test_uid_de_operador_excluido_pode_ser_reaproveitado(banco):
+    banco['operadores'][0]['excluido_em'] = '2026-09-24T12:00:00+00:00'
+    r = gestor().post('/operadores', json={'nome': 'Felipe', 'uid': '01020304'})
+    assert r.status_code == 201
+    assert r.json['operador']['uid'] == '01020304'
 
 
 def test_transferencia_e_remanejamento_nao_permitidos(banco):

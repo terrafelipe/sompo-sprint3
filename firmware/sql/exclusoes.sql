@@ -7,6 +7,15 @@ alter table public.usuario add column if not exists excluido_em timestamptz;
 alter table public.operadores add column if not exists excluido_em timestamptz;
 alter table public.equipamentos add column if not exists excluido_em timestamptz;
 
+-- A deleted operator's badge (UID) can be issued to someone else: uniqueness only
+-- among live operators. Drops the old unique(uid) whatever its constraint name.
+do $$ declare c text; begin
+ for c in select conname from pg_constraint where conrelid='public.operadores'::regclass and contype='u'
+  and conkey=array[(select attnum from pg_attribute where attrelid='public.operadores'::regclass and attname='uid')]
+ loop execute format('alter table public.operadores drop constraint %I',c); end loop;
+end $$;
+create unique index if not exists operadores_uid_vivo_uk on public.operadores(uid) where excluido_em is null;
+
 -- Serialize short management transactions BEFORE they acquire row locks. This
 -- also covers inserts/updates outside the API and the last-administrator check.
 create or replace function public.cadastro_serializar() returns trigger

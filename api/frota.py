@@ -180,7 +180,8 @@ def dados_operador(corpo, atual=None):
     uid = re.sub(r'[\s:-]', '', uid).upper()
     if len(uid) not in (8, 14, 20) or not re.fullmatch(r'[0-9A-F]+', uid):
         raise FrotaErro('uid_invalido')
-    rows = db.consultar_tabela('operadores', filtros={'uid': f'eq.{uid}'}, limite=1)
+    # Só operadores ativos seguram o crachá: o de um excluído pode ir para outra pessoa.
+    rows = db.consultar_tabela('operadores', filtros={'uid': f'eq.{uid}', 'excluido_em': 'is.null'}, limite=1)
     if rows and rows[0]['id_operador'] != atual.get('id_operador'):
         raise FrotaErro('cracha_ja_cadastrado', 409)
     return {'nome': texto(merged.get('nome'), 'nome', obrigatorio=True),

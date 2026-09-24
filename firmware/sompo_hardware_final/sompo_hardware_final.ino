@@ -403,7 +403,9 @@ namespace Frota {
     equipamentoId = equipamento; configVersao = versao; totalOperadores = total;
     memcpy(operadores, novos, total * sizeof(Operador));
     bool salvo = salvarConfig();
-    bool atualRevogado = sessaoAtual[0] && !operadorPorUid(uidAtual);
+    // Revoga se o cracha da sessao saiu da lista OU passou para outro operador
+    // (UID de operador excluido reaproveitado): compara o id, nao so o UID.
+    bool atualRevogado = sessaoAtual[0] && operadorPorUid(uidAtual) != operadorAtual;
     if (salvo && atualRevogado && !encerrarSessao("autorizacao_revogada"))
       Serial.println("[FROTA] revogacao recebida, mas encerramento aguarda espaco na fila");
     return salvo;
