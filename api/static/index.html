@@ -847,9 +847,9 @@
           </div>
           <div class="kpi">
             <div class="kpi-ico"><span class="material-symbols-outlined">help</span></div>
-            <h3 class="text-sm text-on-surface-variant mt-4">Sem valor informado</h3>
+            <h3 class="text-sm text-on-surface-variant mt-4">Máquinas sem valor segurado</h3>
             <div id="xSemValor" class="text-3xl font-semibold tracking-tight mt-1 tabular">–</div>
-            <p class="text-sm text-on-surface-variant mt-1">Máquinas fora da soma</p>
+            <p id="xSemValorSub" class="text-sm text-on-surface-variant mt-1">Máquinas cadastradas sem o valor segurado.</p>
           </div>
         </div>
         <div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)] p-5 mb-4">
@@ -1875,6 +1875,7 @@ const BRL_CURTO = new Intl.NumberFormat('pt-BR', {style:'currency', currency:'BR
 const FAIXAS_RISCO = [['ALTO','Alto'], ['MEDIO','Médio'], ['BAIXO','Baixo']];
 const classeRisco = r => r >= 67 ? 'ALTO' : r >= 34 ? 'MEDIO' : 'BAIXO';
 function valorCurto(el, v){ el.textContent = BRL_CURTO.format(v); el.title = BRL.format(v); }
+const qtdMaquinas = n => `${n} ${n === 1 ? 'máquina' : 'máquinas'}`;
 async function carregarExposicao(){
   try{
     const {fazendas, resumos} = await carregarCarteira();
@@ -1887,58 +1888,109 @@ async function carregarExposicao(){
               fazenda_nome: r.fazenda?.nome || nomeFaz.get(String(m.fk_fazenda_id_fazenda)) || ''};
     }));
     const comValor = maqs.filter(m => m.valor != null);
+    const semValor = maqs.filter(m => m.valor == null);
     const total = comValor.reduce((a, m) => a + m.valor, 0);
     const alto = comValor.filter(m => m.classe === 'ALTO').reduce((a, m) => a + m.valor, 0);
     valorCurto($('xTotal'), total);
-    $('xTotalSub').textContent = `${comValor.length} ${comValor.length === 1 ? 'máquina' : 'máquinas'} com valor informado`;
+    $('xTotalSub').textContent = `${qtdMaquinas(comValor.length)} com valor informado`;
     valorCurto($('xAlto'), alto);
     $('xAltoPct').textContent = total ? `${Math.round(alto / total * 100)}%` : '–';
-    $('xSemValor').textContent = maqs.length - comValor.length;
+    $('xSemValor').textContent = semValor.length;
+    $('xSemValor').title = semValor.map(m => m.nome).join(', ');
+    $('xSemValorSub').textContent = semValor.length
+      ? 'Ficam fora das somas acima. Informe o valor em Máquinas, no botão Editar.'
+      : 'Todas as máquinas têm valor segurado no cadastro.';
 
     // Faixas: uma barra so, um segmento por faixa com valor (rotulo e valor escritos ao lado).
-    const faixas = FAIXAS_RISCO.map(([c, nome]) => [c, nome, comValor.filter(m => m.classe === c).reduce((a, m) => a + m.valor, 0)]).filter(f => f[2] > 0);
-    $('xFaixas').innerHTML = !total ? '<p class="text-sm text-on-surface-variant italic">Nenhuma máquina com valor segurado informado.</p>'
-      : `<div class="flex h-3 w-full gap-[2px] rounded-full overflow-hidden">${faixas.map(([c, nome, v]) =>
-          `<div data-faixa="${c}" class="h-full origin-left" style="flex:${v} 1 0;background:${corRisco(c)}" title="${nome}: ${BRL.format(v)}"></div>`).join('')}</div>
+    // Quantidade e valor ficam em data-* para o tooltip; so reescreve quando algo muda.
+    const faixas = FAIXAS_RISCO.map(([c, nome]) => {
+      const ms = comValor.filter(m => m.classe === c);
+      return [c, nome, ms.reduce((a, m) => a + m.valor, 0), ms.length];
+    }).filter(f => f[2] > 0);
+    const htmlFaixas = !total ? '<p class="text-sm text-on-surface-variant italic">Nenhuma máquina com valor segurado informado.</p>'
+      : `<div class="flex h-3 w-full gap-[2px] rounded-full overflow-hidden">${faixas.map(([c, nome, v, n]) =>
+          `<div data-faixa="${c}" data-nome="${nome}" data-qtd="${n}" data-valor="${v}" data-pct="${Math.round(v / total * 100)}" class="h-full origin-left" style="flex:${v} 1 0;background:${corRisco(c)}" role="img" aria-label="Risco ${nome.toLowerCase()}: ${qtdMaquinas(n)}, ${BRL.format(v)}"></div>`).join('')}</div>
         <div class="flex flex-wrap gap-x-6 gap-y-2 mt-3 text-sm">${faixas.map(([c, nome, v]) =>
           `<div class="inline-flex items-center gap-2">${selo(nome, corRisco(c))}<span class="font-medium text-on-surface tabular">${BRL.format(v)}</span><span class="text-on-surface-variant tabular">${Math.round(v / total * 100)}%</span></div>`).join('')}</div>`;
+    if(mudou('exposicao-faixas', htmlFaixas) || !$('xFaixas').firstChild){ tipExpoEsconder(); $('xFaixas').innerHTML = htmlFaixas; }
 
     // Linhas: fazendas (Sompo) ou maquinas (gestor), com a barra dividida em risco alto x demais.
     const grupos = gestor
-      ? maqs.map(m => ({nome: m.nome, maquinas: 1, total: m.valor ?? 0, alto: m.classe === 'ALTO' ? (m.valor ?? 0) : 0, pior: m.risco, semValor: m.valor == null}))
+      ? maqs.map(m => ({nome: m.nome, maquinas: 1, total: m.valor ?? 0, alto: m.classe === 'ALTO' ? (m.valor ?? 0) : 0,
+                        nAlto: m.valor != null && m.classe === 'ALTO' ? 1 : 0, nDemais: m.valor != null && m.classe !== 'ALTO' ? 1 : 0,
+                        pior: m.risco, semValor: m.valor == null}))
       : fazendas.map((f, i) => {
           const ms = (resumos[i]?.equipamentos || []).map(e => maqs.find(m => m.id_equipamento === e.id_equipamento)).filter(Boolean);
-          const cv = ms.filter(m => m.valor != null);
+          const cv = ms.filter(m => m.valor != null), ca = cv.filter(m => m.classe === 'ALTO');
           return {nome: f.nome, maquinas: ms.length, total: cv.reduce((a, m) => a + m.valor, 0),
-                  alto: cv.filter(m => m.classe === 'ALTO').reduce((a, m) => a + m.valor, 0),
+                  alto: ca.reduce((a, m) => a + m.valor, 0), nAlto: ca.length, nDemais: cv.length - ca.length,
                   pior: ms.length ? Math.max(...ms.map(m => m.risco)) : null, indisponivel: !resumos[i]};
         });
     grupos.sort((a, b) => b.total - a.total || String(a.nome).localeCompare(String(b.nome)));
     const maior = Math.max(1, ...grupos.map(g => g.total));
     $('xPorTitulo').textContent = gestor ? 'Por máquina' : 'Por fazenda';
     const cab = [gestor ? 'Máquina' : 'Fazenda', ...(gestor ? [] : ['>Máquinas']), '>Valor segurado', 'Proporção', '>Em risco alto', 'Pior risco'];
+    const segmento = (g, tipo, v, n) => !v ? '' :
+      `<div data-barra="${tipo}" data-nome="${escapar(g.nome)}" data-qtd="${n}" data-valor="${v}" class="h-full origin-left" style="flex:${v} 1 0;background:var(${tipo === 'alto' ? '--x-alto' : '--x-demais'})" role="img" aria-label="${tipo === 'alto' ? 'Em risco alto' : 'Demais máquinas'}: ${qtdMaquinas(n)}, ${BRL.format(v)}"></div>`;
     renderLista('listaExposicao', !grupos.length ? vazioHTML('Nenhuma máquina com valor segurado informado.') : tabelaHTML(cab, grupos.map(g => {
       const c = g.pior == null ? null : classeRisco(g.pior);
       return `<tr data-linha>
         <td class="font-medium text-on-surface">${escapar(g.nome)}</td>
         ${gestor ? '' : `<td class="text-right tabular">${g.maquinas}</td>`}
         <td class="text-right tabular whitespace-nowrap">${g.indisponivel ? '<span class="text-error">Indisponível</span>' : g.semValor ? '<span class="text-on-surface-variant">Não informado</span>' : BRL.format(g.total)}</td>
-        <td class="w-[30%] min-w-[140px]"><div class="flex h-2 rounded-full overflow-hidden gap-[2px]" style="width:${Math.max(g.total / maior * 100, g.total ? 2 : 0)}%" title="Em risco alto: ${BRL.format(g.alto)} · Demais: ${BRL.format(g.total - g.alto)}">
-          ${g.alto ? `<div data-barra class="h-full origin-left" style="flex:${g.alto} 1 0;background:var(--x-alto)"></div>` : ''}
-          ${g.total - g.alto ? `<div data-barra class="h-full origin-left" style="flex:${g.total - g.alto} 1 0;background:var(--x-demais)"></div>` : ''}
+        <td class="w-[30%] min-w-[140px]"><div class="flex h-2 rounded-full overflow-hidden gap-[2px]" style="width:${Math.max(g.total / maior * 100, g.total ? 2 : 0)}%">
+          ${segmento(g, 'alto', g.alto, g.nAlto)}
+          ${segmento(g, 'demais', g.total - g.alto, g.nDemais)}
         </div></td>
         <td class="text-right tabular whitespace-nowrap">${g.alto ? BRL.format(g.alto) : '<span class="text-on-surface-variant">–</span>'}</td>
         <td>${c ? `<span class="inline-flex items-center gap-2"><span class="tabular">${g.pior}</span>${selo(c, corRisco(c))}</span>` : '<span class="text-on-surface-variant">–</span>'}</td>
       </tr>`;
     }).join(''), cab.length));
 
-    if(animarAgora('exposicao')){
+    // Anima so na PRIMEIRA pintura da pagina: ao voltar para a aba, os valores so se atualizam
+    // (antes as barras voltavam a zero e os numeros piscavam a cada entrada).
+    const sec = document.querySelector('[data-section="exposicao"]');
+    const entrada = animarAgora('exposicao');
+    if(entrada && !sec.dataset.pintado){
+      sec.dataset.pintado = '1';
       entrar($('xFaixas'), () => crescer($('xFaixas').querySelectorAll('[data-faixa]'), 'X', {dur: 700, atraso: 80}));
       entrar($('listaExposicao'), () => crescer($('listaExposicao').querySelectorAll('[data-barra]'), 'X', {dur: 700, atraso: 40}));
       [$('xTotal'), $('xAlto')].forEach(el => entrar(el, () => fade([el], {sobe: 6, dur: 420})));
+    }else if(entrada){
+      // Saiu antes de a 1a animacao terminar (ou ela ficou pausada na fila): conclui na hora,
+      // senao as barras voltariam do zero ou ficariam paradas em zero.
+      sec.querySelectorAll('[data-faixa], [data-barra], #xTotal, #xAlto').forEach(el =>
+        el.getAnimations().forEach(a => { try{ a.finish(); }catch(_){} }));
     }
   }catch(e){ if(e.obsoleto) return; $('listaExposicao').innerHTML = erroLista('Valores indisponíveis.'); }
 }
+// Tooltip dos segmentos (faixas e Proporcao): quantas maquinas e quanto valor em cada situacao.
+// Um ouvinte por container (o HTML interno so muda quando os dados mudam); no toque abre no
+// pointerdown e fecha no scroll ou ao tocar fora.
+let tipExpoAberto = false;
+function tipExpoEsconder(){ if(tipExpoAberto){ tipExpoAberto = false; tipEsconder(); } }
+function tipExpoMostrar(ev, el){
+  const n = +el.dataset.qtd, v = +el.dataset.valor;
+  if(el.dataset.faixa){
+    tipMostrar(ev, `Risco ${el.dataset.nome.toLowerCase()}`, [[corRisco(el.dataset.faixa), qtdMaquinas(n), `${BRL.format(v)} · ${el.dataset.pct}%`]]);
+  }else{
+    const altoSeg = el.dataset.barra === 'alto';
+    tipMostrar(ev, el.dataset.nome, [[altoSeg ? 'var(--x-alto)' : 'var(--x-demais)', `${altoSeg ? 'Em risco alto' : 'Demais máquinas'}: ${qtdMaquinas(n)}`, BRL.format(v)]]);
+  }
+  // Barra larga em tela estreita: o tooltip nao pode sair pela borda (390 px).
+  const t = $('vizTip'), w = t.offsetWidth;
+  t.style.left = Math.max(8, Math.min(parseFloat(t.style.left) || 0, innerWidth - w - 8)) + 'px';
+  tipExpoAberto = true;
+}
+['xFaixas', 'listaExposicao'].forEach(id => {
+  const cont = $(id);
+  const seg = ev => ev.target.closest?.('#xFaixas [data-faixa], #listaExposicao [data-barra]');
+  cont.addEventListener('pointermove', ev => { if(ev.pointerType === 'touch') return; const el = seg(ev); if(el) tipExpoMostrar(ev, el); else tipExpoEsconder(); });
+  cont.addEventListener('pointerleave', ev => { if(ev.pointerType !== 'touch') tipExpoEsconder(); });
+  cont.addEventListener('pointerdown', ev => { if(ev.pointerType !== 'touch') return; const el = seg(ev); if(el) tipExpoMostrar(ev, el); else tipExpoEsconder(); });
+});
+document.addEventListener('pointerdown', ev => { if(ev.pointerType === 'touch' && !ev.target.closest?.('#xFaixas, #listaExposicao')) tipExpoEsconder(); });
+window.addEventListener('scroll', tipExpoEsconder, {capture: true, passive: true});
 
 /* ---------- Manutencao ---------- */
 // Suposicao (nao ha plano por maquina no cadastro): a proxima manutencao vem 180 dias depois
