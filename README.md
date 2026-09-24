@@ -116,7 +116,7 @@ login na **AWS Lambda** (URL limpa via Cloudflare Pages: https://sompo-painel.pa
 | `GET/POST /equipamentos` | Lista/cadastra máquinas dentro do escopo da fazenda |
 | `GET/POST /operadores` | Lista/cadastra operadores RFID, sem criar login |
 | `GET /operacoes` | Histórico paginado de sessões dos operadores |
-| `GET /fazendas/<id>/resumo` | Resumo das máquinas, comunicação e risco da fazenda |
+| `GET /fazendas/<id>/resumo` | Resumo das máquinas, comunicação e risco da fazenda, com os 10 alertas mais recentes |
 
 ## Perfis de acesso (role-based)
 

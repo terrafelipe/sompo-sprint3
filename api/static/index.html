@@ -141,6 +141,10 @@
                 box-shadow:0 1px 2px rgba(0,0,0,.03);transition:border-color .15s ease,box-shadow .15s ease,transform .12s ease-out}
   @media (hover:hover) and (pointer:fine){ .fazenda-card:hover{border-color:rgba(183,1,0,.35);box-shadow:0 4px 14px rgba(0,0,0,.06)} }
   .fazenda-card:active{transform:scale(.99)}
+  .g-linha{display:flex;align-items:center;gap:.75rem;width:100%;text-align:left;padding:.7rem .5rem;border-radius:.5rem;transition:background-color 150ms ease}
+  @media (hover:hover) and (pointer:fine){ .g-linha:hover{background:var(--v-hover)} }
+  .g-linha:focus-visible{outline:2px solid rgba(183,1,0,.4);outline-offset:-2px}
+  #gMaquinasLista .g-linha + .g-linha{border-top:1px solid var(--v-borda);border-radius:0}
   .fazenda-card:focus-visible{outline:2px solid rgba(183,1,0,.4);outline-offset:2px}
   /* Tabelas no padrao do modelo */
   .moldura{border:1px solid var(--v-borda);border-radius:.5rem;overflow-x:auto}
@@ -636,11 +640,54 @@
 
       <!-- INICIO: carteira de fazendas -->
       <section data-section="inicio">
+        <div id="inicioCarteira">
         <div class="flex items-center justify-between gap-3 flex-wrap mb-4">
           <p id="inicioResumo" class="text-sm text-on-surface-variant"></p>
           <div class="relative"><span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant pointer-events-none">search</span><input type="search" data-busca="listaInicio" placeholder="Buscar fazenda, cidade ou cliente…" aria-label="Buscar fazenda, cidade ou cliente" class="busca"/></div>
         </div>
         <div id="listaInicio" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
+        </div>
+        <!-- Gestor: o Inicio e o painel da propria fazenda -->
+        <div id="inicioGestor" hidden>
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+            <div class="kpi">
+              <div class="kpi-ico"><span class="material-symbols-outlined">agriculture</span></div>
+              <h3 class="text-sm text-on-surface-variant mt-4">Máquinas</h3>
+              <div id="gMaquinas" class="text-3xl font-semibold tracking-tight mt-1 tabular">–</div>
+              <p class="text-sm text-on-surface-variant mt-1">Cadastradas na fazenda</p>
+            </div>
+            <div class="kpi">
+              <div class="kpi-ico"><span class="material-symbols-outlined">sensors</span></div>
+              <h3 class="text-sm text-on-surface-variant mt-4">Comunicando agora</h3>
+              <div id="gOnline" class="text-3xl font-semibold tracking-tight mt-1 tabular">–</div>
+              <p id="gOnlineSub" class="text-sm text-on-surface-variant mt-1">Leitura nos últimos 30 s</p>
+            </div>
+            <div class="kpi">
+              <div class="kpi-ico"><span class="material-symbols-outlined">speed</span></div>
+              <h3 class="text-sm text-on-surface-variant mt-4">Pior risco</h3>
+              <div class="flex items-center gap-2 mt-1"><span id="gPior" class="text-3xl font-semibold tracking-tight tabular">–</span><span id="gPiorSelo"></span></div>
+              <p id="gPiorSub" class="text-sm text-on-surface-variant mt-1 truncate">Maior score entre as máquinas</p>
+            </div>
+            <div class="kpi">
+              <div class="kpi-ico"><span class="material-symbols-outlined">notifications</span></div>
+              <h3 class="text-sm text-on-surface-variant mt-4">Alertas</h3>
+              <div class="flex items-center gap-2 mt-1"><span id="gAlertas" class="text-3xl font-semibold tracking-tight tabular">–</span><span class="kpi-pill" style="background:var(--v-hover);color:var(--v-texto-sec);border-color:var(--v-borda)">7 dias</span></div>
+              <p class="text-sm text-on-surface-variant mt-1">Eventos das máquinas</p>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            <section class="lg:col-span-7 bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)] p-5">
+              <h2 class="text-base font-semibold text-on-surface">Máquinas por risco</h2>
+              <p class="text-sm text-on-surface-variant mb-3">Maior score entre furto e incêndio, últimos 7 dias.</p>
+              <div id="gMaquinasLista"></div>
+            </section>
+            <section class="lg:col-span-5 bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)] p-5">
+              <h2 class="text-base font-semibold text-on-surface">Alertas recentes</h2>
+              <p class="text-sm text-on-surface-variant mb-3">Os 10 mais recentes da fazenda.</p>
+              <div id="gAlertasLista" class="space-y-0.5"></div>
+            </section>
+          </div>
+        </div>
       </section>
 
       <!-- MAQUINAS / RESUMO DA FAZENDA -->
@@ -895,6 +942,7 @@ let eventosCache = [];      // eventos renderizados no feed (para o modal de det
 let clientesCache = [];     // clientes renderizados (para o modal de detalhe do cliente)
 let fazendasCache = [];     // fazendas renderizadas (para o modal de detalhe da fazenda)
 let maquinasCache = [];
+let resumoFazenda = null;   // ultima resposta de /fazendas/<id>/resumo (Inicio do gestor)
 let maquinaEditando = null;  // máquina aberta no formMaquina em modo edição (null = cadastro)
 let envioMaquina = 0;        // versão do formMaquina: respostas de um envio antigo não mexem no form atual
 let operadoresCache = [];
@@ -937,7 +985,9 @@ const VIEWS = {
 };
 
 let viewAtual = 'maquinas';
-const restrita = view => perfilRole !== 'sompo' && ['inicio','fazendas','clientes','usuarios'].includes(view);
+// O gestor tambem tem Inicio (a propria fazenda); cadastros continuam so da Sompo.
+const restrita = view => perfilRole !== 'sompo'
+  && (['fazendas','clientes','usuarios'].includes(view) || (view === 'inicio' && perfilRole !== 'gestor_fazenda'));
 const dependeMaquina = view => view === 'visao';
 function setView(view){
   if(restrita(view)) view = 'maquinas';
@@ -968,7 +1018,10 @@ function setView(view){
   });
   $('tituloView').textContent = TITULOS[view] || 'Visão Geral';
   $('migalha').textContent = TITULOS[view] || 'Visão Geral';
-  $('descView').textContent = DESCRICOES[view] || '';
+  $('descView').textContent = view === 'inicio' && perfilRole === 'gestor_fazenda'
+    ? 'Resumo da sua fazenda: máquinas, risco e alertas recentes.' : (DESCRICOES[view] || '');
+  $('inicioCarteira').hidden = perfilRole === 'gestor_fazenda';
+  $('inicioGestor').hidden = perfilRole !== 'gestor_fazenda';
   // Cadastros nao dependem de fazenda/maquina: a barra de contexto some.
   $('barraContexto').hidden = ['inicio','fazendas','clientes','usuarios'].includes(view);
   document.querySelectorAll('[data-rotulo-cadastros]').forEach(el => { el.hidden = perfilRole !== 'sompo'; });
@@ -1342,8 +1395,78 @@ async function carregarEventos(){
   }
 }
 
+/* ---------- Inicio do gestor: a propria fazenda ---------- */
+async function carregarInicioGestor(){
+  await carregarResumoFazenda();
+  const d = resumoFazenda;
+  if(!d){
+    ['gMaquinas','gOnline','gPior','gAlertas'].forEach(id => { $(id).textContent = '–'; });
+    $('gPiorSelo').innerHTML = '';
+    $('gMaquinasLista').innerHTML = erroLista('Resumo da fazenda indisponível.');
+    $('gAlertasLista').innerHTML = '';
+    return;
+  }
+  const maqs = (d.equipamentos || []).map(m => ({...m, risco: Math.max(m.scores?.score_furto || 0, m.scores?.score_incendio || 0)}))
+    .sort((a, b) => b.risco - a.risco || String(a.nome).localeCompare(String(b.nome)));
+  const online = maqs.filter(m => m.comunicacao === 'recente').length;
+  const alertas = maqs.reduce((a, m) => a + (m.scores?.eventos_considerados?.total || 0), 0);
+  const pior = maqs[0];
+  const classe = r => r >= 67 ? 'ALTO' : r >= 34 ? 'MEDIO' : 'BAIXO';
+  const animar = animarAgora('inicio');
+  const numero = (id, v) => { if(animar) contarAoAparecer($(id), v); else $(id).textContent = v; };
+  numero('gMaquinas', maqs.length);
+  numero('gOnline', online);
+  $('gOnlineSub').textContent = maqs.length ? `de ${maqs.length} ${maqs.length === 1 ? 'máquina' : 'máquinas'}` : 'Leitura nos últimos 30 s';
+  if(pior){ numero('gPior', pior.risco); $('gPiorSelo').innerHTML = selo(classe(pior.risco), corRisco(classe(pior.risco))); $('gPiorSub').textContent = pior.nome; }
+  else { $('gPior').textContent = '–'; $('gPiorSelo').innerHTML = ''; $('gPiorSub').textContent = 'Nenhuma máquina cadastrada'; }
+  numero('gAlertas', alertas);
+
+  renderLista('gMaquinasLista', '<div class="contents" data-render></div>' + (maqs.length ? maqs.map(m => {
+    const [com, cor] = COMUNICACAO[m.comunicacao] || COMUNICACAO.sem_dados;
+    const c = classe(m.risco);
+    return `<button type="button" data-linha data-g-maquina="${m.id_equipamento}" class="g-linha" title="Abrir o painel de ${escapar(m.nome)}">
+      <div class="min-w-0 flex-1">
+        <div class="font-medium text-[13.5px] text-on-surface truncate">${escapar(m.nome)}</div>
+        <div class="text-xs text-on-surface-variant mt-0.5 flex items-center gap-1.5 min-w-0"><span class="w-1.5 h-1.5 rounded-full shrink-0" style="background:${cor}"></span><span class="truncate">${com} · ${escapar(m.operador_nome || 'Operador não identificado')}</span></div>
+      </div>
+      <div class="w-24 sm:w-36 shrink-0">
+        <div class="flex items-center justify-between gap-2 mb-1.5"><span class="text-sm font-semibold text-on-surface tabular">${m.risco}</span>${selo(c, corRisco(c))}</div>
+        <div class="h-1.5 rounded-full overflow-hidden" style="background:var(--v-hover)"><div data-barra class="h-full rounded-full origin-left" style="width:${Math.max(m.risco, 2)}%;background:${corRisco(c)}"></div></div>
+      </div>
+      <span class="material-symbols-outlined text-[18px] text-on-surface-variant shrink-0" aria-hidden="true">chevron_right</span>
+    </button>`;
+  }).join('') : '<p class="text-sm text-on-surface-variant italic py-3">Nenhuma máquina cadastrada nesta fazenda.</p>'));
+
+  const evs = d.alertas_recentes || [];
+  renderLista('gAlertasLista', '<div class="contents" data-render></div>' + (evs.length ? evs.map((e, i) => {
+    const sv = e.severidade ?? 0, cor = sevCor(sv);
+    return `<button type="button" data-linha data-g-alerta="${i}" class="g-linha" title="Ver no painel da máquina">
+      <div class="w-8 h-8 rounded-full grid place-items-center shrink-0" style="background:${cor}1a"><span class="material-symbols-outlined text-[17px]" style="color:${cor}">${iconeEvento(e.tipo)}</span></div>
+      <div class="min-w-0 flex-1">
+        <div class="font-medium text-[13px] text-on-surface truncate">${escapar(nomeTipo(e.tipo))}</div>
+        <div class="text-xs text-on-surface-variant truncate">${escapar(e.equipamento_nome || '')} · ${fmtRelativo(e.horario_ocorrencia || e.criado_em)}</div>
+      </div>
+      <span class="text-[11px] font-medium px-1.5 py-0.5 rounded-md border shrink-0" style="border-color:${cor}40;color:${cor}">Severidade ${sv}</span>
+    </button>`;
+  }).join('') : '<p class="text-sm text-on-surface-variant italic py-3">Nenhum alerta nos últimos 7 dias.</p>'));
+
+  if(animar){
+    entrar($('gMaquinasLista'), () => [fade($('gMaquinasLista').querySelectorAll('.g-linha'), {atraso: 45, sobe: 6, dur: 360}),
+                                        crescer($('gMaquinasLista').querySelectorAll('[data-barra]'), 'X', {dur: 700, atraso: 60})]);
+    entrar($('gAlertasLista'), () => fade($('gAlertasLista').querySelectorAll('.g-linha'), {atraso: 35, sobe: 6, dur: 360}));
+  }
+}
+$('gMaquinasLista').addEventListener('click', e => { const b = e.target.closest('[data-g-maquina]'); if(b) selecionarMaquina(b.dataset.gMaquina, 'visao'); });
+$('gAlertasLista').addEventListener('click', async e => {
+  const b = e.target.closest('[data-g-alerta]'); if(!b) return;
+  const ev = (resumoFazenda?.alertas_recentes || [])[+b.dataset.gAlerta]; if(!ev) return;
+  await selecionarMaquina(ev.equipamento_id, 'visao');
+  irPara('secAlertas');
+});
+
 /* ---------- Inicio: carteira de fazendas ---------- */
 async function carregarInicio(){
+  if(perfilRole === 'gestor_fazenda') return carregarInicioGestor();
   if(!$('listaInicio').firstChild) $('listaInicio').innerHTML = '<div class="col-span-full text-sm text-on-surface-variant py-6">Carregando fazendas…</div>';
   try{
     const d = await getJSON('/fazendas');
@@ -2484,6 +2607,7 @@ async function carregarResumoFazenda(){
   try{
     const d = await getJSON(`/fazendas/${fazendaSelecionada}/resumo?dias=7`);
     $('frotaEstado').textContent = '';
+    resumoFazenda = d;
     maquinasCache = d.equipamentos || [];
     $('resumoFazendaNome').textContent = (d.fazenda && d.fazenda.nome) || 'Fazenda selecionada';
     preencherSeletorMaquinas(maquinasCache);
@@ -2510,6 +2634,7 @@ async function carregarResumoFazenda(){
       </article>`;
     }).join(''));
   }catch(e){ if(e.obsoleto) return;
+    resumoFazenda = null;
     $('listaMaquinas').innerHTML=erroLista('Frota indisponível.');
     $('frotaEstado').innerHTML = '<p class="text-error mb-4">Não foi possível atualizar a lista de máquinas. <button data-retry-frota class="underline">Tentar novamente</button></p>';
   }
@@ -3060,7 +3185,7 @@ $('paleta').addEventListener('click', e => { if(e.target === $('paleta')) $('pal
 
 (async function init(){
   await aplicarPerfil();
-  if(perfilRole === 'sompo' && !fazendaSelecionada) setView('inicio');
+  if(perfilRole === 'gestor_fazenda' || (perfilRole === 'sompo' && !fazendaSelecionada)) setView('inicio');
   if(perfilRole === 'sompo'){
     carregarClientes();
     carregarFazendas();

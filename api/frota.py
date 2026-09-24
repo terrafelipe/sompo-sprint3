@@ -389,4 +389,13 @@ def resumo_fazenda(value):
                  operador_nome=nomes.get(t.get('operador_id') if t else None, 'Operador não identificado'),
                  scores=calcular_scores(dev or '', periodo(), eventos_device.get(dev, [])),
                  config_pendente=m.get('config_versao_aplicada') != m.get('config_versao', 1))
-    return jsonify(fazenda=faz, equipamentos=maquinas)
+    # Os 10 alertas mais recentes da fazenda (Inicio do gestor), pelo instante de captura.
+    maquina_do_device = {m['dispositivo_id']: m for m in maquinas if m.get('dispositivo_id')}
+    alertas = []
+    for ev in eventos:
+        m = maquina_do_device.get(ev.get('dispositivo_id'))
+        if m:
+            alertas.append({**ev, 'equipamento_id': m['id_equipamento'], 'equipamento_nome': m['nome'],
+                            'horario_ocorrencia': ev.get('ocorrido_em') if ev.get('registro_id') else ev.get('criado_em')})
+    alertas.sort(key=lambda a: a['horario_ocorrencia'] or '', reverse=True)
+    return jsonify(fazenda=faz, equipamentos=maquinas, alertas_recentes=alertas[:10])

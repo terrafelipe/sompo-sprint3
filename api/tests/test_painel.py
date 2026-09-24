@@ -79,6 +79,10 @@ def painel(request):
                     id_equipamento=i, nome=f'Trator {i}', fk_fazenda_id_fazenda=i, fk_cliente_id_cliente=i,
                     dispositivo_id=None if state['sem_esp32'] else f'ESP-{i}', fabricacao='2020-01-02',
                     ultima_manutencao='2026-09-01', valor_segurado='150000.50')])
+                data['alertas_recentes'] = [] if not data['equipamentos'] else [dict(
+                    id=10 + k, tipo=t, severidade=sev, equipamento_id=i, equipamento_nome=f'Trator {i}',
+                    horario_ocorrencia='2026-09-18T12:00:00Z', criado_em='2026-09-18T12:00:00Z')
+                    for k, (t, sev) in enumerate([('furto_capo', 2), ('escape_critico', 4)])]
             elif path == '/saude':
                 data = {'api': 'ok', 'banco': 'ok'}
             elif path == '/relatorio/risco':
@@ -474,3 +478,23 @@ def test_excluir_erro_e_envio_unico(painel):
     state['deleted'].add('/operadores/7')
     state['held'][0].fulfill(json={'ok': True})
     pw.expect(page.locator('#confirmarExclusao')).not_to_be_visible()
+
+
+def test_gestor_abre_no_inicio_da_propria_fazenda(painel):
+    page, state = painel
+    state['role'] = 'gestor_fazenda'
+    page.reload()
+    pw.expect(page.locator('#tituloView')).to_have_text('Início')
+    pw.expect(page.locator('#inicioGestor')).to_be_visible()
+    assert page.locator('#inicioCarteira').is_hidden()
+    pw.expect(page.locator('#gMaquinas')).to_have_text('1')
+    pw.expect(page.locator('#gMaquinasLista [data-g-maquina]')).to_have_count(1)
+    pw.expect(page.locator('#gAlertasLista [data-g-alerta]')).to_have_count(2)
+    # O alerta abre o painel da maquina dele; a linha da maquina tambem.
+    page.locator('#gAlertasLista [data-g-alerta]').first.click()
+    pw.expect(page.locator('#tituloView')).to_have_text('Painel da máquina')
+    assert page.evaluate('equipamentoSelecionado') == 1
+    nav(page, 'inicio')
+    page.locator('#gMaquinasLista [data-g-maquina="1"]').click()
+    pw.expect(page.locator('#tituloView')).to_have_text('Painel da máquina')
+    assert not state['errors']

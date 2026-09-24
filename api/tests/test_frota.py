@@ -205,3 +205,19 @@ def test_credencial_nao_e_armazenada_em_texto_claro(banco, monkeypatch):
     assert len(token) >= 32
     assert token not in str(calls)
     assert len(calls[0][1]['p_token_hash']) == 64
+
+
+def test_resumo_traz_os_10_alertas_mais_recentes_da_fazenda(banco):
+    # 12 eventos alternando as duas máquinas; um veio de backlog (registro_id) e vale o ocorrido_em.
+    eventos = [{'id': i, 'dispositivo_id': 'ESP-A' if i % 2 else 'ESP-B', 'tipo': 'furto_capo', 'severidade': 2,
+                'criado_em': f'2026-09-20T10:{i:02d}:00+00:00'} for i in range(12)]
+    eventos[0].update(registro_id=5, ocorrido_em='2026-09-20T11:00:00+00:00')
+    with patch('supabase_client.consultar_periodo', return_value=eventos):
+        r = gestor().get('/fazendas/1/resumo?dias=7')
+    assert r.status_code == 200
+    alertas = r.json['alertas_recentes']
+    assert len(alertas) == 10
+    assert alertas[0]['id'] == 0 and alertas[0]['horario_ocorrencia'] == '2026-09-20T11:00:00+00:00'
+    assert [a['id'] for a in alertas[1:]] == list(range(11, 2, -1))
+    assert alertas[1]['equipamento_id'] == 1 and alertas[1]['equipamento_nome'] == 'Trator A'
+    assert alertas[2]['equipamento_id'] == 2 and alertas[2]['equipamento_nome'] == 'Trator B'
