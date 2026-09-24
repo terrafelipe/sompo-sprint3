@@ -2065,9 +2065,21 @@ const FAIXAS_RISCO = [['ALTO','Alto'], ['MEDIO','Médio'], ['BAIXO','Baixo']];
 const classeRisco = r => r >= 67 ? 'ALTO' : r >= 34 ? 'MEDIO' : 'BAIXO';
 function valorCurto(el, v){ el.textContent = BRL_CURTO.format(v); el.title = BRL.format(v); }
 const qtdMaquinas = n => `${n} ${n === 1 ? 'máquina' : 'máquinas'}`;
+// Ultimo resultado da carteira: ao entrar na aba a tela sai na hora com ele (e anima), e a
+// busca segue em segundo plano; so redesenha o que mudou.
+let expoDados = null;
 async function carregarExposicao(){
+  // Cada entrada na aba anima de novo; o refresh de 5 s (mesma entrada) nunca.
+  const entrada = animarAgora('exposicao');
   try{
-    const {fazendas, resumos} = await carregarCarteira();
+    if(entrada && expoDados){ desenharExposicao(expoDados); animarExposicao(); }
+    const primeira = !expoDados;
+    expoDados = await carregarCarteira();
+    desenharExposicao(expoDados);
+    if(entrada && primeira) animarExposicao();
+  }catch(e){ if(e.obsoleto) return; $('listaExposicao').innerHTML = erroLista('Valores indisponíveis.'); }
+}
+function desenharExposicao({fazendas, resumos}){
     const gestor = perfilRole === 'gestor_fazenda';
     const nomeFaz = new Map(fazendas.map(f => [String(f.id_fazenda), f.nome]));
     const maqs = resumos.flatMap(r => (r?.equipamentos || []).map(m => {
@@ -2136,22 +2148,16 @@ async function carregarExposicao(){
       </tr>`;
     }).join(''), cab.length));
 
-    // Anima so na PRIMEIRA pintura da pagina: ao voltar para a aba, os valores so se atualizam
-    // (antes as barras voltavam a zero e os numeros piscavam a cada entrada).
-    const sec = document.querySelector('[data-section="exposicao"]');
-    const entrada = animarAgora('exposicao');
-    if(entrada && !sec.dataset.pintado){
-      sec.dataset.pintado = '1';
-      entrar($('xFaixas'), () => crescer($('xFaixas').querySelectorAll('[data-faixa]'), 'X', {dur: 700, atraso: 80}));
-      entrar($('listaExposicao'), () => crescer($('listaExposicao').querySelectorAll('[data-barra]'), 'X', {dur: 700, atraso: 40}));
-      [$('xTotal'), $('xAlto')].forEach(el => entrar(el, () => fade([el], {sobe: 6, dur: 420})));
-    }else if(entrada){
-      // Saiu antes de a 1a animacao terminar (ou ela ficou pausada na fila): conclui na hora,
-      // senao as barras voltariam do zero ou ficariam paradas em zero.
-      sec.querySelectorAll('[data-faixa], [data-barra], #xTotal, #xAlto').forEach(el =>
-        el.getAnimations().forEach(a => { try{ a.finish(); }catch(_){} }));
-    }
-  }catch(e){ if(e.obsoleto) return; $('listaExposicao').innerHTML = erroLista('Valores indisponíveis.'); }
+}
+// Toca direto, sem fila nem IntersectionObserver (a aba ja esta na tela): o que sobrou de uma
+// entrada anterior e cancelado para recomecar do zero.
+function animarExposicao(){
+  const faixas = $('xFaixas').querySelectorAll('[data-faixa]'), barras = $('listaExposicao').querySelectorAll('[data-barra]');
+  const nums = [$('xTotal'), $('xAlto')];
+  [...faixas, ...barras, ...nums].forEach(el => el.getAnimations().forEach(a => a.cancel()));
+  crescer(faixas, 'X', {dur: 700, atraso: 80});
+  crescer(barras, 'X', {dur: 700, atraso: 40});
+  fade(nums, {sobe: 6, dur: 420});
 }
 // Tooltip dos segmentos (faixas e Proporcao): quantas maquinas e quanto valor em cada situacao.
 // Um ouvinte por container (o HTML interno so muda quando os dados mudam); no toque abre no
