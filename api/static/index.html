@@ -1706,7 +1706,9 @@ async function carregarTelemetria(){
 async function carregarEventos(){
   iniciando('eventos');
   try{
-    ['graficoAtividade','graficoTipos'].forEach(id => $(id).classList.add('viz-carregando'));
+    // O refresh conserva os graficos visiveis; somente um contexto novo sinaliza carga.
+    if(mudou('eventos-contexto', `${contextoVersao}|${periodo}|${seletorEquipamento()}`))
+      ['graficoAtividade','graficoTipos'].forEach(id => $(id).classList.add('viz-carregando'));
     const per = periodo;
     const d = await getJSON(`/eventos?${seletorEquipamento()}&dias=${per * 2}`);
     if(per !== periodo) return;
@@ -2904,14 +2906,14 @@ function renderizarGraficosEventos(evs){
 async function carregarTempDia(){
   const c = $('graficoTempDia');
   if(!equipamentoSelecionado && !dispositivo){ c.innerHTML = '<div class="text-sm text-on-surface-variant italic py-10 text-center">Máquina sem ESP32 configurado.</div>'; return; }
-  c.classList.add('viz-carregando');
+  if(mudou('tempdia-contexto', `${contextoVersao}|${periodo}|${seletorEquipamento()}`)) c.classList.add('viz-carregando');
   try{
     const per = periodo, sel = seletorEquipamento();
     const d = await getJSON(`/resumo?${sel}&dias=${per}`);
     if(per !== periodo) return;
     c.classList.remove('viz-carregando');
     const rows = (d.dados||[]).filter(r => r.dia).sort((a,b) => a.dia < b.dia ? -1 : 1);
-    if(!mudou('tempdia', `${periodo}|${sel}|${JSON.stringify(rows)}`) && c.querySelector('svg')) return;
+    if(!mudou('tempdia', `${periodo}|${sel}|${JSON.stringify(rows)}`) && c.firstChild && !c.querySelector('[data-tentar]')) return;
     tipEsconder();
     $('tempDiaSub').textContent = `Escape e ambiente nos últimos ${periodo} dias (${rows.length} ${rows.length===1?'dia':'dias'} com leituras)`;
     if(!rows.length){ c.innerHTML = '<div class="text-sm text-on-surface-variant italic py-10 text-center">Sem leituras no período.</div>'; return; }
