@@ -105,8 +105,7 @@ def painel(request):
 def nav(page, view):
     page.locator(f'[data-nav="{view}"]:visible').click()
     pw.expect(page.locator('#tituloView')).to_have_text({
-        'inicio': 'Início', 'visao': 'Painel da máquina', 'risco': 'Análise de Risco', 'telemetria': 'Telemetria',
-        'alertas': 'Alertas', 'maquinas': 'Máquinas', 'operadores': 'Operadores',
+        'inicio': 'Início', 'visao': 'Painel da máquina', 'maquinas': 'Máquinas', 'operadores': 'Operadores',
         'historico': 'Histórico', 'fazendas': 'Fazendas', 'clientes': 'Clientes', 'usuarios': 'Usuários'}[view])
 
 
@@ -146,22 +145,23 @@ def test_inicio_mostra_carteira_e_abre_a_fazenda(painel):
 
 def test_menus_sem_maquina_refresh_e_word(painel):
     page, state = painel
-    for view in ['visao','risco','telemetria','alertas','operadores','historico','fazendas','clientes','usuarios','maquinas']:
+    # Risco, Alertas e Telemetria agora sao partes do Painel da maquina (visao).
+    for view in ['visao','operadores','historico','fazendas','clientes','usuarios','maquinas']:
         nav(page, view)
         page.evaluate('carregarTudo()')
         assert page.evaluate('viewAtual') == view
         pw.expect(page.locator('#btnBaixar')).to_be_visible()
         pw.expect(page.locator('#btnBaixar')).to_be_disabled()
-        if view in ['visao','risco','telemetria','alertas']:
+        if view == 'visao':
             pw.expect(page.locator('#semMaquina')).to_be_visible()
-    nav(page, 'telemetria')
+    nav(page, 'visao')
     page.clock.install()
     page.clock.fast_forward(5100)
-    assert page.evaluate('viewAtual') == 'telemetria'
+    assert page.evaluate('viewAtual') == 'visao'
     page.select_option('#equipamentoSel', '1')
     pw.expect(page.locator('#btnBaixar')).to_be_enabled()
     page.clock.fast_forward(5100)
-    assert page.evaluate('[viewAtual,equipamentoSelecionado]') == ['telemetria', 1]
+    assert page.evaluate('[viewAtual,equipamentoSelecionado]') == ['visao', 1]
     with page.expect_download(), page.expect_request('**/relatorio/risco.docx?equipamento=1&dias=7'):
         page.locator('#btnBaixar').click()
 
@@ -209,7 +209,7 @@ def test_permissoes_apos_navegar_e_redimensionar(painel):
     pw.expect(page.locator('#perfilTxt')).to_contain_text('Gestor')
     for width in [390,1280,390]:
         page.set_viewport_size({'width':width,'height':900})
-        for view in ['historico','operadores','telemetria','maquinas']:
+        for view in ['historico','operadores','visao','maquinas']:
             nav(page, view)
             for blocked in ['fazendas','clientes','usuarios']:
                 assert page.locator(f'[data-nav="{blocked}"]:visible').count() == 0
@@ -260,7 +260,7 @@ def test_formulario_detalhe_operador_e_atalho(painel):
     page.locator('[data-faz="1"]').click()
     page.locator('[data-vertelemetria="2"]').click()
     pw.expect(page.locator('#equipamentoSel')).to_have_value('2')
-    assert page.evaluate('[viewAtual,dispositivo]') == ['telemetria','ESP-2']
+    assert page.evaluate('[viewAtual,dispositivo]') == ['visao','ESP-2']
     captura(page, 'telemetria')
 
 

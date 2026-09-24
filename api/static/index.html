@@ -134,6 +134,8 @@
   #vizTip .tip-l span{color:var(--v-texto2)}
   #vizTip .tip-l b{font-weight:600;font-variant-numeric:tabular-nums}
   .viz-carregando{opacity:.55;transition:opacity .2s}
+  /* ancoras do Painel param abaixo do topo fixo + atalhos */
+  [data-ancora]{scroll-margin-top:7.5rem}
   /* Carteira (Inicio): cartao inteiro e o botao que abre a fazenda */
   .fazenda-card{display:flex;flex-direction:column;width:100%;text-align:left;background:var(--v-card);border:1px solid var(--v-borda);border-radius:.75rem;padding:1.25rem;
                 box-shadow:0 1px 2px rgba(0,0,0,.03);transition:border-color .15s ease,box-shadow .15s ease,transform .12s ease-out}
@@ -268,9 +270,6 @@
       <a href="#" data-nav="inicio" title="Início" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">home</span><span class="sb-txt">Início</span></a>
       <a href="#" data-nav="maquinas" title="Máquinas" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">agriculture</span><span class="sb-txt">Máquinas</span></a>
       <a href="#" data-nav="visao" title="Painel da máquina" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">dashboard</span><span class="sb-txt">Painel da máquina</span></a>
-      <a href="#" data-nav="risco" title="Análise de Risco" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">analytics</span><span class="sb-txt">Análise de Risco</span></a>
-      <a href="#" data-nav="telemetria" title="Telemetria" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">sensors</span><span class="sb-txt">Telemetria</span></a>
-      <a href="#" data-nav="alertas" title="Alertas" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">warning</span><span class="sb-txt">Alertas</span></a>
     <div class="sb-txt px-2.5 pt-4 pb-1.5 text-xs font-medium text-on-surface-variant">Operação</div>
       <a href="#" data-nav="operadores" title="Operadores" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">badge</span><span class="sb-txt">Operadores</span></a>
       <a href="#" data-nav="historico" title="Histórico" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">history</span><span class="sb-txt">Histórico</span></a>
@@ -344,9 +343,6 @@
     <a href="#" data-nav="inicio"     class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Início</a>
     <a href="#" data-nav="maquinas"   class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Máquinas</a>
     <a href="#" data-nav="visao"      class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Painel</a>
-    <a href="#" data-nav="risco"      class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Risco</a>
-    <a href="#" data-nav="telemetria" class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Telemetria</a>
-    <a href="#" data-nav="alertas"    class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Alertas</a>
     <a href="#" data-nav="operadores" class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Operadores</a>
     <a href="#" data-nav="historico"  class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Histórico</a>
     <a href="#" data-nav="fazendas"   class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Fazendas</a>
@@ -390,11 +386,20 @@
       </div>
     </div>
 
+    <!-- Atalhos do Painel: rolam ate cada parte; o da parte visivel fica destacado -->
+    <nav id="atalhosPainel" hidden aria-label="Partes do painel" class="sticky top-14 z-30 -mx-4 lg:-mx-6 px-4 lg:px-6 py-2 mb-4 bg-surface/85 backdrop-blur-xl border-b border-outline-variant">
+      <div class="inline-flex items-center h-9 p-0.5 rounded-lg border border-outline-variant bg-surface-container-low max-w-full overflow-x-auto">
+        <button type="button" class="per-btn whitespace-nowrap" data-ir="secResumo" aria-pressed="true">Resumo</button>
+        <button type="button" class="per-btn whitespace-nowrap" data-ir="secAlertas" aria-pressed="false">Alertas</button>
+        <button type="button" class="per-btn whitespace-nowrap" data-ir="secRisco" aria-pressed="false">Risco</button>
+        <button type="button" class="per-btn whitespace-nowrap" data-ir="secTelemetria" aria-pressed="false">Telemetria</button>
+      </div>
+    </nav>
     <div id="semMaquina" hidden class="bg-surface-container-lowest rounded-xl p-6 mb-6" role="status"><span id="semMaquinaTxt">Selecione uma máquina no seletor acima para ver o painel.</span></div>
     <p id="wordAjuda" class="text-xs text-on-surface-variant mb-4">Selecione uma máquina para exportar o relatório Word.</p>
     <div id="frotaEstado" role="status"></div>
     <!-- STATUS AGORA (faixa no topo do Painel da maquina) -->
-    <div data-section="statusAgora" class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)] mb-4">
+    <div id="secResumo" data-ancora data-section="statusAgora" class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)] mb-4">
       <div id="statusAgora" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4"></div>
     </div>
     <!-- KPI CARDS (só na Visão Geral) -->
@@ -429,7 +434,7 @@
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
 
       <!-- ATIVIDADE DE ALERTAS (colunas empilhadas por eixo) -->
-      <section data-section="atividade" class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
+      <section id="secAlertas" data-ancora data-section="atividade" class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
         <div class="p-5 pb-2 flex items-start justify-between gap-4 flex-wrap">
           <div><h2 class="text-base font-semibold text-on-surface">Atividade de alertas</h2><p id="atividadeSub" class="text-sm text-on-surface-variant">Eventos por dia nos últimos 7 dias</p></div>
           <div class="flex items-center gap-4 text-xs text-on-surface-variant pt-1">
@@ -461,7 +466,7 @@
       </section>
 
       <!-- ANALISE DE RISCO -->
-      <section data-section="risco" class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)] p-6">
+      <section id="secRisco" data-ancora data-section="risco" class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)] p-6">
         <div class="flex items-start justify-between gap-4 flex-wrap mb-4">
           <div><h2 class="text-base font-semibold text-on-surface">Análise de Risco</h2><p id="riscoSub" class="text-sm text-on-surface-variant">Scores dos últimos 7 dias, calculados pelo sistema e explicados pela IA</p></div>
           <div class="flex items-center gap-2 flex-wrap">
@@ -546,7 +551,7 @@
       </section>
 
       <!-- TELEMETRIA -->
-      <section data-section="telemetria" class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)] p-6">
+      <section id="secTelemetria" data-ancora data-section="telemetria" class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)] p-6">
         <div class="flex items-center justify-between mb-5">
           <div><h2 class="text-base font-semibold text-on-surface">Telemetria atual</h2><p class="text-sm text-on-surface-variant">Sensores da leitura mais recente</p></div>
         </div>
@@ -911,25 +916,19 @@ const CHIP_OFF = ' bg-surface-container text-on-surface-variant';
 const DESCRICOES = {
   inicio:'Fazendas monitoradas pela Sompo. Escolha uma para ver a frota.',
   maquinas:'Frota da fazenda selecionada, com risco e comunicação de cada máquina.',
-  visao:'Resumo da máquina selecionada: risco, alertas, telemetria e leituras.',
-  risco:'Por que o risco está nesse nível e o que fazer a respeito.',
-  telemetria:'Sensores da máquina em tempo real e o histórico recente.',
-  alertas:'Eventos de furto e incêndio, por dia e por tipo.',
+  visao:'Tudo da máquina selecionada: status, risco, alertas e telemetria.',
   operadores:'Crachás RFID autorizados a operar as máquinas.',
   historico:'Sessões de operação registradas pelo crachá.',
   fazendas:'Propriedades monitoradas e o cliente dono de cada uma.',
   clientes:'Empresas donas das fazendas monitoradas.',
   usuarios:'Quem acessa o painel e com qual perfil.',
 };
-const TITULOS = {inicio:'Início', maquinas:'Máquinas', visao:'Painel da máquina', risco:'Análise de Risco', telemetria:'Telemetria', alertas:'Alertas', operadores:'Operadores', historico:'Histórico', fazendas:'Fazendas', clientes:'Clientes', usuarios:'Usuários'};
+const TITULOS = {inicio:'Início', maquinas:'Máquinas', visao:'Painel da máquina', operadores:'Operadores', historico:'Histórico', fazendas:'Fazendas', clientes:'Clientes', usuarios:'Usuários'};
 // Para cada view, quais seções aparecem e com qual largura (colunas de 12).
 const VIEWS = {
   inicio:     {inicio:12},
   visao:      {statusAgora:true, kpis:true, atividade:8, tipos:4, linhaTempo:12, risco:12, telemetria:8, alertas:4, saude:6, frota:6, tempdia:12, tabela:12},
   maquinas:   {maquinas:12},
-  risco:      {risco:12},
-  telemetria: {telemetria:12, tempdia:12, tabela:12},
-  alertas:    {atividade:8, tipos:4, alertas:12},
   operadores: {operadores:12},
   historico:  {historico:12},
   fazendas:   {fazendas:12},
@@ -939,7 +938,7 @@ const VIEWS = {
 
 let viewAtual = 'maquinas';
 const restrita = view => perfilRole !== 'sompo' && ['inicio','fazendas','clientes','usuarios'].includes(view);
-const dependeMaquina = view => ['visao','risco','telemetria','alertas'].includes(view);
+const dependeMaquina = view => view === 'visao';
 function setView(view){
   if(restrita(view)) view = 'maquinas';
   const mudou = viewAtual !== view;
@@ -975,6 +974,7 @@ function setView(view){
   document.querySelectorAll('[data-rotulo-cadastros]').forEach(el => { el.hidden = perfilRole !== 'sompo'; });
   document.querySelectorAll('[data-nav]').forEach(a => { a.hidden = restrita(a.dataset.nav); });
   $('semMaquina').hidden = !dependeMaquina(view) || !!equipamentoSelecionado;
+  $('atalhosPainel').hidden = view !== 'visao' || !equipamentoSelecionado;
   $('semMaquinaTxt').textContent = fazendaSelecionada && !maquinasCache.length && !$('frotaEstado').textContent
     ? 'Esta fazenda ainda não tem máquinas cadastradas.' : 'Selecione uma máquina no seletor acima para ver o painel.';
   // O score de risco e sempre de 7 dias: o filtro de periodo nao vale na aba Analise de Risco.
@@ -1179,7 +1179,8 @@ function detalhamentoRisco(el, detalhamento, eixoNome){
 // Evidencias: abre a aba Alertas no mesmo recorte do score (7 dias) filtrada pelo tipo.
 function verEvidencias(tipo){
   filtroDia = null; filtroTipo = tipo;   // mesmo periodo do score que esta na tela
-  setView('alertas'); carregarTudo();
+  setView('visao'); carregarTudo();
+  irPara('secAlertas');
 }
 
 async function carregarRisco(novo){
@@ -1190,7 +1191,7 @@ async function carregarRisco(novo){
     if(per !== periodo) return;   // periodo mudou durante a carga: a resposta e de outra janela
     const sf = d.score_furto ?? 0, si = d.score_incendio ?? 0;
     const cf = d.classificacao_furto || 'BAIXO', ci = d.classificacao_incendio || 'BAIXO';
-    if(animarAgora('kpiScores')){ contar($('kpiFurto'), sf); contar($('kpiIncendio'), si); }
+    if(animarAgora('kpiScores')){ contarAoAparecer($('kpiFurto'), sf); contarAoAparecer($('kpiIncendio'), si); }
     else { $('kpiFurto').textContent = sf; $('kpiIncendio').textContent = si; }
     const pilula = (el, c) => { const cor=corRisco(c); el.textContent=c; el.style.background=cor+'14'; el.style.color=cor; el.style.borderColor=cor+'33'; };
     pilula($('kpiFurtoPill'), cf); pilula($('kpiIncendioPill'), ci);
@@ -1213,9 +1214,8 @@ async function carregarRisco(novo){
     detalhamentoRisco($('detIncendio'), d.detalhamento, 'incendio');
     if(animarAgora('medidores')) ['gaugeFurto','gaugeIncendio','detFurto','detIncendio'].forEach(id => {
       const g = $(id);
-      desenharTraco(g.querySelectorAll('.arco-valor'), 1000);
-      g.querySelectorAll('.num-gauge').forEach(n => contar(n, n.textContent, 1000));
-      crescer(g.querySelectorAll('.barra-h'), 'X', {atraso: 60});
+      entrar(g, () => [desenharTraco(g.querySelectorAll('.arco-valor'), 1000), crescer(g.querySelectorAll('.barra-h'), 'X', {atraso: 60})]);
+      g.querySelectorAll('.num-gauge').forEach(n => contarAoAparecer(n, n.textContent, 1000));
     });
     $('riscoResumo').textContent = d.resumo || '';
     $('justFurto').textContent = d.justificativa_furto || '';
@@ -1331,7 +1331,7 @@ async function carregarEventos(){
     const evs = todos.filter(e => !e.criado_em || new Date(e.criado_em).getTime() >= corte);
     variacao($('kpiAlertasSub'), evs.length, todos.length - evs.length, `${periodo} dias`, 'Eventos registrados no período', false);
     eventosPeriodo = evs;
-    if(animarAgora('kpiAlertas')) contar($('kpiAlertas'), evs.length); else $('kpiAlertas').textContent = evs.length;
+    if(animarAgora('kpiAlertas')) contarAoAparecer($('kpiAlertas'), evs.length); else $('kpiAlertas').textContent = evs.length;
     renderizarGraficosEventos(evs);
     renderizarFeed();
   }catch(e){ if(e.obsoleto) return;
@@ -1390,8 +1390,8 @@ async function carregarInicio(){
       + '<div data-sem-resultado hidden class="col-span-full text-sm text-on-surface-variant italic py-6">Nenhuma fazenda encontrada para essa busca.</div>');
     if(animarAgora('inicio')){
       const cs = $('listaInicio').querySelectorAll('.fazenda-card');
-      fade(cs, {atraso: 55, sobe: 8, dur: 380});
-      cs.forEach(c => c.querySelectorAll('dd').forEach(dd => { const v = dd.textContent.trim(); if(/^\d+$/.test(v)) contar(dd, v, 700); }));
+      entrar($('listaInicio'), () => fade(cs, {atraso: 55, sobe: 8, dur: 380}));
+      cs.forEach(c => c.querySelectorAll('dd').forEach(dd => { const v = dd.textContent.trim(); if(/^\d+$/.test(v)) contarAoAparecer(dd, v, 700); }));
     }
   }catch(e){ if(e.obsoleto) return; $('listaInicio').innerHTML = erroLista('Fazendas indisponíveis.'); }
 }
@@ -1441,6 +1441,26 @@ document.addEventListener('toggle', e => {
 }, true);
 document.addEventListener('click', e => { const b = e.target.closest('.menu-acoes button'); if(b) b.closest('[popover]')?.hidePopover(); });
 window.addEventListener('scroll', () => document.querySelectorAll('.menu-acoes:popover-open').forEach(m => m.hidePopover()), {passive:true});
+
+/* ---------- Atalhos do Painel ---------- */
+function irPara(id){
+  const el = $(id); if(!el) return;
+  el.scrollIntoView({behavior: MENOS_MOVIMENTO ? 'auto' : 'smooth', block: 'start'});
+}
+function marcarAtalho(id){
+  document.querySelectorAll('#atalhosPainel [data-ir]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.ir === id)));
+}
+$('atalhosPainel').addEventListener('click', e => { const b = e.target.closest('[data-ir]'); if(b){ marcarAtalho(b.dataset.ir); irPara(b.dataset.ir); } });
+// A parte mais alta que cruza a faixa logo abaixo dos atalhos e a "atual".
+if('IntersectionObserver' in window){
+  const vistas = new Map();
+  const obs = new IntersectionObserver(es => {
+    es.forEach(e => vistas.set(e.target.id, e.isIntersecting ? e.boundingClientRect.top : null));
+    const atual = ['secResumo','secAlertas','secRisco','secTelemetria'].find(id => vistas.get(id) != null);
+    if(atual) marcarAtalho(atual);
+  }, {rootMargin: '-120px 0px -55% 0px'});
+  document.querySelectorAll('[data-ancora]').forEach(el => obs.observe(el));
+}
 
 /* ---------- Feed de alertas (respeita o filtro cruzado dia x tipo) ---------- */
 let eventosPeriodo = [];            // todos os eventos do periodo (graficos e feed partem daqui)
@@ -1515,8 +1535,49 @@ let periodo = 7;
 const MENOS_MOVIMENTO = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const EASE_SAIDA = 'cubic-bezier(0.23, 1, 0.32, 1)';
 let animados = new Set();
-const novaEntrada = () => { animados = new Set(); };
+// Durante a 1a carga de uma entrada o layout ainda muda (partes vazias crescem): as
+// animacoes esperam numa fila e so decidem o que esta visivel quando a carga termina.
+let filaEntrada = null;
+const novaEntrada = () => { animados = new Set(); filaEntrada = []; };
+function liberarFilaEntrada(){
+  if(!filaEntrada) return;
+  const fila = filaEntrada; filaEntrada = null;
+  requestAnimationFrame(() => fila.forEach(([el, fn]) => observarEntrada(el, fn)));
+}
 function animarAgora(chave){ if(animados.has(chave)) return false; animados.add(chave); return true; }
+// Dispara `fn` quando `el` entra na tela (uma vez). Ja visivel: dispara na hora.
+const observadorEntrada = 'IntersectionObserver' in window ? new IntersectionObserver(entradas => {
+  entradas.forEach(e => {
+    if(!e.isIntersecting) return;
+    observadorEntrada.unobserve(e.target);
+    const fns = e.target._aoAparecer || []; e.target._aoAparecer = [];
+    fns.forEach(f => f());
+  });
+}, {threshold: 0.2}) : null;
+function aoAparecer(el, fn){
+  if(!el) return;
+  if(filaEntrada){ filaEntrada.push([el, fn]); return; }
+  observarEntrada(el, fn);
+}
+function observarEntrada(el, fn){
+  if(!el.isConnected) return;   // redesenhado enquanto esperava: a versao nova ja esta na tela
+  const r = el.getBoundingClientRect();
+  if(!observadorEntrada || (r.width && r.top < innerHeight * 0.85 && r.bottom > 0)){ fn(); return; }
+  (el._aoAparecer ||= []).push(fn);
+  observadorEntrada.observe(el);
+}
+// Cria as animacoes ja PAUSADAS no quadro inicial (barra em 0) e toca quando aparecem.
+function entrar(el, criar){
+  const anims = [criar()].flat(3).filter(a => a && a.pause);
+  anims.forEach(a => a.pause());
+  aoAparecer(el, () => anims.forEach(a => a.play()));
+}
+function contarAoAparecer(el, alvo, dur = 700){
+  if(!el) return;
+  if(MENOS_MOVIMENTO){ el.textContent = alvo; return; }
+  el.textContent = '0';
+  aoAparecer(el, () => contar(el, alvo, dur));
+}
 function contar(el, alvo, dur = 700){
   if(!el) return;
   const fim = Number(String(alvo).replace(/\./g, ''));
@@ -1531,28 +1592,28 @@ function contar(el, alvo, dur = 700){
   el._contar = requestAnimationFrame(passo);
 }
 function fade(els, {dur = 320, atraso = 0, sobe = 0} = {}){
-  [...els].forEach((el, i) => el.animate(
+  return [...els].filter(Boolean).map((el, i) => el.animate(
     [{opacity: 0, transform: `translateY(${MENOS_MOVIMENTO ? 0 : sobe}px)`}, {opacity: 1, transform: 'translateY(0)'}],
     {duration: dur, delay: Math.min(i * atraso, 400), easing: EASE_SAIDA, fill: 'backwards'}));
 }
 function crescer(els, eixo = 'Y', {dur = 560, atraso = 16} = {}){
   if(MENOS_MOVIMENTO) return fade(els);
-  [...els].forEach((el, i) => el.animate([{transform: `scale${eixo}(0)`}, {transform: `scale${eixo}(1)`}],
+  return [...els].map((el, i) => el.animate([{transform: `scale${eixo}(0)`}, {transform: `scale${eixo}(1)`}],
     {duration: dur, delay: Math.min(i * atraso, 360), easing: EASE_SAIDA, fill: 'backwards'}));
 }
 function desenharTraco(paths, dur = 900){
-  [...paths].forEach(p => {
-    if(!p) return;
+  return [...paths].map(p => {
+    if(!p) return null;
     if(MENOS_MOVIMENTO || p.hasAttribute('stroke-dasharray')) return fade([p], {dur: 500});   // tracejada: so fade
-    const L = p.getTotalLength ? p.getTotalLength() : 0; if(!L) return;
-    p.animate([{strokeDasharray: `${L}`, strokeDashoffset: `${L}`}, {strokeDasharray: `${L}`, strokeDashoffset: '0'}],
+    const L = p.getTotalLength ? p.getTotalLength() : 0; if(!L) return null;
+    return p.animate([{strokeDasharray: `${L}`, strokeDashoffset: `${L}`}, {strokeDasharray: `${L}`, strokeDashoffset: '0'}],
       {duration: dur, easing: EASE_SAIDA});
   });
 }
 function revelar(el, dur = 750){   // da esquerda para a direita
   if(!el) return;
   if(MENOS_MOVIMENTO) return fade([el]);
-  el.animate([{clipPath: 'inset(0 100% 0 0)'}, {clipPath: 'inset(0 0 0 0)'}], {duration: dur, easing: EASE_SAIDA});
+  return el.animate([{clipPath: 'inset(0 100% 0 0)'}, {clipPath: 'inset(0 0 0 0)'}], {duration: dur, easing: EASE_SAIDA});
 }
 // Mira/ponto deslizam entre leituras; a 1a posicao e instantanea (nao varre desde a borda).
 function mover(el, x, y, instantaneo){
@@ -1683,7 +1744,7 @@ function renderizarGraficosEventos(evs){
         rot += `<text x="${(x+bw/2).toFixed(1)}" y="${H-8}" text-anchor="middle" font-size="10" style="fill:${TXT_MUDO}">${fmtDia(d)}</text>`;
     });
     cA.innerHTML = `<svg viewBox="0 0 ${W} ${H}" class="w-full" role="img" aria-label="Alertas por dia, furto e incêndio">${g}${barras}${rot}${hits}</svg>`;
-    if(animarAgora('atividade')) crescer(cA.querySelectorAll('.coluna'));
+    if(animarAgora('atividade')) entrar(cA, () => crescer(cA.querySelectorAll('.coluna')));
     ligarHover(cA, (ev, i) => { if(ev) tipMostrar(ev, fmtDia(dias[i]) + (dias[i] === filtroDia ? ' · clique para remover' : ' · clique para filtrar'), [[COR.furto,'Furto',f[i]],[COR.incendio,'Incêndio',inc[i]]]); });
     const alternarDia = i => { tipEsconder(); aplicarFiltroAlertas(dias[i] === filtroDia ? null : dias[i], filtroTipo); $('graficoAtividade').querySelector(`[data-i="${i}"]`)?.focus(); };
     cA.querySelectorAll('[data-i]').forEach(el => {
@@ -1720,7 +1781,7 @@ function renderizarGraficosEventos(evs){
       trilho.appendChild(barra); linha.append(topo, trilho); return linha;
     }));
   }
-  if(animarAgora('tipos')) crescer(cT.querySelectorAll('.barra-h'), 'X', {atraso: 45});
+  if(animarAgora('tipos')) entrar(cT, () => crescer(cT.querySelectorAll('.barra-h'), 'X', {atraso: 45}));
   cT.querySelectorAll('[data-tipo]').forEach(b => b.addEventListener('click', () =>
     aplicarFiltroAlertas(filtroDia, b.dataset.tipo === filtroTipo ? null : b.dataset.tipo)));
   const txt = `últimos ${periodo} dias`;
@@ -1783,7 +1844,7 @@ async function carregarTempDia(){
     });
     const mira = `<line id="miraTemp" x1="0" x2="0" y1="${MT}" y2="${MT+ih}" style="stroke:var(--v-texto3)" stroke-width="1" visibility="hidden"/>`;
     c.innerHTML = `<svg viewBox="0 0 ${W} ${H}" class="w-full" role="img" aria-label="Temperatura diária: escape máxima, escape média e ambiente">${g}${mira}${linhas}${pontos}${rot}${hits}</svg>`;
-    if(animarAgora('tempdia')){ desenharTraco(c.querySelectorAll('svg path[stroke]')); fade(c.querySelectorAll('svg circle'), {dur: 300, atraso: 30}); }
+    if(animarAgora('tempdia')) entrar(c, () => [desenharTraco(c.querySelectorAll('svg path[stroke]')), fade(c.querySelectorAll('svg circle'), {dur: 300, atraso: 30})]);
     const fmtT = v => typeof v === 'number' ? v.toFixed(1).replace('.', ',') + ' °C' : '–';
     ligarHover(c, (ev, i) => {
       const m = c.querySelector('#miraTemp');
@@ -1883,7 +1944,7 @@ function renderizarGraficoLeituras(forcar){
   </svg>`;
 
   const svg = c.querySelector('svg'), mira = svg.querySelector('#leitMira');
-  if(animarAgora('leituras')){ desenharTraco([svg.querySelector('path[fill="none"]')]); fade([svg.querySelector('path[fill^="url"]')], {dur: 700}); }
+  if(animarAgora('leituras')) entrar(svg, () => [desenharTraco([svg.querySelector('path[fill="none"]')]), fade([svg.querySelector('path[fill^="url"]')], {dur: 700})]);
   let atual = null;
   const mostrar = (i, ev) => {
     atual = i;
@@ -1954,13 +2015,15 @@ function renderizarStatusAgora(){
     celula('Última comunicação', `${PONTO(corCom)}<span class="truncate">${fmtRelativo(t.criado_em)}</span>`, fmtHora(t.criado_em) + (idade > 30 ? ' · sem sinal recente' : '')) +
     celula('Operador', `<span class="truncate">${escapar(t.operador_nome || (t.operador_autorizado === false ? 'Sem crachá' : 'Não identificado'))}</span>`, t.uid ? `Crachá ${escapar(t.uid)}` : '') +
     celula('Sensores em alerta', sensores.length ? sensores.map(n => selo(n, '#ba1a1a')).join(' ') : `${PONTO('#10b981')}Nenhum`, sensores.length ? 'na última leitura' : 'capô, tanque e chama normais');
-  if(animarAgora('statusAgora')) fade(el.children, {atraso: 45, sobe: 4});
+  if(animarAgora('statusAgora')) entrar(el, () => fade(el.children, {atraso: 45, sobe: 4}));
 }
 
 function renderizarSaude(){
   const el = $('saudeEsp'), rows = leiturasCache;
   if(!rows.length){ el.innerHTML = '<p class="text-sm text-on-surface-variant py-2">Sem leituras para avaliar o dispositivo.</p>'; $('saudeSelo').innerHTML = ''; return; }
   const t = rows[rows.length - 1];
+  const idadeMin = Math.floor((Date.now() - new Date(t.criado_em).getTime()) / 60000);
+  if(!mudou('saude', `${rows.length}|${t.id ?? t.criado_em}|${idadeMin}|${maquinaAtual()?.config_versao_aplicada}`) && el.firstChild) return;
   const itens = [];   // [rotulo, valor, nivel 0 ok | 1 atencao | 2 problema | -1 neutro]
   const idade = (Date.now() - new Date(t.criado_em).getTime()) / 1000;
   itens.push(['Última comunicação', `${fmtRelativo(t.criado_em)} · ${fmtHora(t.criado_em)}`, idade <= 30 ? 0 : idade <= 3600 ? 1 : 2]);
@@ -1988,7 +2051,7 @@ function renderizarSaude(){
   const pior = Math.max(...itens.map(i => i[2]));
   $('saudeSelo').innerHTML = selo(pior >= 2 ? 'Problema' : pior === 1 ? 'Atenção' : 'Saudável', COR_NIVEL[Math.max(0, pior)]);
   $('saudeSub').textContent = `Nas últimas ${rows.length} leituras recebidas`;
-  if(animarAgora('saude')) fade(el.children, {atraso: 35, sobe: 4});
+  if(animarAgora('saude')) entrar(el, () => fade(el.children, {atraso: 35, sobe: 4}));
 }
 
 function renderizarFrota(){
@@ -1998,6 +2061,7 @@ function renderizarFrota(){
     alertas: m.scores?.eventos_considerados?.total || 0}));
   if(!maqs.length){ el.innerHTML = '<p class="text-sm text-on-surface-variant">Sem dados da frota.</p>'; return; }
   if(maqs.length === 1){ el.innerHTML = '<p class="text-sm text-on-surface-variant">Esta é a única máquina da fazenda: não há com quem comparar.</p>'; return; }
+  if(!mudou('frota', JSON.stringify(maqs) + '|' + equipamentoSelecionado) && el.querySelector('.frota-barra')) return;
   const atual = String(equipamentoSelecionado);
   const media = k => maqs.reduce((a, m) => a + m[k], 0) / maqs.length;
   const bloco = (titulo, k, unidade) => {
@@ -2015,7 +2079,7 @@ function renderizarFrota(){
         </div>`; }).join('')}</div></div>`;
   };
   el.innerHTML = bloco('Risco máximo (0 a 100)', 'risco', '') + bloco('Alertas', 'alertas', '');
-  if(animarAgora('frota')) crescer(el.querySelectorAll('.frota-barra'), 'X', {atraso: 50});
+  if(animarAgora('frota')) entrar(el, () => crescer(el.querySelectorAll('.frota-barra'), 'X', {atraso: 50}));
 }
 
 let linhaTempoDados = null;
@@ -2090,7 +2154,7 @@ function desenharLinhaTempo(){
   }
   const hits = D.faixas.map((f, i) => `<rect class="viz-hit" data-i="${i}" x="${(ML + i * fw).toFixed(2)}" y="${TRILHAS[0][1] - 4}" width="${fw.toFixed(2)}" height="${TRILHAS[3][1] + AT + 8 - TRILHAS[0][1]}"/>`).join('');
   c.innerHTML = `<svg viewBox="0 0 ${W} ${H}" class="w-full" role="img" aria-label="Linha do tempo das 24 horas até a última leitura: motor, risco, sessões de crachá e alertas">${g}${hits}</svg>`;
-  if(animarAgora('linhaTempo')) revelar(c.querySelector('svg'));
+  if(animarAgora('linhaTempo')) entrar(c, () => revelar(c.querySelector('svg')));
   ligarHover(c, (ev, i) => {
     if(!ev) return;
     const f = D.faixas[i], a = ini + i * passo, b = a + passo;
@@ -2678,7 +2742,7 @@ async function carregarTudo(){
   // O periodo entra na chave: trocar 7/30/90 nunca reaproveita a carga do periodo anterior.
   const chave = `${contextoVersao}:${viewAtual}:${periodo}`;
   if(atualizacoes.has(chave)) return atualizacoes.get(chave);
-  const tarefa = atualizarView().finally(()=>atualizacoes.delete(chave));
+  const tarefa = atualizarView().finally(()=>{ atualizacoes.delete(chave); liberarFilaEntrada(); });
   atualizacoes.set(chave, tarefa);
   return tarefa;
 }
@@ -2773,11 +2837,11 @@ $('detCorpo').addEventListener('click', async e=>{
   const cred=e.target.closest('[data-gerar-credencial]'); if(cred){ gerarCredencial(cred.dataset.gerarCredencial); return; }
   const editar=e.target.closest('[data-editar-maquina]'); if(editar){ const m=maquinasCache.find(x=>String(x.id_equipamento)===editar.dataset.editarMaquina); fecharDetalhe(); if(m){ setView('maquinas'); abrirFormMaquina(m); } return; }
   const b = e.target.closest('[data-vertelemetria]'); if(!b) return;
-  setView('telemetria');
+  setView('visao');
   const fazenda = b.dataset.vertelemetria;
   await trocarFazenda(fazenda);
   if(String(fazendaSelecionada) !== fazenda) return;
-  if(maquinasCache.length) await selecionarMaquina(maquinasCache[0].id_equipamento, 'telemetria');
+  if(maquinasCache.length){ await selecionarMaquina(maquinasCache[0].id_equipamento, 'visao'); irPara('secTelemetria'); }
 
 });
 
@@ -2917,7 +2981,7 @@ $('formUsuario').addEventListener('submit', criarUsuario);
 
 // Busca rapida (Ctrl+K): maquinas da fazenda, fazendas, telas e acoes.
 const semAcento = t => String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-const ICONE_TELA = {inicio:'home', maquinas:'agriculture', visao:'dashboard', risco:'analytics', telemetria:'sensors', alertas:'warning',
+const ICONE_TELA = {inicio:'home', maquinas:'agriculture', visao:'dashboard',
                     operadores:'badge', historico:'history', fazendas:'landscape', clientes:'group', usuarios:'manage_accounts'};
 let paletaItens = [], paletaSel = 0;
 function itensPaleta(){
