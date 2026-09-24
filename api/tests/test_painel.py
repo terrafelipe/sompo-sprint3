@@ -317,8 +317,9 @@ def test_editar_maquina(painel):
     for id, value in [('maqNome','Trator 1'),('maqValor','150000.50'),('maqFabricacao','2020-01-02')]:
         pw.expect(page.locator('#'+id)).to_have_value(value)
     pw.expect(page.locator('#maqFazenda')).to_be_disabled()
-    pw.expect(page.locator('#maqDispositivo')).to_be_disabled()
+    pw.expect(page.locator('#maqDispositivo')).to_be_enabled()      # o ESP32 pode ser trocado
     pw.expect(page.locator('#maqDispositivoAjuda')).to_be_visible()
+    page.locator('#maqDispositivo').fill('ESP-9')
     page.locator('#maqNome').fill('Trator 1B')
     page.locator('#maqValor').fill('99')
     captura(page, 'editar-maquina')
@@ -327,7 +328,7 @@ def test_editar_maquina(painel):
     pw.expect(page.locator('#formMaquina')).not_to_be_visible()
     path, payload = state['posts'][-1]
     assert path == '/equipamentos/1' and payload['nome'] == 'Trator 1B' and payload['valor_segurado'] == '99'
-    assert 'fk_fazenda_id_fazenda' not in payload and 'dispositivo_id' not in payload
+    assert 'fk_fazenda_id_fazenda' not in payload and payload['dispositivo_id'] == 'ESP-9'
     page.locator('#btnNovaMaquina').click()
     pw.expect(page.locator('#maqFormTitulo')).to_have_text('Nova máquina')
     pw.expect(page.locator('#maqNome')).to_have_value('')

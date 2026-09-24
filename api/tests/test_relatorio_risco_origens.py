@@ -152,7 +152,7 @@ def test_relatorio_compara_com_o_periodo_anterior():
         {'id': 3, 'tipo': 'furto_capo', 'severidade': 2, 'criado_em': (agora - timedelta(days=9)).isoformat()},
     ]
     janelas = []
-    def do_banco(_disp, dias=7):
+    def do_banco(_disp, dias=7, equipamento=None):
         janelas.append(dias)
         return eventos
     with patch('app.consultar_resumo', return_value=[]), \

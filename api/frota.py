@@ -139,8 +139,6 @@ def dados_equipamento(corpo, atual=None):
     dev = texto(merged.get('dispositivo_id'), 'dispositivo', 64)
     if dev and not re.fullmatch(r'[A-Za-z0-9_-]+', dev):
         raise FrotaErro('dispositivo_invalido')
-    if atual.get('dispositivo_id') and dev != atual['dispositivo_id']:
-        raise FrotaErro('remanejamento_nao_permitido', 409)
     dados = {
         'nome': texto(merged.get('nome'), 'nome', obrigatorio=True),
         'fk_fazenda_id_fazenda': faz['id_fazenda'],
@@ -166,7 +164,8 @@ def dados_equipamento(corpo, atual=None):
         except (InvalidOperation, ValueError):
             raise FrotaErro('valor_segurado_invalido')
     if dev:
-        encontrados = db.consultar_tabela('equipamentos', filtros={'dispositivo_id': f'eq.{dev}'}, limite=1)
+        # O ESP32 de uma maquina excluida fica livre (o historico dela continua com ela).
+        encontrados = db.consultar_tabela('equipamentos', filtros={'dispositivo_id': f'eq.{dev}', 'excluido_em': 'is.null'}, limite=1)
         if encontrados and encontrados[0]['id_equipamento'] != atual.get('id_equipamento'):
             raise FrotaErro('dispositivo_ja_vinculado', 409)
     return dados
@@ -291,7 +290,7 @@ def resolver_equipamento():
     else:
         if not re.fullmatch(r'[A-Za-z0-9_-]{1,64}', dev):
             raise FrotaErro('dispositivo_invalido')
-        rows = db.consultar_tabela('equipamentos', filtros={'dispositivo_id': f'eq.{dev}'}, limite=1)
+        rows = db.consultar_tabela('equipamentos', filtros={'dispositivo_id': f'eq.{dev}', 'excluido_em': 'is.null'}, limite=1)
         if not rows:
             if papel() != 'sompo':
                 raise FrotaErro('proibido', 403)
@@ -301,6 +300,12 @@ def resolver_equipamento():
         autorizar_fazenda(eq.get('fk_fazenda_id_fazenda'))
     g.equipamento = eq
     return eq.get('dispositivo_id')
+
+
+def id_selecionado():
+    # Maquina resolvida por resolver_equipamento(): as leituras sao filtradas por ela.
+    eq = getattr(g, 'equipamento', None)
+    return eq['id_equipamento'] if eq else None
 
 
 def contexto():
@@ -362,11 +367,12 @@ def _resumos(fazendas, dias):
     em_ids = 'in.(' + ','.join(map(str, ids)) + ')'
     maquinas = db.consultar_todos('equipamentos', filtros={'fk_fazenda_id_fazenda': em_ids, 'excluido_em': 'is.null'},
                                   order='nome.asc,id_equipamento.asc')
-    devices = [m['dispositivo_id'] for m in maquinas if m.get('dispositivo_id')]
-    filtros = {'dispositivo_id': 'in.(' + ','.join(devices) + ')'}
+    # O historico acompanha a maquina: o ESP32 pode ter mudado de maquina.
+    ids_maquinas = [m['id_equipamento'] for m in maquinas]
+    filtros = {'equipamento_id': 'in.(' + ','.join(map(str, ids_maquinas)) + ')'}
     with ThreadPoolExecutor(max_workers=3) as pool:
-        f_leituras = pool.submit(db.consultar_todos, 'ultima_telemetria', filtros=filtros, order='dispositivo_id.asc') if devices else None
-        f_eventos = pool.submit(db.consultar_periodo, 'eventos', filtros, dias) if devices else None
+        f_leituras = pool.submit(db.consultar_todos, 'ultima_telemetria_maquina', filtros=filtros, order='equipamento_id.asc') if ids_maquinas else None
+        f_eventos = pool.submit(db.consultar_periodo, 'eventos', filtros, dias) if ids_maquinas else None
         f_operadores = pool.submit(db.consultar_todos, 'operadores', filtros={'fk_fazenda_id_fazenda': em_ids}, order='id_operador.asc')
         leituras = f_leituras.result() if f_leituras else []
         eventos = f_eventos.result() if f_eventos else []
@@ -395,20 +401,19 @@ def resumo_fazenda(value):
 
 
 def _resumo_de(faz, maquinas, leituras, eventos, operadores, dias):
-    devices = {m['dispositivo_id'] for m in maquinas if m.get('dispositivo_id')}
-    eventos = [ev for ev in eventos if ev.get('dispositivo_id') in devices]
-    leituras = [r for r in leituras if r.get('dispositivo_id') in devices]
+    maquina_por_id = {m['id_equipamento']: m for m in maquinas}
+    eventos = [ev for ev in eventos if ev.get('equipamento_id') in maquina_por_id]
     nomes = {o['id_operador']: o['nome'] for o in operadores}
-    por_device = {r['dispositivo_id']: r for r in leituras}
-    eventos_device = {}
+    por_maquina = {r['equipamento_id']: r for r in leituras if r.get('equipamento_id') in maquina_por_id}
+    eventos_maquina = {}
     for ev in eventos:
-        eventos_device.setdefault(ev['dispositivo_id'], []).append(ev)
+        eventos_maquina.setdefault(ev['equipamento_id'], []).append(ev)
     agora = datetime.now(timezone.utc)
     for m in maquinas:
         dev = m.get('dispositivo_id')
-        t = por_device.get(dev)
+        t = por_maquina.get(m['id_equipamento'])
         estado = 'sem_dispositivo' if not dev else 'sem_dados'
-        if t:
+        if t and dev:
             estado = 'atrasada'
             try:
                 # O instante de captura evita exibir backlog recém recebido como presença atual.
@@ -420,18 +425,14 @@ def _resumo_de(faz, maquinas, leituras, eventos, operadores, dias):
                 pass
         m.update(ultima_telemetria=t, comunicacao=estado,
                  operador_nome=nomes.get(t.get('operador_id') if t else None, 'Operador não identificado'),
-                 scores=calcular_scores(dev or '', dias, eventos_device.get(dev, [])),
+                 scores=calcular_scores(dev or '', dias, eventos_maquina.get(m['id_equipamento'], [])),
                  config_pendente=m.get('config_versao_aplicada') != m.get('config_versao', 1))
     # Os 10 alertas mais recentes da fazenda (Inicio do gestor), pelo instante de captura.
-    # A maquina gravada no evento manda: um ESP32 que trocou de fazenda nao traz alertas da anterior.
-    maquina_do_device = {m['dispositivo_id']: m for m in maquinas if m.get('dispositivo_id')}
-    maquina_por_id = {m['id_equipamento']: m for m in maquinas}
+    # A maquina gravada no evento manda: um ESP32 que trocou de maquina nao leva os alertas junto.
     alertas = []
     for ev in eventos:
-        m = (maquina_por_id.get(ev['equipamento_id']) if ev.get('equipamento_id') is not None
-             else maquina_do_device.get(ev.get('dispositivo_id')))
-        if m:
-            alertas.append({**ev, 'equipamento_id': m['id_equipamento'], 'equipamento_nome': m['nome'],
-                            'horario_ocorrencia': ev.get('ocorrido_em') if ev.get('registro_id') else ev.get('criado_em')})
+        m = maquina_por_id[ev['equipamento_id']]
+        alertas.append({**ev, 'equipamento_nome': m['nome'],
+                        'horario_ocorrencia': ev.get('ocorrido_em') if ev.get('registro_id') else ev.get('criado_em')})
     alertas.sort(key=lambda a: a['horario_ocorrencia'] or '', reverse=True)
     return {'fazenda': faz, 'equipamentos': maquinas, 'alertas_recentes': alertas[:10]}

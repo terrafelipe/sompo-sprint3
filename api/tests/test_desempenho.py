@@ -52,7 +52,7 @@ def test_exclusao_limpa_o_cache_de_revalidacao():
 
 
 def test_carteira_traz_todas_as_fazendas_com_o_mesmo_resumo_da_rota_individual(banco):
-    eventos = [{'id': 1, 'dispositivo_id': 'ESP-A', 'tipo': 'furto_capo', 'severidade': 2,
+    eventos = [{'id': 1, 'dispositivo_id': 'ESP-A', 'equipamento_id': 1, 'tipo': 'furto_capo', 'severidade': 2,
                 'criado_em': '2026-09-20T10:00:00+00:00'}]
     with patch('supabase_client.consultar_periodo', return_value=eventos):
         carteira = app.test_client().get('/carteira?dias=7')
@@ -64,6 +64,7 @@ def test_carteira_traz_todas_as_fazendas_com_o_mesmo_resumo_da_rota_individual(b
     assert [m['id_equipamento'] for m in santa_rita['equipamentos']] == [1, 2]
     assert santa_rita['equipamentos'] == individual.json['equipamentos']
     assert santa_rita['alertas_recentes'] == individual.json['alertas_recentes']
+    assert [al['id'] for al in santa_rita['alertas_recentes']] == [1]
     assert dados[1]['alertas_recentes'] == []          # o evento do ESP-A nao vaza para a Vale Verde
 
 

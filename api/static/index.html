@@ -812,7 +812,7 @@
           <div id="maqFazendaWrap"><label class="block text-xs font-semibold text-on-surface-variant mb-1">Fazenda *</label><select id="maqFazenda" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"></select></div>
           <div><label class="block text-xs font-semibold text-on-surface-variant mb-1">Tipo</label><input id="maqTipo" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2" placeholder="Trator, colheitadeira..."/></div>
           <div><label class="block text-xs font-semibold text-on-surface-variant mb-1">Modelo</label><input id="maqModelo" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2"/></div>
-          <div class="md:col-span-2"><label class="block text-xs font-semibold text-on-surface-variant mb-1">ID do ESP32</label><input id="maqDispositivo" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 disabled:opacity-60 disabled:cursor-not-allowed" placeholder="Ex.: SOMPO-ESP32" aria-describedby="maqDispositivoAjuda"/><p id="maqDispositivoAjuda" class="text-xs text-on-surface-variant mt-1" hidden>ESP32 já vinculado; o dispositivo não pode ser remanejado para outra máquina.</p></div>
+          <div class="md:col-span-2"><label class="block text-xs font-semibold text-on-surface-variant mb-1">ID do ESP32</label><input id="maqDispositivo" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2" placeholder="Ex.: SOMPO-ESP32" aria-describedby="maqDispositivoAjuda"/><p id="maqDispositivoAjuda" class="text-xs text-on-surface-variant mt-1" hidden>Ao trocar ou apagar o ID, a credencial atual deixa de valer: gere uma nova e grave o ID no ESP32. O histórico de leituras continua nesta máquina.</p></div>
           <div><label for="maqFabricacao" class="block text-xs font-semibold mb-1">Fabricação</label><input id="maqFabricacao" type="date" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2"/></div>
           <div><label for="maqManutencao" class="block text-xs font-semibold mb-1">Última manutenção</label><input id="maqManutencao" type="date" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2"/></div>
           <div><label for="maqValor" class="block text-xs font-semibold mb-1">Valor segurado (R$)</label><input id="maqValor" type="number" min="0" step="0.01" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2"/></div>
@@ -2821,15 +2821,15 @@ function renderizarGraficosEventos(evs){
 
 async function carregarTempDia(){
   const c = $('graficoTempDia');
-  if(!dispositivo){ c.innerHTML = '<div class="text-sm text-on-surface-variant italic py-10 text-center">Máquina sem ESP32 configurado.</div>'; return; }
+  if(!equipamentoSelecionado && !dispositivo){ c.innerHTML = '<div class="text-sm text-on-surface-variant italic py-10 text-center">Máquina sem ESP32 configurado.</div>'; return; }
   c.classList.add('viz-carregando');
   try{
-    const per = periodo;
-    const d = await getJSON(`/resumo?dispositivo=${encodeURIComponent(dispositivo)}&dias=${per}`);
+    const per = periodo, sel = seletorEquipamento();
+    const d = await getJSON(`/resumo?${sel}&dias=${per}`);
     if(per !== periodo) return;
     c.classList.remove('viz-carregando');
     const rows = (d.dados||[]).filter(r => r.dia).sort((a,b) => a.dia < b.dia ? -1 : 1);
-    if(!mudou('tempdia', `${periodo}|${dispositivo}|${JSON.stringify(rows)}`) && c.querySelector('svg')) return;
+    if(!mudou('tempdia', `${periodo}|${sel}|${JSON.stringify(rows)}`) && c.querySelector('svg')) return;
     tipEsconder();
     $('tempDiaSub').textContent = `Escape e ambiente nos últimos ${periodo} dias (${rows.length} ${rows.length===1?'dia':'dias'} com leituras)`;
     if(!rows.length){ c.innerHTML = '<div class="text-sm text-on-surface-variant italic py-10 text-center">Sem leituras no período.</div>'; return; }
@@ -3560,7 +3560,6 @@ const ERRO_FROTA = {
   valor_segurado_invalido:'Valor segurado inválido: use um número igual ou maior que zero.',
   dispositivo_invalido:'ID do ESP32 inválido.', dispositivo_id_invalido:'ID do ESP32 inválido.',
   dispositivo_ja_vinculado:'Este ESP32 já está vinculado a outra máquina.',
-  remanejamento_nao_permitido:'O ESP32 desta máquina não pode ser trocado.',
   fazenda_invalido:'Selecione a fazenda.', fazenda_excluida:'Esta fazenda foi excluída.',
   fazenda_sem_cliente:'Esta fazenda ainda não tem cliente vinculado.',
   transferencia_nao_permitida:'O cadastro não pode mudar de fazenda.',
@@ -3650,8 +3649,8 @@ async function selecionarMaquina(id, view = 'visao'){
 }
 
 // Prepara o formMaquina para cadastro (m = null) ou edição (m = máquina do cache).
-// Na edição a fazenda e o ESP32 já vinculado ficam travados: o backend recusa
-// transferência de fazenda e remanejamento de dispositivo (409).
+// Na edição a fazenda fica travada (o backend recusa transferência, 409). O ESP32 pode
+// ser trocado ou apagado; o histórico de leituras fica com a máquina.
 function modoFormMaquina(m){
   maquinaEditando = m || null; envioMaquina++;
   const f=$('formMaquina'), msg=$('maqMsg');
@@ -3660,8 +3659,7 @@ function modoFormMaquina(m){
   $('maqSalvar').textContent = m ? 'Salvar alterações' : 'Salvar máquina'; $('maqSalvar').disabled = false;
   opcoesFazenda($('maqFazenda'), m ? m.fk_fazenda_id_fazenda : fazendaSelecionada);
   $('maqFazenda').disabled = !!m;
-  const travaDispositivo = !!(m && m.dispositivo_id);
-  $('maqDispositivo').disabled = travaDispositivo; $('maqDispositivoAjuda').hidden = !travaDispositivo;
+  $('maqDispositivoAjuda').hidden = !(m && m.dispositivo_id);
   if(m){
     $('maqNome').value=m.nome||''; $('maqTipo').value=m.tipo||''; $('maqModelo').value=m.modelo||'';
     $('maqDispositivo').value=m.dispositivo_id||''; $('maqFabricacao').value=String(m.fabricacao||'').slice(0,10);
@@ -3681,7 +3679,7 @@ async function salvarMaquina(ev){
   const payload={nome:$('maqNome').value.trim(),
     tipo:$('maqTipo').value.trim(), modelo:$('maqModelo').value.trim(), fabricacao:$('maqFabricacao').value, ultima_manutencao:$('maqManutencao').value, valor_segurado:$('maqValor').value};
   if(!editando) payload.fk_fazenda_id_fazenda = $('maqFazenda').value;   // na edição a fazenda não muda
-  if(!$('maqDispositivo').disabled) payload.dispositivo_id = $('maqDispositivo').value.trim();
+  payload.dispositivo_id = $('maqDispositivo').value.trim();
   const url = editando ? `/equipamentos/${editando.id_equipamento}` : '/equipamentos';
   const envio = envioMaquina;   // se o form mudar de modo enquanto o envio está pendente, a resposta não mexe nele
   msg.textContent='Salvando…'; msg.style.color=''; $('maqSalvar').disabled = true;

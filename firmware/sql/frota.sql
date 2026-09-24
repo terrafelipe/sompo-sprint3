@@ -10,7 +10,12 @@ alter table public.equipamentos
  add column if not exists config_versao bigint not null default 1,
  add column if not exists config_versao_aplicada bigint,
  add column if not exists config_sincronizada_em timestamptz;
-create unique index if not exists equipamentos_dispositivo_unique on public.equipamentos(dispositivo_id);
+-- Depois de esp32_por_maquina.sql o ID so e unico entre maquinas nao excluidas: nao recriar o global.
+do $$ begin
+ if to_regclass('public.equipamentos_dispositivo_vivo_uk') is null then
+  create unique index if not exists equipamentos_dispositivo_unique on public.equipamentos(dispositivo_id);
+ end if;
+end $$;
 create index if not exists equipamentos_fazenda_idx on public.equipamentos(fk_fazenda_id_fazenda);
 
 -- A customer with several farms does not identify an equipment's farm.

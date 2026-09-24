@@ -123,8 +123,8 @@ def test_pdf_contem_apenas_maquina_selecionada(banco, pdf_aberto):
     assert r.status_code == 200
     assert r.content_type == 'application/pdf'
     assert 'ESP-B' in r.headers['Content-Disposition']
-    resumo.assert_called_once_with('ESP-B', dias=7)
-    eventos.assert_called_once_with('ESP-B', dias=7)
+    resumo.assert_called_once_with('ESP-B', dias=7, equipamento=2)
+    eventos.assert_called_once_with('ESP-B', dias=7, equipamento=2)
     text = r.data.decode('latin-1')
     assert 'Trator B' in text and 'Santa Rita' in text and 'ESP-B' in text
     assert 'Trator A' not in text and 'ESP-A' not in text
@@ -152,8 +152,7 @@ def test_uid_de_operador_excluido_pode_ser_reaproveitado(banco):
     assert r.json['operador']['uid'] == '01020304'
 
 
-def test_transferencia_e_remanejamento_nao_permitidos(banco):
-    assert gestor().patch('/equipamentos/1', json={'dispositivo_id': 'OUTRO'}).status_code == 409
+def test_transferencia_de_fazenda_nao_permitida(banco):
     assert gestor().patch('/equipamentos/1', json={'fk_fazenda_id_fazenda': 2}).status_code == 409
 
 
@@ -218,8 +217,8 @@ def test_credencial_nao_e_armazenada_em_texto_claro(banco, monkeypatch):
 
 def test_resumo_traz_os_10_alertas_mais_recentes_da_fazenda(banco):
     # 12 eventos alternando as duas máquinas; um veio de backlog (registro_id) e vale o ocorrido_em.
-    eventos = [{'id': i, 'dispositivo_id': 'ESP-A' if i % 2 else 'ESP-B', 'tipo': 'furto_capo', 'severidade': 2,
-                'criado_em': f'2026-09-20T10:{i:02d}:00+00:00'} for i in range(12)]
+    eventos = [{'id': i, 'dispositivo_id': 'ESP-A' if i % 2 else 'ESP-B', 'equipamento_id': 1 if i % 2 else 2,
+                'tipo': 'furto_capo', 'severidade': 2, 'criado_em': f'2026-09-20T10:{i:02d}:00+00:00'} for i in range(12)]
     eventos[0].update(registro_id=5, ocorrido_em='2026-09-20T11:00:00+00:00')
     with patch('supabase_client.consultar_periodo', return_value=eventos):
         r = gestor().get('/fazendas/1/resumo?dias=7')
@@ -235,9 +234,10 @@ def test_resumo_traz_os_10_alertas_mais_recentes_da_fazenda(banco):
 def test_alertas_recentes_seguem_a_maquina_gravada_no_evento(banco):
     # ESP-A mudou de fazenda: o evento antigo, gravado com a maquina 3 (Vale Verde), nao aparece
     # em Santa Rita; o evento gravado com a maquina 2 vale mesmo vindo de outro dispositivo.
+    # Evento sem maquina (ID sem dono quando chegou) nao e de ninguem: nao vira alerta.
     eventos = [{'id': 1, 'dispositivo_id': 'ESP-A', 'equipamento_id': 3, 'tipo': 'furto_capo', 'criado_em': '2026-09-20T10:00:00+00:00'},
                {'id': 2, 'dispositivo_id': 'ESP-A', 'equipamento_id': 2, 'tipo': 'furto_capo', 'criado_em': '2026-09-20T11:00:00+00:00'},
                {'id': 3, 'dispositivo_id': 'ESP-A', 'tipo': 'furto_capo', 'criado_em': '2026-09-20T12:00:00+00:00'}]
     with patch('supabase_client.consultar_periodo', return_value=eventos):
         alertas = gestor().get('/fazendas/1/resumo?dias=7').json['alertas_recentes']
-    assert [(a['id'], a['equipamento_id']) for a in alertas] == [(3, 1), (2, 2)]
+    assert [(a['id'], a['equipamento_id']) for a in alertas] == [(2, 2)]

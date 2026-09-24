@@ -310,10 +310,11 @@ def me():
 @app.get('/telemetria')
 def telemetria():
     dispositivo = _dispositivo_para(request.args.get('dispositivo', 'SOMPO-ESP32'))
+    eq = frota.id_selecionado()
     limite = _parse_int(request.args.get('limite', '50'), 50, minimum=1, maximum=500)
 
     try:
-        dados = frota.identificar_registros(consultar_telemetria(dispositivo, limite=limite) if dispositivo else [])
+        dados = frota.identificar_registros(consultar_telemetria(dispositivo, limite=limite, equipamento=eq) if dispositivo or eq else [])
         return jsonify({'total': len(dados), 'dados': dados, **frota.contexto()}), 200
     except Exception as exc:
         return _erro('falha_na_consulta', exc, 502)
@@ -324,14 +325,15 @@ def telemetria_linha_do_tempo():
     # Janela de N horas ate a ULTIMA leitura da maquina (mostra o ultimo dia com
     # atividade mesmo se o ESP32 parou), agregada em faixas de 15 min.
     dispositivo = _dispositivo_para(request.args.get('dispositivo', 'SOMPO-ESP32'))
+    eq = frota.id_selecionado()
     horas = _parse_int(request.args.get('horas', '24'), 24, minimum=1, maximum=72)
     try:
-        ultima = consultar_telemetria(dispositivo, limite=1) if dispositivo else []
+        ultima = consultar_telemetria(dispositivo, limite=1, equipamento=eq) if dispositivo or eq else []
         fim = linha_do_tempo.quando(ultima[0].get('criado_em')) if ultima else None
         if fim is None:
             return jsonify({'faixas': [], 'janela': None, **frota.contexto()}), 200
         inicio = fim - timedelta(hours=horas)
-        linhas = consultar_telemetria_intervalo(dispositivo, inicio, fim)
+        linhas = consultar_telemetria_intervalo(dispositivo, inicio, fim, equipamento=eq)
         return jsonify({'janela': {'inicio': inicio.isoformat(), 'fim': fim.isoformat(), 'minutos': 15},
                         'faixas': linha_do_tempo.agregar(linhas, fim, horas, 15), **frota.contexto()}), 200
     except Exception as exc:
@@ -341,10 +343,11 @@ def telemetria_linha_do_tempo():
 @app.get('/eventos')
 def eventos():
     dispositivo = _dispositivo_para(request.args.get('dispositivo', 'SOMPO-ESP32'))
+    eq = frota.id_selecionado()
     dias = _parse_int(request.args.get('dias', '7'), 7, minimum=1)
 
     try:
-        dados = frota.identificar_registros(consultar_eventos(dispositivo, dias=dias) if dispositivo else [])
+        dados = frota.identificar_registros(consultar_eventos(dispositivo, dias=dias, equipamento=eq) if dispositivo or eq else [])
         return jsonify({'total': len(dados), 'dados': dados, **frota.contexto()}), 200
     except Exception as exc:
         return _erro('falha_na_consulta', exc, 502)
@@ -353,10 +356,11 @@ def eventos():
 @app.get('/resumo')
 def resumo():
     dispositivo = _dispositivo_para(request.args.get('dispositivo', 'SOMPO-ESP32'))
+    eq = frota.id_selecionado()
     dias = _parse_int(request.args.get('dias', '7'), 7, minimum=1)
 
     try:
-        dados = consultar_resumo(dispositivo, dias=dias) if dispositivo else []
+        dados = consultar_resumo(dispositivo, dias=dias, equipamento=eq) if dispositivo or eq else []
         return jsonify({'total': len(dados), 'dados': dados, **frota.contexto()}), 200
     except Exception as exc:
         return _erro('falha_na_consulta', exc, 502)
@@ -365,10 +369,11 @@ def resumo():
 @app.get('/scores')
 def scores():
     dispositivo = _dispositivo_para(request.args.get('dispositivo', 'SOMPO-ESP32'))
+    eq = frota.id_selecionado()
     dias = _parse_int(request.args.get('dias', '7'), 7, minimum=1)
 
     try:
-        eventos = consultar_eventos(dispositivo, dias=dias) if dispositivo else []
+        eventos = consultar_eventos(dispositivo, dias=dias, equipamento=eq) if dispositivo or eq else []
         return jsonify({**calcular_scores(dispositivo, dias, eventos), **frota.contexto()}), 200
     except Exception as exc:
         return _erro('falha_na_consulta', exc, 502)
@@ -377,11 +382,12 @@ def scores():
 @app.get('/relatorio/bruto')
 def relatorio_bruto():
     dispositivo = _dispositivo_para(request.args.get('dispositivo', 'SOMPO-ESP32'))
+    eq = frota.id_selecionado()
     dias = _parse_int(request.args.get('dias', '7'), 7, minimum=1)
 
     try:
-        resumo_por_dia = consultar_resumo(dispositivo, dias=dias) if dispositivo else []
-        eventos = frota.identificar_registros(consultar_eventos(dispositivo, dias=dias) if dispositivo else [])
+        resumo_por_dia = consultar_resumo(dispositivo, dias=dias, equipamento=eq) if dispositivo or eq else []
+        eventos = frota.identificar_registros(consultar_eventos(dispositivo, dias=dias, equipamento=eq) if dispositivo or eq else [])
         relatorio = montar_relatorio_bruto(dispositivo, dias, resumo_por_dia, eventos)
         relatorio.update(frota.contexto())
         return jsonify(relatorio), 200
@@ -407,13 +413,14 @@ def _separar_periodo(eventos, dias):
 @app.get('/relatorio/risco')
 def relatorio_risco():
     dispositivo = _dispositivo_para(request.args.get('dispositivo', 'SOMPO-ESP32'))
+    eq = frota.id_selecionado()
     dias = _parse_int(request.args.get('dias', '7'), 7, minimum=1)
 
     try:
-        resumo_por_dia = consultar_resumo(dispositivo, dias=dias) if dispositivo else []
+        resumo_por_dia = consultar_resumo(dispositivo, dias=dias, equipamento=eq) if dispositivo or eq else []
         # Busca 2x a janela: os ultimos N dias viram o relatorio; os N dias antes deles
         # so geram os scores de comparacao ("anterior", variacao nos cards da tela).
-        todos = frota.identificar_registros(consultar_eventos(dispositivo, dias=dias * 2) if dispositivo else [])
+        todos = frota.identificar_registros(consultar_eventos(dispositivo, dias=dias * 2, equipamento=eq) if dispositivo or eq else [])
         eventos, anteriores = _separar_periodo(todos, dias)
         # novo=1: botao "Gerar de novo" da tela -> ignora o cache da IA.
         novo = request.args.get('novo', '').lower() in {'1', 'true'}
@@ -433,17 +440,18 @@ def relatorio_risco():
 def relatorio_risco_pdf():
     # Mesmo conteúdo do /relatorio/risco, mas como PDF para download (abre em qualquer celular).
     dispositivo = _dispositivo_para(request.args.get('dispositivo', 'SOMPO-ESP32'))
+    eq = frota.id_selecionado()
     dias = _parse_int(request.args.get('dias', '7'), 7, minimum=1)
 
     try:
-        resumo_por_dia = consultar_resumo(dispositivo, dias=dias) if dispositivo else []
-        eventos = frota.identificar_registros(consultar_eventos(dispositivo, dias=dias) if dispositivo else [])
+        resumo_por_dia = consultar_resumo(dispositivo, dias=dias, equipamento=eq) if dispositivo or eq else []
+        eventos = frota.identificar_registros(consultar_eventos(dispositivo, dias=dias, equipamento=eq) if dispositivo or eq else [])
         relatorio = montar_relatorio_risco(dispositivo, dias, resumo_por_dia, eventos, contexto=frota.contexto())
         import documento   # tardio: fpdf2 (Pillow, fontTools) pesava ~1 s em todo cold start
         conteudo = documento.montar_pdf(relatorio, eventos)
 
         carimbo = datetime.now(documento.FUSO_BRASILIA).strftime('%Y%m%d_%H%M')
-        nome = f'relatorio_risco_{dispositivo}_{carimbo}.pdf'
+        nome = f'relatorio_risco_{dispositivo or f"maquina_{eq}"}_{carimbo}.pdf'
         return Response(
             conteudo,
             mimetype='application/pdf',

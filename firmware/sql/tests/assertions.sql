@@ -15,7 +15,6 @@ select pg_temp.check_true((select fk_fazenda_id_fazenda is null from equipamento
 select pg_temp.check_true((select operador_id is null and registro_id is null from eventos limit 1),'legacy history unattributed');
 update equipamentos set dispositivo_id='DEVICE-2' where id_equipamento=3;
 select pg_temp.rejects($q$update equipamentos set dispositivo_id='DEVICE-2' where id_equipamento=2$q$,'unique device');
-select pg_temp.rejects($q$update equipamentos set dispositivo_id='NEW' where id_equipamento=1$q$,'device permanent');
 select pg_temp.rejects($q$update equipamentos set fk_fazenda_id_fazenda=2 where id_equipamento=1$q$,'farm permanent');
 select pg_temp.rejects($q$update equipamentos set fk_cliente_id_cliente=2 where id_equipamento=1$q$,'equipment customer matches farm');
 insert into operadores(nome,uid,fk_fazenda_id_fazenda) values ('A','aa:bb:cc:dd',1),('B','12345678',2);

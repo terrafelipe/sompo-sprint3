@@ -29,7 +29,7 @@ def test_agrega_em_faixas_de_15_min_ate_a_ultima_leitura():
 
 def test_rota_usa_a_janela_das_24h_ate_a_ultima_leitura():
     janelas = []
-    def intervalo(_disp, inicio, fim):
+    def intervalo(_disp, inicio, fim, equipamento=None):
         janelas.append((inicio, fim))
         return [_leitura(0, True)]
     with patch('app.consultar_telemetria', return_value=[{'criado_em': FIM.isoformat()}]), \

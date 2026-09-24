@@ -92,32 +92,41 @@ def chamar_rpc(nome, payload):
     return linhas[0] if len(linhas) == 1 else linhas
 
 
-def consultar_telemetria(dispositivo: str, limite: int = 50) -> List[Dict[str, Any]]:
-    filtros = {'dispositivo_id': f'eq.{dispositivo}'}
-    return consultar_tabela('telemetria', filtros=filtros, limite=limite, order='criado_em.desc')
+def _leituras_de(dispositivo, equipamento):
+    # Com a maquina escolhida, o historico e o DELA (o ESP32 pode ter mudado de maquina);
+    # sem maquina, so o ID pedido (consulta de dados legados pela Sompo).
+    if equipamento is not None:
+        return {'equipamento_id': f'eq.{equipamento}'}
+    return {'dispositivo_id': f'eq.{dispositivo}'}
 
 
-def consultar_telemetria_intervalo(dispositivo: str, inicio: datetime, fim: datetime) -> List[Dict[str, Any]]:
+def consultar_telemetria(dispositivo, limite: int = 50, equipamento=None) -> List[Dict[str, Any]]:
+    return consultar_tabela('telemetria', filtros=_leituras_de(dispositivo, equipamento),
+                            limite=limite, order='criado_em.desc')
+
+
+def consultar_telemetria_intervalo(dispositivo, inicio: datetime, fim: datetime, equipamento=None) -> List[Dict[str, Any]]:
     # So as colunas que a linha do tempo usa: 24h de leituras podem ser milhares de linhas.
     return consultar_todos('telemetria', filtros={
-        'dispositivo_id': f'eq.{dispositivo}',
+        **_leituras_de(dispositivo, equipamento),
         'criado_em': f'gte.{inicio.isoformat()}',
         'and': f'(criado_em.lte.{fim.isoformat()})',
     }, select='criado_em,motor_ligado,nivel_risco', order='criado_em.asc')
 
 
-def consultar_eventos(dispositivo: str, dias: int = 7) -> List[Dict[str, Any]]:
-    return consultar_periodo('eventos', {'dispositivo_id': f'eq.{dispositivo}'}, dias)
+def consultar_eventos(dispositivo, dias: int = 7, equipamento=None) -> List[Dict[str, Any]]:
+    return consultar_periodo('eventos', _leituras_de(dispositivo, equipamento), dias)
 
 
-def consultar_resumo(dispositivo: str, dias: int = 7) -> List[Dict[str, Any]]:
+def consultar_resumo(dispositivo, dias: int = 7, equipamento=None) -> List[Dict[str, Any]]:
     hoje = datetime.now(timezone(timedelta(hours=-3))).date()
     filtros = {
-        'dispositivo_id': f'eq.{dispositivo}',
+        **_leituras_de(dispositivo, equipamento),
         'dia': f'gte.{(hoje-timedelta(days=dias-1)).isoformat()}',
         'and': f'(dia.lte.{hoje.isoformat()})',
     }
-    return consultar_todos('resumo_diario', filtros=filtros, order='dia.desc')
+    view = 'resumo_diario_maquina' if equipamento is not None else 'resumo_diario'
+    return consultar_todos(view, filtros=filtros, order='dia.desc')
 
 
 # --- Cadastro de negocio (dashboard): clientes e fazendas ---------------------
