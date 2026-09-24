@@ -81,7 +81,28 @@ def montar_relatorio_bruto(dispositivo: str, dias: int, resumo_por_dia: List[Dic
 
 # Janelas longas (30/90 dias) tem centenas de eventos: o prompt leva os totais exatos
 # (detalhamento) e so uma amostra dos mais recentes, para nao ficar enorme e lento.
-LIMITE_EVENTOS_PROMPT = 60
+LIMITE_EVENTOS_PROMPT = 30
+
+
+def _evento_enxuto(evento: Dict[str, Any]) -> Dict[str, Any]:
+    # O evento do banco tem ~21 campos (ids, boot, uptime, recebimento...): a IA so usa estes.
+    # Prompt menor responde mais rapido e o provedor recusa menos por sobrecarga.
+    quando = evento.get('horario_ocorrencia') or (evento.get('ocorrido_em') if evento.get('registro_id') else evento.get('criado_em'))
+    enxuto: Dict[str, Any] = {}
+    if quando:
+        enxuto['quando'] = quando
+    tipo = evento.get('tipo')
+    enxuto['tipo'] = _LEGIVEIS.get(str(tipo).lower(), tipo)
+    enxuto['severidade'] = evento.get('severidade')
+    operador = evento.get('operador_nome')
+    if operador and operador != 'Operador não identificado':
+        enxuto['operador'] = operador
+    if evento.get('temp_escape') is not None:
+        enxuto['temp_escape'] = evento['temp_escape']
+    detalhes = evento.get('detalhes')
+    if isinstance(detalhes, dict) and detalhes:
+        enxuto['detalhes'] = {k: _LEGIVEIS.get(str(v).lower(), v) if isinstance(v, str) else v for k, v in detalhes.items()}
+    return enxuto
 
 
 def montar_prompt(dispositivo: str, dias: int, scores: Dict[str, Any], eventos: List[Dict[str, Any]], contexto=None) -> str:
@@ -100,10 +121,10 @@ def montar_prompt(dispositivo: str, dias: int, scores: Dict[str, Any], eventos: 
                 'detalhamento': scores['detalhamento'],
             },
             'eventos_na_amostra': f'{len(amostra)} de {len(eventos)} (os mais recentes; os totais estao no detalhamento)',
-            'eventos': amostra,
+            'eventos': [_evento_enxuto(e) for e in amostra],
         },
         ensure_ascii=False,
-        indent=2,
+        separators=(',', ':'),
     )
 
     header = (

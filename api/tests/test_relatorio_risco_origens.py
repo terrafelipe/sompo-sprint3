@@ -171,10 +171,32 @@ def test_prompt_leva_so_os_eventos_mais_recentes_em_janelas_longas():
     # e so uma amostra dos mais recentes, para nao ficar enorme e lento.
     from relatorios import LIMITE_EVENTOS_PROMPT, montar_prompt
     from scores import calcular_scores
-    eventos = [{'id': i, 'tipo': 'chama_detectada', 'severidade': 5} for i in range(150)]   # mais recente primeiro
+    eventos = [{'id': i, 'tipo': 'chama_detectada', 'severidade': 5,
+                'criado_em': f'2026-09-20T10:{i % 60:02d}:00+00:00'} for i in range(150)]   # mais recente primeiro
     prompt = montar_prompt('SOMPO-ESP32', 90, calcular_scores('SOMPO-ESP32', 90, eventos), eventos)
-    assert LIMITE_EVENTOS_PROMPT == 60
-    assert prompt.count('"tipo": "chama_detectada"') == 60
-    assert '"id": 0,' in prompt and '"id": 59,' in prompt and '"id": 60,' not in prompt
-    assert '"quantidade": 150' in prompt          # o detalhamento continua com o total real
-    assert '60 de 150' in prompt
+    assert LIMITE_EVENTOS_PROMPT == 30
+    assert prompt.count('"tipo":"chama detectada"') == 30
+    assert '"quantidade":150' in prompt          # o detalhamento continua com o total real
+    assert '30 de 150' in prompt
+
+
+def test_prompt_enxuto_leva_so_o_que_a_ia_usa():
+    # Evento real tem ~21 campos (ids, boot, uptime...): a IA so precisa de quando, tipo,
+    # gravidade, operador, temperatura e detalhe. Prompt menor = resposta mais rapida.
+    from relatorios import montar_prompt
+    from scores import calcular_scores
+    real = {'boot_id': 'b3f1c2d4-0000-4000-8000-000000000000', 'config_versao': 3, 'criado_em': '2026-09-20T10:00:05+00:00',
+            'detalhes': {'sensor': 'reed_capo'}, 'dispositivo_id': 'SOMPO-ESP32', 'equipamento_id': 1,
+            'equipamento_nome': 'Escavadeira Hidraulica 01', 'horario_ocorrencia': '2026-09-20T10:00:00+00:00', 'id': 991,
+            'ocorrido_em': '2026-09-20T10:00:00+00:00', 'operador_id': 7, 'operador_nome': 'Ana', 'recebido_em': '2026-09-20T10:00:05+00:00',
+            'registro_id': 'a1b2c3d4-0000-4000-8000-000000000000', 'sequencia': 1234, 'sessao_id': 'c1d2e3f4-0000-4000-8000-000000000000',
+            'severidade': 2, 'temp_escape': None, 'tipo': 'furto_capo', 'uid': '8BEEBC06', 'uptime_ms': 99999}
+    eventos = [dict(real, id=991 + n) for n in range(71)]
+    prompt = montar_prompt('SOMPO-ESP32', 7, calcular_scores('SOMPO-ESP32', 7, eventos), eventos)
+    assert len(prompt) < 9000, len(prompt)     # antes: ~53 mil caracteres com 71 eventos
+    for fora in ('boot_id', 'uptime_ms', 'registro_id', 'sequencia', 'recebido_em', 'config_versao', '8BEEBC06'):
+        assert fora not in prompt, fora
+    assert '"quando":"2026-09-20T10:00:00+00:00"' in prompt
+    assert '"tipo":"capô aberto"' in prompt and '"operador":"Ana"' in prompt
+
+
