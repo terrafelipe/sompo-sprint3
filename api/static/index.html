@@ -336,7 +336,15 @@
         </div>
         <div id="kpis" class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6"></div>
         <div class="border-t border-outline-variant/30 pt-4">
-          <div class="text-xs text-on-surface-variant mb-2 flex items-center gap-1.5"><span class="material-symbols-outlined text-[16px]">thermostat</span>Temperatura de escape (últimas leituras)</div>
+          <div class="flex items-center justify-between gap-3 flex-wrap mb-3">
+            <div class="inline-flex items-center h-8 p-0.5 rounded-lg border border-outline-variant bg-surface-container-low" role="group" aria-label="Métrica do gráfico de leituras">
+              <button type="button" data-metrica="temp_escape" class="per-btn" aria-pressed="true">Temp. escape</button>
+              <button type="button" data-metrica="temp_ambiente" class="per-btn" aria-pressed="false">Temp. ambiente</button>
+              <button type="button" data-metrica="umidade_ar" class="per-btn" aria-pressed="false">Umidade</button>
+              <button type="button" data-metrica="vibracao" class="per-btn" aria-pressed="false">Vibração</button>
+            </div>
+            <div id="leiturasResumo" class="text-xs text-on-surface-variant"></div>
+          </div>
           <div id="sparkTemp"></div>
         </div>
       </section>
@@ -727,6 +735,7 @@ function limparMaquina(){
   ['barFurto','barIncendio'].forEach(id => $(id).style.width = '0%');
   ['kpiFurtoPill','kpiIncendioPill'].forEach(id => $(id).textContent = '');
   ['graficoAtividade','graficoTipos','graficoTempDia'].forEach(id => $(id).innerHTML = '');
+  leiturasCache = []; $('leiturasResumo').textContent = ''; assinaturas.clear();
   ['totFurto','totIncendio'].forEach(id => $(id).textContent = '–');
   $('cardRisco').dataset.risco = 'seguro';
   $('equipamentoSel').value = '';
@@ -851,7 +860,7 @@ async function carregarRisco(){
 async function carregarTelemetria(){
   iniciando('kpis');
   try{
-    const d = await getJSON(`/telemetria?${seletorEquipamento()}&limite=10`);
+    const d = await getJSON(`/telemetria?${seletorEquipamento()}&limite=30`);
     const linhas = d.dados || [];
     const t = linhas[0] || null;
     const bool = v => v ? 'Sim' : 'Não';
@@ -884,9 +893,10 @@ async function carregarTelemetria(){
       kpi('propane_tank','Tanque', bool(t.tanque_aberto)) +
       kpi('local_fire_department','Chama', bool(t.chama_detectada));
 
-    $('sparkTemp').innerHTML = graficoTemp(linhas.map(x=>({t:x.temp_escape, h:x.criado_em})).reverse());
+    leiturasCache = [...linhas].reverse();   // antigas -> recentes
+    renderizarGraficoLeituras();
 
-    $('tabelaTelemetria').innerHTML = linhas.map(x=>{
+    $('tabelaTelemetria').innerHTML = linhas.slice(0,10).map(x=>{
       const cor = nivelCor(x.nivel_risco);
       return `<tr class="border-b border-outline-variant last:border-0 hover:bg-surface-container-low transition-colors">
         <td class="py-3 px-5 text-on-surface-variant tabular">${fmtHoraCurta(x.criado_em)}</td>
@@ -999,6 +1009,9 @@ function ligarHover(cont, fn){
 }
 
 function renderizarGraficosEventos(evs){
+  if(!mudou('eventos', `${periodo}|${evs.length}|${evs[0]?.id ?? ''}`) && $('graficoAtividade').firstChild){
+    ['graficoAtividade','graficoTipos'].forEach(id => $(id).classList.remove('viz-carregando')); return;
+  }
   tipEsconder();
   const dias = diasDoPeriodo(periodo), idx = new Map(dias.map((d,i)=>[d,i]));
   const f = dias.map(()=>0), inc = dias.map(()=>0), porTipo = new Map();
@@ -1075,8 +1088,10 @@ async function carregarTempDia(){
   c.classList.add('viz-carregando');
   try{
     const d = await getJSON(`/resumo?dispositivo=${encodeURIComponent(dispositivo)}&dias=${periodo}`);
-    c.classList.remove('viz-carregando'); tipEsconder();
+    c.classList.remove('viz-carregando');
     const rows = (d.dados||[]).filter(r => r.dia).sort((a,b) => a.dia < b.dia ? -1 : 1);
+    if(!mudou('tempdia', `${periodo}|${dispositivo}|${JSON.stringify(rows)}`) && c.querySelector('svg')) return;
+    tipEsconder();
     $('tempDiaSub').textContent = `Escape e ambiente nos últimos ${periodo} dias (${rows.length} ${rows.length===1?'dia':'dias'} com leituras)`;
     if(!rows.length){ c.innerHTML = '<div class="text-sm text-on-surface-variant italic py-10 text-center">Sem leituras no período.</div>'; return; }
     const series = [
@@ -1135,6 +1150,124 @@ document.querySelectorAll('[data-periodo]').forEach(b => b.addEventListener('cli
   periodo = +b.dataset.periodo;
   document.querySelectorAll('[data-periodo]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
   carregarTudo();
+}));
+
+/* ---------- Grafico de leituras (interativo) ---------- */
+// Auto-refresh a cada 5s: so redesenha quando os dados mudam (senao o tooltip fecharia).
+const assinaturas = new Map();
+function mudou(chave, assinatura){
+  if(assinaturas.get(chave) === assinatura) return false;
+  assinaturas.set(chave, assinatura); return true;
+}
+const METRICAS = {
+  temp_escape:   {rot:'Temp. escape',   un:' °C', dec:1},
+  temp_ambiente: {rot:'Temp. ambiente', un:' °C', dec:1},
+  umidade_ar:    {rot:'Umidade',        un:' %',  dec:1},
+  vibracao:      {rot:'Vibração',       un:' g',  dec:3},
+};
+let metricaLeituras = 'temp_escape';
+let leiturasCache = [];   // leituras em ordem antiga -> recente
+const fmtNum = (v, dec) => typeof v === 'number' ? v.toLocaleString('pt-BR', {minimumFractionDigits:dec, maximumFractionDigits:dec}) : '–';
+
+function renderizarGraficoLeituras(forcar){
+  const c = $('sparkTemp'), m = METRICAS[metricaLeituras];
+  const pts = leiturasCache.map(r => ({v:r[metricaLeituras], r})).filter(p => typeof p.v === 'number' && !isNaN(p.v));
+  const ultimo = leiturasCache[leiturasCache.length-1];
+  if(!forcar && !mudou('leituras', `${metricaLeituras}|${leiturasCache.length}|${ultimo?.id ?? ultimo?.criado_em ?? ''}`) && c.querySelector('svg')) return;
+  if(pts.length < 2){
+    c.innerHTML = '<div class="text-xs text-on-surface-variant italic py-6 text-center">Sem dados suficientes ainda.</div>';
+    $('leiturasResumo').textContent = ''; return;
+  }
+  const vals = pts.map(p => p.v), vMin = Math.min(...vals), vMax = Math.max(...vals);
+  const fmt = v => fmtNum(v, m.dec) + m.un;
+  $('leiturasResumo').textContent = `Mín ${fmt(vMin)} · Máx ${fmt(vMax)} · Atual ${fmt(vals[vals.length-1])}`;
+
+  const W=640, H=220, ML=46, MR=14, MT=12, MB=26, iw=W-ML-MR, ih=H-MT-MB;
+  const folga = Math.max((vMax - vMin) * 0.2, Math.abs(vMax) * 0.02, m.dec === 3 ? 0.005 : 0.5);
+  const {step} = escalaBonita((vMax + folga) - (vMin - folga));
+  let mn = Math.floor((vMin - folga)/step)*step, mx = Math.ceil((vMax + folga)/step)*step;
+  if(vMin >= 0 && mn < 0) mn = 0;
+  const decEixo = step >= 1 ? 0 : step >= 0.1 ? 1 : step >= 0.01 ? 2 : 3;
+  const X = i => ML + (i/(pts.length-1))*iw;
+  const Y = v => MT + ih - ((v-mn)/(mx-mn))*ih;
+  const P = pts.map((p,i) => ({x:X(i), y:Y(p.v)}));
+
+  let dline = `M ${P[0].x.toFixed(1)},${P[0].y.toFixed(1)}`;
+  for(let i=0; i<P.length-1; i++){   // curva suave (Catmull-Rom -> Bezier)
+    const p0=P[i-1]||P[i], p1=P[i], p2=P[i+1], p3=P[i+2]||p2;
+    dline += ` C ${(p1.x+(p2.x-p0.x)/6).toFixed(1)},${(p1.y+(p2.y-p0.y)/6).toFixed(1)} ${(p2.x-(p3.x-p1.x)/6).toFixed(1)},${(p2.y-(p3.y-p1.y)/6).toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)}`;
+  }
+  const base = (MT+ih).toFixed(1);
+  const darea = `${dline} L ${P[P.length-1].x.toFixed(1)},${base} L ${P[0].x.toFixed(1)},${base} Z`;
+  let grid = '';
+  for(let v=mn; v<=mx+step/1e6; v+=step){
+    const y = Y(v).toFixed(1);
+    grid += `<line x1="${ML}" x2="${W-MR}" y1="${y}" y2="${y}" stroke="${GRADE}" stroke-width="1"/>`;
+    grid += `<text x="${ML-8}" y="${(+y+3).toFixed(1)}" text-anchor="end" font-size="10" fill="${TXT_MUDO}">${fmtNum(v, decEixo)}${m.un.trim() === '°C' ? '°' : ''}</text>`;
+  }
+  let xlab = '';
+  const marcas = [...new Set([0, Math.round((pts.length-1)/3), Math.round(2*(pts.length-1)/3), pts.length-1])];
+  marcas.forEach(i => {
+    const anc = i === 0 ? 'start' : (i === pts.length-1 ? 'end' : 'middle');
+    xlab += `<text x="${X(i).toFixed(1)}" y="${H-8}" text-anchor="${anc}" font-size="10" fill="${TXT_MUDO}">${fmtHoraCurta(pts[i].r.criado_em)}</text>`;
+  });
+  const u = P[P.length-1];
+  c.innerHTML = `<svg viewBox="0 0 ${W} ${H}" class="w-full outline-none focus-visible:ring-2 focus-visible:ring-primary/20 rounded-lg" tabindex="0" role="img"
+      aria-label="${m.rot} nas últimas ${pts.length} leituras. Use as setas para percorrer.">
+    <defs><linearGradient id="gLeit" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#b70100" stop-opacity="0.16"/><stop offset="100%" stop-color="#b70100" stop-opacity="0"/>
+    </linearGradient></defs>
+    ${grid}
+    <path d="${darea}" fill="url(#gLeit)"/>
+    <path d="${dline}" fill="none" stroke="#b70100" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    <circle cx="${u.x.toFixed(1)}" cy="${u.y.toFixed(1)}" r="4" fill="#b70100" stroke="#fff" stroke-width="2"/>
+    <g id="leitMira" visibility="hidden">
+      <line x1="0" x2="0" y1="${MT}" y2="${MT+ih}" stroke="#a1a1aa" stroke-width="1"/>
+      <circle cx="0" cy="0" r="5" fill="#b70100" stroke="#fff" stroke-width="2"/>
+    </g>
+    ${xlab}
+    <rect id="leitHit" x="${ML}" y="${MT}" width="${iw}" height="${ih}" fill="transparent" style="cursor:crosshair"/>
+  </svg>`;
+
+  const svg = c.querySelector('svg'), mira = svg.querySelector('#leitMira');
+  let atual = null;
+  const mostrar = (i, ev) => {
+    atual = i;
+    const p = P[i], r = pts[i].r;
+    mira.querySelector('line').setAttribute('x1', p.x); mira.querySelector('line').setAttribute('x2', p.x);
+    mira.querySelector('circle').setAttribute('cx', p.x); mira.querySelector('circle').setAttribute('cy', p.y);
+    mira.setAttribute('visibility', 'visible');
+    const b = svg.getBoundingClientRect();
+    const pos = ev || {clientX: b.left + p.x/W*b.width, clientY: b.top + p.y/H*b.height};
+    const hora = r.criado_em ? new Date(r.criado_em).toLocaleString('pt-BR') : '';
+    tipMostrar(pos, hora, [
+      ['#b70100', m.rot, fmt(pts[i].v)],
+      ['#a1a1aa', 'Nível de risco', r.nivel_risco ?? '–'],
+      ['#a1a1aa', 'Motor', r.motor_ligado ? 'Ligado' : 'Desligado'],
+    ]);
+  };
+  const esconder = () => { atual = null; mira.setAttribute('visibility', 'hidden'); tipEsconder(); };
+  const hit = svg.querySelector('#leitHit');
+  hit.addEventListener('pointermove', ev => {
+    const b = svg.getBoundingClientRect();
+    const xs = (ev.clientX - b.left)/b.width*W;
+    mostrar(Math.max(0, Math.min(pts.length-1, Math.round((xs-ML)/iw*(pts.length-1)))), ev);
+  });
+  hit.addEventListener('pointerleave', esconder);
+  svg.addEventListener('focus', () => mostrar(pts.length-1));
+  svg.addEventListener('blur', esconder);
+  svg.addEventListener('keydown', ev => {
+    const mapa = {ArrowLeft:-1, ArrowRight:1, Home:-Infinity, End:Infinity};
+    if(!(ev.key in mapa)) return;
+    ev.preventDefault();
+    const base = atual ?? pts.length-1;
+    mostrar(Math.max(0, Math.min(pts.length-1, base + mapa[ev.key])));
+  });
+}
+document.querySelectorAll('[data-metrica]').forEach(b => b.addEventListener('click', () => {
+  metricaLeituras = b.dataset.metrica;
+  document.querySelectorAll('[data-metrica]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  renderizarGraficoLeituras(true);
 }));
 
 /* ---------- Detalhe do alerta (modal) ---------- */
