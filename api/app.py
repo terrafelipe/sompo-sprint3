@@ -349,7 +349,10 @@ def relatorio_risco():
     try:
         resumo_por_dia = consultar_resumo(dispositivo, dias=dias) if dispositivo else []
         eventos = frota.identificar_registros(consultar_eventos(dispositivo, dias=dias) if dispositivo else [])
-        resultado = montar_relatorio_risco(dispositivo, dias, resumo_por_dia, eventos, contexto=frota.contexto())
+        # novo=1: botao "Gerar de novo" da tela -> ignora o cache da IA.
+        novo = request.args.get('novo', '').lower() in {'1', 'true'}
+        resultado = montar_relatorio_risco(dispositivo, dias, resumo_por_dia, eventos,
+                                           contexto=frota.contexto(), forcar=novo)
         return jsonify(resultado), 200
     except Exception as exc:
         return _erro('falha_na_geracao_do_relatorio', exc, 502)

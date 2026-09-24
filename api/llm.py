@@ -17,6 +17,7 @@ from __future__ import annotations
 import hashlib
 import json
 import time
+from datetime import datetime, timezone
 from typing import Any, Dict
 
 import requests
@@ -66,23 +67,25 @@ def _chamar_provedor(prompt: str) -> Dict[str, Any]:
     return json.loads(texto)   # ValueError se nao vier JSON valido
 
 
-def analisar_risco(prompt: str) -> Dict[str, Any]:
-    """Decide a origem e retorna um dict. Nunca lança. Usa cache por prompt."""
+def analisar_risco(prompt: str, forcar: bool = False) -> Dict[str, Any]:
+    """Decide a origem e retorna um dict. Nunca lança. Usa cache por prompt;
+    forcar=True ("Gerar de novo" na tela) ignora o cache e chama o provedor."""
+    gerado_em = datetime.now(timezone.utc).isoformat()
     if not LLM_API_KEY:
-        return {'origem': 'prompt_apenas'}
+        return {'origem': 'prompt_apenas', 'gerado_em': gerado_em}
 
     chave = hashlib.sha256(prompt.encode('utf-8')).hexdigest()
     agora = time.time()
     guardado = _CACHE.get(chave)
-    if guardado is not None and guardado[0] > agora:
+    if not forcar and guardado is not None and guardado[0] > agora:
         return guardado[1]   # ainda valido -> reaproveita, sem chamar o provedor
 
     try:
         analise = _chamar_provedor(prompt)
-        resultado = {'origem': 'llm', 'analise': analise}
+        resultado = {'origem': 'llm', 'analise': analise, 'gerado_em': gerado_em}
         ttl = _TTL_OK
     except Exception as exc:   # rede, timeout, HTTP >=400 (ex.: 429), JSON invalido
-        resultado = {'origem': 'fallback', 'erro': str(exc)}
+        resultado = {'origem': 'fallback', 'erro': str(exc), 'gerado_em': gerado_em}
         ttl = _TTL_ERRO
 
     _CACHE[chave] = (agora + ttl, resultado)

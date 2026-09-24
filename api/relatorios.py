@@ -1,11 +1,62 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime, timezone
 from typing import Any, Dict, List
 
 import llm
-from scores import calcular_scores
+from scores import FAIXA_ALTO, FAIXA_MEDIO, calcular_scores
+
+
+# Nomes tecnicos (tipos de evento e sensores) -> nomes legiveis para a seguradora.
+# Vale para o texto da IA e entra no prompt como vocabulario obrigatorio.
+TIPOS_LEGIVEIS = {
+    'furto_adulteracao': 'adulteração/vibração',
+    'furto_cerca': 'cerca virtual',
+    'furto_capo': 'capô aberto',
+    'furto_tanque': 'tanque aberto',
+    'furto_movimento': 'movimento suspeito',
+    'operador_nao_autorizado': 'partida sem crachá',
+    'sensor_falha': 'sensor de adulteração removido',
+    'chama_detectada': 'chama detectada',
+    'escape_critico': 'escape crítico',
+    'escape_atencao': 'escape em atenção',
+    'fumaca_detectada': 'fumaça detectada',
+}
+SENSORES_LEGIVEIS = {
+    'reed_capo': 'sensor do capô',
+    'reed_tanque': 'sensor do tanque',
+    'rc522': 'leitor de crachá (RC522)',
+    'ky026': 'sensor de chama (KY-026)',
+    'mpu6050': 'acelerômetro (MPU-6050)',
+    'max6675': 'sensor de temperatura do escape (MAX6675)',
+    'aht10': 'sensor de temperatura e umidade (AHT10)',
+}
+_LEGIVEIS = {**TIPOS_LEGIVEIS, **SENSORES_LEGIVEIS}
+# Uma passada so (a troca nunca e trocada de novo). Engole aspas em volta e um
+# "sensor " antes do nome do sensor, para nao virar "sensor sensor do capo".
+_RE_TECNICO = re.compile(
+    r"(?:\bsensor\s+)?['\"`]?\b(" + '|'.join(sorted(_LEGIVEIS, key=len, reverse=True)) + r")\b['\"`]?",
+    re.IGNORECASE,
+)
+
+
+# Se a IA ja escreveu "leitor de cracha (RC522)", a troca do "RC522" geraria
+# "leitor de cracha (leitor de cracha (RC522))": este padrao junta de volta.
+_RE_DUPLICADO = [
+    (re.compile(r'(' + re.escape(r.split(' (')[0]) + r')\s*\(\s*' + re.escape(r) + r'\s*\)', re.IGNORECASE),
+     r[len(r.split(' (')[0]):])
+    for r in SENSORES_LEGIVEIS.values() if ' (' in r
+]
+
+
+def legivel(texto: str) -> str:
+    """Troca nomes tecnicos por nomes legiveis num texto livre."""
+    t = _RE_TECNICO.sub(lambda m: _LEGIVEIS[m.group(1).lower()], texto or '')
+    for padrao, resto in _RE_DUPLICADO:
+        t = padrao.sub(lambda m: m.group(1) + resto, t)
+    return t
 
 
 # ---------------------------------------------------------------------------
@@ -59,13 +110,18 @@ def montar_prompt(dispositivo: str, dias: int, scores: Dict[str, Any], eventos: 
         "5. Escreva em portugues, com linguagem adequada para seguros.\n"
         "6. Operador identificado por cracha nao comprova conducao continua nem culpa. "
         "Nao atribua responsabilidade pelo acidente somente pela presenca. "
-        "Horarios de ocorrencia ausentes sao desconhecidos; recebimento nao e ocorrencia.\n\n"
+        "Horarios de ocorrencia ausentes sao desconhecidos; recebimento nao e ocorrencia.\n"
+        "7. Nunca escreva nomes tecnicos de eventos ou sensores; use os nomes legiveis: "
+        + '; '.join(f'{k} = {v}' for k, v in _LEGIVEIS.items()) + ".\n"
+        "8. Preencha TODOS os campos, inclusive o eixo com poucos eventos. "
+        "\"resumo\" tem no maximo 2 frases.\n\n"
         "Dados:\n"
     )
 
     exemplo = (
         "Retorne APENAS um JSON valido com este formato (use os scores dados, nao os recalcule):\n"
         "{\n"
+        '  "resumo": "",\n'
         '  "justificativa_furto": "",\n'
         '  "justificativa_incendio": "",\n'
         '  "recomendacoes": [],\n'
@@ -120,6 +176,14 @@ def _frase_eixo(nome: str, score: int, classif: str, n: int, dias: int,
             f"nos ultimos {dias} dia(s).{_quebra_por_tipo(detalhamento, eixo)}")
 
 
+def _resumo_padrao(scores: Dict[str, Any]) -> str:
+    n = scores['eventos_considerados']
+    return (f"Risco de furto {scores['classificacao_furto']} ({scores['score_furto']}/100) e de incendio "
+            f"{scores['classificacao_incendio']} ({scores['score_incendio']}/100) nos ultimos "
+            f"{scores['periodo_dias']} dia(s), com {n['furto']} evento(s) de furto e "
+            f"{n['incendio']} de incendio.")
+
+
 def montar_fallback(scores: Dict[str, Any], erro: str | None = None) -> Dict[str, Any]:
     n_furto = scores['eventos_considerados']['furto']
     n_incendio = scores['eventos_considerados']['incendio']
@@ -136,6 +200,7 @@ def montar_fallback(scores: Dict[str, Any], erro: str | None = None) -> Dict[str
             limitacoes += f' Provedor de IA indisponivel: {e}'
 
     return {
+        'resumo': _resumo_padrao(scores),
         'justificativa_furto': _frase_eixo(
             'furto', scores['score_furto'], scores['classificacao_furto'],
             n_furto, dias, detalhamento, 'furto',
@@ -156,10 +221,18 @@ def montar_fallback(scores: Dict[str, Any], erro: str | None = None) -> Dict[str
 # Relatorio de risco: scores deterministicos + camada de IA, sempre HTTP 200
 # ---------------------------------------------------------------------------
 
-def montar_relatorio_risco(dispositivo: str, dias: int, resumo_por_dia: List[Dict[str, Any]], eventos: List[Dict[str, Any]], contexto=None) -> Dict[str, Any]:
+def _pontos_acumulados(detalhamento: Dict[str, Any]) -> Dict[str, int]:
+    # Soma sem o teto de 100: mostra o quanto o eixo passou do limite.
+    total = {'furto': 0, 'incendio': 0}
+    for linha in detalhamento.values():
+        total[linha['eixo']] += linha['pontos']
+    return total
+
+
+def montar_relatorio_risco(dispositivo: str, dias: int, resumo_por_dia: List[Dict[str, Any]], eventos: List[Dict[str, Any]], contexto=None, forcar: bool = False) -> Dict[str, Any]:
     scores = calcular_scores(dispositivo, dias, eventos)
     prompt = montar_prompt(dispositivo, dias, scores, eventos, contexto)
-    resultado = llm.analisar_risco(prompt)
+    resultado = llm.analisar_risco(prompt, forcar=forcar)
     origem = resultado['origem']
 
     base = {
@@ -173,16 +246,35 @@ def montar_relatorio_risco(dispositivo: str, dias: int, resumo_por_dia: List[Dic
         'score_incendio': scores['score_incendio'],
         'classificacao_furto': scores['classificacao_furto'],
         'classificacao_incendio': scores['classificacao_incendio'],
+        # "De onde vem o score": quantidade e pontos por tipo, sem teto; faixas do medidor.
+        'detalhamento': scores['detalhamento'],
+        'eventos_considerados': scores['eventos_considerados'],
+        'pontos_acumulados': _pontos_acumulados(scores['detalhamento']),
+        'faixas': {'medio': FAIXA_MEDIO, 'alto': FAIXA_ALTO},
+        'gerado_em': resultado.get('gerado_em') or datetime.now(timezone.utc).isoformat(),
+        'complementado_pelo_sistema': [],
     }
 
     if origem == 'llm':
         analise = resultado.get('analise', {})
+        if not isinstance(analise, dict):
+            analise = {}
+        recs = analise.get('recomendacoes', [])
+        recs = [legivel(str(r)) for r in (recs if isinstance(recs, list) else [recs]) if str(r).strip()]
         base.update({
-            'justificativa_furto': str(analise.get('justificativa_furto', '')),
-            'justificativa_incendio': str(analise.get('justificativa_incendio', '')),
-            'recomendacoes': analise.get('recomendacoes', []),
-            'limitacoes': str(analise.get('limitacoes', '')),
+            'resumo': legivel(str(analise.get('resumo', '') or '')),
+            'justificativa_furto': legivel(str(analise.get('justificativa_furto', '') or '')),
+            'justificativa_incendio': legivel(str(analise.get('justificativa_incendio', '') or '')),
+            'recomendacoes': recs,
+            'limitacoes': legivel(str(analise.get('limitacoes', '') or '')),
         })
+        # A IA as vezes deixa campos vazios: o texto deterministico completa (a tela
+        # e o Word nunca ficam em branco) e a tela avisa o que veio do sistema.
+        padrao = montar_fallback(scores)
+        for campo in ('resumo', 'justificativa_furto', 'justificativa_incendio', 'recomendacoes'):
+            if not base[campo] or (isinstance(base[campo], str) and not base[campo].strip()):
+                base[campo] = padrao[campo]
+                base['complementado_pelo_sistema'].append(campo)
     elif origem == 'prompt_apenas':
         base.update(montar_fallback(scores))
         base['prompt_gerado'] = prompt
