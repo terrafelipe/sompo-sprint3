@@ -69,10 +69,15 @@ def _pontos(severidade: int) -> int:
     return PONTOS_POR_SEVERIDADE.get(severidade, 0)
 
 
+# Limites das faixas (a tela desenha o medidor com estes mesmos numeros).
+FAIXA_MEDIO = 34
+FAIXA_ALTO = 67
+
+
 def _classificar(score: int) -> str:
-    if score >= 67:
+    if score >= FAIXA_ALTO:
         return 'ALTO'
-    if score >= 34:
+    if score >= FAIXA_MEDIO:
         return 'MEDIO'
     return 'BAIXO'
 

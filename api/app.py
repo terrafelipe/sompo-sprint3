@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import functools
 import hmac
+import math
 import os
 import time
 from datetime import datetime, timedelta, timezone
@@ -20,7 +21,9 @@ from flask import (
 from flask_cors import CORS
 
 import documento
+import ocorrencias
 import frota
+import linha_do_tempo
 from config import (
     COOKIE_SEGURO,
     CORS_ORIGINS,
@@ -37,18 +40,22 @@ from config import (
 from relatorios import montar_relatorio_bruto, montar_relatorio_risco
 from scores import calcular_scores
 from supabase_client import (
+    SupabaseError,
+    atualizar_tabela,
     buscar_usuario,
     consultar_clientes,
     consultar_eventos,
     consultar_fazendas,
     consultar_resumo,
     consultar_telemetria,
+    consultar_telemetria_intervalo,
     consultar_usuarios,
     inserir_tabela,
 )
 
 app = Flask(__name__)
 app.register_blueprint(frota.bp)
+app.register_blueprint(ocorrencias.bp)
 # Chave para assinar o cookie de sessao do login.
 app.secret_key = SECRET_KEY
 _SESSAO_SEGUNDOS = SESSAO_HORAS * 3600
@@ -290,6 +297,25 @@ def telemetria():
         return _erro('falha_na_consulta', exc, 502)
 
 
+@app.get('/telemetria/linha-do-tempo')
+def telemetria_linha_do_tempo():
+    # Janela de N horas ate a ULTIMA leitura da maquina (mostra o ultimo dia com
+    # atividade mesmo se o ESP32 parou), agregada em faixas de 15 min.
+    dispositivo = _dispositivo_para(request.args.get('dispositivo', 'SOMPO-ESP32'))
+    horas = _parse_int(request.args.get('horas', '24'), 24, minimum=1, maximum=72)
+    try:
+        ultima = consultar_telemetria(dispositivo, limite=1) if dispositivo else []
+        fim = linha_do_tempo.quando(ultima[0].get('criado_em')) if ultima else None
+        if fim is None:
+            return jsonify({'faixas': [], 'janela': None, **frota.contexto()}), 200
+        inicio = fim - timedelta(hours=horas)
+        linhas = consultar_telemetria_intervalo(dispositivo, inicio, fim)
+        return jsonify({'janela': {'inicio': inicio.isoformat(), 'fim': fim.isoformat(), 'minutos': 15},
+                        'faixas': linha_do_tempo.agregar(linhas, fim, horas, 15), **frota.contexto()}), 200
+    except Exception as exc:
+        return _erro('falha_na_consulta', exc, 502)
+
+
 @app.get('/eventos')
 def eventos():
     dispositivo = _dispositivo_para(request.args.get('dispositivo', 'SOMPO-ESP32'))
@@ -341,6 +367,21 @@ def relatorio_bruto():
         return _erro('falha_na_geracao_do_relatorio', exc, 502)
 
 
+def _separar_periodo(eventos, dias):
+    """(ultimos `dias` dias, os `dias` dias anteriores). Sem data -> conta como atual."""
+    corte = datetime.now(timezone.utc) - timedelta(days=dias)
+    atuais, anteriores = [], []
+    for evento in eventos:
+        try:
+            quando = datetime.fromisoformat(str(evento.get('criado_em')).replace('Z', '+00:00'))
+            if quando.tzinfo is None:
+                quando = quando.replace(tzinfo=timezone.utc)
+        except (TypeError, ValueError):
+            quando = None
+        (anteriores if quando is not None and quando < corte else atuais).append(evento)
+    return atuais, anteriores
+
+
 @app.get('/relatorio/risco')
 def relatorio_risco():
     dispositivo = _dispositivo_para(request.args.get('dispositivo', 'SOMPO-ESP32'))
@@ -348,16 +389,25 @@ def relatorio_risco():
 
     try:
         resumo_por_dia = consultar_resumo(dispositivo, dias=dias) if dispositivo else []
-        eventos = frota.identificar_registros(consultar_eventos(dispositivo, dias=dias) if dispositivo else [])
-        resultado = montar_relatorio_risco(dispositivo, dias, resumo_por_dia, eventos, contexto=frota.contexto())
+        # Busca 2x a janela: os ultimos N dias viram o relatorio; os N dias antes deles
+        # so geram os scores de comparacao ("anterior", variacao nos cards da tela).
+        todos = frota.identificar_registros(consultar_eventos(dispositivo, dias=dias * 2) if dispositivo else [])
+        eventos, anteriores = _separar_periodo(todos, dias)
+        # novo=1: botao "Gerar de novo" da tela -> ignora o cache da IA.
+        novo = request.args.get('novo', '').lower() in {'1', 'true'}
+        resultado = montar_relatorio_risco(dispositivo, dias, resumo_por_dia, eventos,
+                                           contexto=frota.contexto(), forcar=novo)
+        ant = calcular_scores(dispositivo, dias, anteriores)
+        resultado['anterior'] = {'score_furto': ant['score_furto'], 'score_incendio': ant['score_incendio'],
+                                 'eventos': ant['eventos_considerados']}
         return jsonify(resultado), 200
     except Exception as exc:
         return _erro('falha_na_geracao_do_relatorio', exc, 502)
 
 
-@app.get('/relatorio/risco.docx')
-def relatorio_risco_docx():
-    # Mesmo conteúdo do /relatorio/risco, mas como documento Word (.docx) para download.
+@app.get('/relatorio/risco.pdf')
+def relatorio_risco_pdf():
+    # Mesmo conteúdo do /relatorio/risco, mas como PDF para download (abre em qualquer celular).
     dispositivo = _dispositivo_para(request.args.get('dispositivo', 'SOMPO-ESP32'))
     dias = _parse_int(request.args.get('dias', '7'), 7, minimum=1)
 
@@ -365,13 +415,13 @@ def relatorio_risco_docx():
         resumo_por_dia = consultar_resumo(dispositivo, dias=dias) if dispositivo else []
         eventos = frota.identificar_registros(consultar_eventos(dispositivo, dias=dias) if dispositivo else [])
         relatorio = montar_relatorio_risco(dispositivo, dias, resumo_por_dia, eventos, contexto=frota.contexto())
-        conteudo = documento.montar_docx(relatorio, eventos)
+        conteudo = documento.montar_pdf(relatorio, eventos)
 
         carimbo = datetime.now(documento.FUSO_BRASILIA).strftime('%Y%m%d_%H%M')
-        nome = f'relatorio_risco_{dispositivo}_{carimbo}.docx'
+        nome = f'relatorio_risco_{dispositivo}_{carimbo}.pdf'
         return Response(
             conteudo,
-            mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            mimetype='application/pdf',
             headers={'Content-Disposition': f'attachment; filename="{nome}"'},
         )
     except Exception as exc:
@@ -467,6 +517,66 @@ def fazendas_criar():
         return jsonify({'ok': True, 'fazenda': criado}), 201
     except Exception as exc:
         return _erro('falha_ao_criar_fazenda', exc, 502)
+
+
+def _coordenada(valor, limite):
+    # None limpa a coordenada; qualquer outro valor precisa ser numero dentro do limite.
+    if valor is None:
+        return None
+    if isinstance(valor, bool):
+        raise ValueError(valor)
+    numero = float(valor)
+    if not -limite <= numero <= limite:
+        raise ValueError(valor)
+    return numero
+
+
+@app.patch('/fazendas/<int:value>')
+@somente_sompo
+def fazendas_editar(value):
+    corpo = request.get_json(silent=True)
+    corpo = corpo if isinstance(corpo, dict) else {}
+    dados: Dict[str, Any] = {}
+    if 'latitude' in corpo or 'longitude' in corpo:
+        # O mapa precisa do par: latitude sem longitude (ou o contrario) nao posiciona nada.
+        if 'latitude' not in corpo or 'longitude' not in corpo or (corpo['latitude'] is None) != (corpo['longitude'] is None):
+            return jsonify({'erro': 'coordenadas_incompletas'}), 400
+        for campo, limite in (('latitude', 90), ('longitude', 180)):
+            try:
+                dados[campo] = _coordenada(corpo[campo], limite)
+            except (TypeError, ValueError):
+                return jsonify({'erro': f'{campo}_invalida'}), 400
+    for campo, erro in (('nome', 'nome_obrigatorio'), ('localizacao', 'localizacao_obrigatoria')):
+        if campo in corpo:
+            texto = str(corpo[campo] or '').strip()
+            if not texto:
+                return jsonify({'erro': erro}), 400
+            dados[campo] = texto
+    if 'area_ha' in corpo:
+        try:
+            if isinstance(corpo['area_ha'], bool):
+                raise ValueError
+            area = float(corpo['area_ha'])
+        except (TypeError, ValueError):
+            return jsonify({'erro': 'area_invalida'}), 400
+        if not math.isfinite(area) or area < 0:
+            return jsonify({'erro': 'area_invalida'}), 400
+        dados['area_ha'] = area
+    if not dados:
+        return jsonify({'erro': 'nada_para_atualizar'}), 400
+
+    try:
+        atualizada = atualizar_tabela('fazenda', {'id_fazenda': f'eq.{value}', 'excluido_em': 'is.null'}, dados)
+    except SupabaseError as exc:
+        if exc.codigo == 'PGRST204':
+            # Coluna desconhecida: firmware/sql/mapa_ocorrencias.sql ainda nao rodou no Supabase.
+            return _erro('migracao_pendente', exc, 409)
+        return _erro('falha_ao_editar_fazenda', exc, 502)
+    except Exception as exc:
+        return _erro('falha_ao_editar_fazenda', exc, 502)
+    if not atualizada:
+        return jsonify({'erro': 'nao_encontrado'}), 404
+    return jsonify({'ok': True, 'fazenda': atualizada}), 200
 
 
 # ---------------------------------------------------------------------------

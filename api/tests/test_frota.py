@@ -71,7 +71,7 @@ def test_gestor_lista_apenas_maquinas_da_fazenda(banco):
 
 @pytest.mark.parametrize('path', ['/equipamentos/3', '/fazendas/2/resumo',
                                  '/operadores/2', '/telemetria?equipamento=3',
-                                 '/eventos?dispositivo=ESP-C', '/relatorio/risco.docx?equipamento=3'])
+                                 '/eventos?dispositivo=ESP-C', '/relatorio/risco.pdf?equipamento=3'])
 def test_ids_de_outra_fazenda_sao_negados(banco, path):
     assert gestor().get(path).status_code == 403
 
@@ -115,21 +115,15 @@ def test_cadastro_maquina_completo(banco):
     assert eq['fk_cliente_id_cliente'] == 10
 
 
-def test_word_contem_apenas_maquina_selecionada(banco):
-    from io import BytesIO
-    from docx import Document
-
-    with patch('app.consultar_resumo', return_value=[]) as resumo, \
-         patch('app.consultar_eventos', return_value=[]) as eventos, \
-         patch('llm.LLM_API_KEY', ''):
-        r = gestor().get('/relatorio/risco.docx?equipamento=2&dias=7')
+def test_pdf_contem_apenas_maquina_selecionada(banco, pdf_aberto):
+    with patch('app.consultar_resumo', return_value=[]) as resumo,          patch('app.consultar_eventos', return_value=[]) as eventos,          patch('llm.LLM_API_KEY', ''):
+        r = gestor().get('/relatorio/risco.pdf?equipamento=2&dias=7')
     assert r.status_code == 200
-    assert 'wordprocessingml' in r.content_type
+    assert r.content_type == 'application/pdf'
     assert 'ESP-B' in r.headers['Content-Disposition']
     resumo.assert_called_once_with('ESP-B', dias=7)
     eventos.assert_called_once_with('ESP-B', dias=7)
-    doc = Document(BytesIO(r.data))
-    text = '\n'.join(p.text for p in doc.paragraphs)
+    text = r.data.decode('latin-1')
     assert 'Trator B' in text and 'Santa Rita' in text and 'ESP-B' in text
     assert 'Trator A' not in text and 'ESP-A' not in text
 
@@ -211,3 +205,30 @@ def test_credencial_nao_e_armazenada_em_texto_claro(banco, monkeypatch):
     assert len(token) >= 32
     assert token not in str(calls)
     assert len(calls[0][1]['p_token_hash']) == 64
+
+
+def test_resumo_traz_os_10_alertas_mais_recentes_da_fazenda(banco):
+    # 12 eventos alternando as duas máquinas; um veio de backlog (registro_id) e vale o ocorrido_em.
+    eventos = [{'id': i, 'dispositivo_id': 'ESP-A' if i % 2 else 'ESP-B', 'tipo': 'furto_capo', 'severidade': 2,
+                'criado_em': f'2026-09-20T10:{i:02d}:00+00:00'} for i in range(12)]
+    eventos[0].update(registro_id=5, ocorrido_em='2026-09-20T11:00:00+00:00')
+    with patch('supabase_client.consultar_periodo', return_value=eventos):
+        r = gestor().get('/fazendas/1/resumo?dias=7')
+    assert r.status_code == 200
+    alertas = r.json['alertas_recentes']
+    assert len(alertas) == 10
+    assert alertas[0]['id'] == 0 and alertas[0]['horario_ocorrencia'] == '2026-09-20T11:00:00+00:00'
+    assert [a['id'] for a in alertas[1:]] == list(range(11, 2, -1))
+    assert alertas[1]['equipamento_id'] == 1 and alertas[1]['equipamento_nome'] == 'Trator A'
+    assert alertas[2]['equipamento_id'] == 2 and alertas[2]['equipamento_nome'] == 'Trator B'
+
+
+def test_alertas_recentes_seguem_a_maquina_gravada_no_evento(banco):
+    # ESP-A mudou de fazenda: o evento antigo, gravado com a maquina 3 (Vale Verde), nao aparece
+    # em Santa Rita; o evento gravado com a maquina 2 vale mesmo vindo de outro dispositivo.
+    eventos = [{'id': 1, 'dispositivo_id': 'ESP-A', 'equipamento_id': 3, 'tipo': 'furto_capo', 'criado_em': '2026-09-20T10:00:00+00:00'},
+               {'id': 2, 'dispositivo_id': 'ESP-A', 'equipamento_id': 2, 'tipo': 'furto_capo', 'criado_em': '2026-09-20T11:00:00+00:00'},
+               {'id': 3, 'dispositivo_id': 'ESP-A', 'tipo': 'furto_capo', 'criado_em': '2026-09-20T12:00:00+00:00'}]
+    with patch('supabase_client.consultar_periodo', return_value=eventos):
+        alertas = gestor().get('/fazendas/1/resumo?dias=7').json['alertas_recentes']
+    assert [(a['id'], a['equipamento_id']) for a in alertas] == [(3, 1), (2, 2)]

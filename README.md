@@ -109,14 +109,18 @@ login na **AWS Lambda** (URL limpa via Cloudflare Pages: https://sompo-painel.pa
 | `GET /scores` | Scores de risco determinísticos por eixo |
 | `GET /relatorio/bruto` | Relatório factual |
 | `GET /relatorio/risco` | Relatório interpretado pela IA (com fallback gracioso) |
-| `GET /relatorio/risco.docx` | O mesmo relatório como documento Word para download |
+| `GET /relatorio/risco.pdf` | O mesmo relatório em PDF para download |
 | `GET /me` | Perfil do usuário logado (role + fazenda vinculada) |
 | `GET/POST /clientes` | Lista/cadastra clientes — **só perfil Sompo** (403 para gestor) |
 | `GET/POST /fazendas` | Lista/cadastra fazendas — **só perfil Sompo** (403 para gestor) |
+| `PATCH /fazendas/<id>` | Edita nome, localização, área e coordenadas do mapa — **só perfil Sompo**; 409 se `mapa_ocorrencias.sql` não rodou |
+| `GET/POST /ocorrencias` | Lista (filtros `fazenda`, `status`) e abre ocorrências, a partir de um alerta ou manual; gestor só na própria fazenda |
+| `PATCH /ocorrencias/<id>` | Muda situação (aberta, em verificação, resolvida), responsável e nota |
+| `GET /ocorrencias/responsaveis?fazenda=<id>` | Quem pode assumir: usuários Sompo e gestores da fazenda |
 | `GET/POST /equipamentos` | Lista/cadastra máquinas dentro do escopo da fazenda |
 | `GET/POST /operadores` | Lista/cadastra operadores RFID, sem criar login |
 | `GET /operacoes` | Histórico paginado de sessões dos operadores |
-| `GET /fazendas/<id>/resumo` | Resumo das máquinas, comunicação e risco da fazenda |
+| `GET /fazendas/<id>/resumo` | Resumo das máquinas, comunicação e risco da fazenda, com os 10 alertas mais recentes |
 
 ## Perfis de acesso (role-based)
 

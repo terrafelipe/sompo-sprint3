@@ -3,6 +3,8 @@
 Install requirements-test.txt and Chromium (or set SOMPO_TEST_BROWSER=msedge).
 """
 import os
+from datetime import date, datetime, timedelta, timezone
+import re
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -10,7 +12,7 @@ import pytest
 
 pw = pytest.importorskip('playwright.sync_api')
 HTML = (Path(__file__).parents[1] / 'static/index.html').read_text(encoding='utf-8')
-FARMS = [dict(id_fazenda=i, nome=f'Fazenda {i}', fk_cliente_id_cliente=i,
+FARMS = [dict(id_fazenda=i, nome=f'Fazenda {i}', fk_cliente_id_cliente=i, localizacao='Campinas - SP',
               cliente=dict(nome=f'Cliente {i}')) for i in (1, 2)]
 
 
@@ -20,7 +22,7 @@ def painel(request):
         browser = p.chromium.launch(channel=os.getenv('SOMPO_TEST_BROWSER') or None)
         page = browser.new_page(viewport={'width': request.param, 'height': 900})
         state = dict(role='sompo', fail=set(), posts=[], held=[], hold=None, errors=[],
-                     sem_esp32=False, sem_maquinas=False, deleted=set(), deletes=[], delete_error=None)
+                     sem_esp32=False, sem_maquinas=False, deleted=set(), deletes=[], delete_error=None, manut={}, valor={}, scores={}, coords={}, ocorrencias=[], eventos=[])
         page.on('pageerror', lambda e: state['errors'].append(str(e)))
 
         def route(r):
@@ -45,6 +47,19 @@ def painel(request):
                     state['deleted'].add(path)
                     r.fulfill(json={'ok': True})
                 return
+            if path.startswith('/ocorrencias') and r.request.method in ('POST', 'PATCH'):
+                corpo = r.request.post_data_json
+                state['posts'].append((path, corpo))
+                if r.request.method == 'POST':
+                    oc = {**dict(id_ocorrencia=len(state['ocorrencias']) + 1, status='aberta', criado_em='2026-09-18T12:00:00Z',
+                                 fazenda_id=1, fazenda_nome='Fazenda 1', equipamento_nome='Trator 1'), **corpo}
+                    state['ocorrencias'].append(oc)
+                    r.fulfill(status=201, json={'ok': True, 'ocorrencia': oc})
+                else:
+                    oc = next(o for o in state['ocorrencias'] if o['id_ocorrencia'] == int(path.rsplit('/', 1)[-1]))
+                    oc.update(corpo)
+                    r.fulfill(json={'ok': True, 'ocorrencia': oc})
+                return
             if r.request.method in ('POST', 'PATCH'):
                 state['posts'].append((path, r.request.post_data_json))
                 if r.request.method == 'PATCH':
@@ -58,7 +73,8 @@ def painel(request):
             if path == '/me':
                 data = dict(role=state['role'], fazenda_id=1, fazenda_nome='Fazenda 1')
             elif path == '/fazendas':
-                data = {'dados': [f for f in FARMS if f'/fazendas/{f["id_fazenda"]}' not in state['deleted']]}
+                data = {'dados': [{**f, **dict(zip(('latitude', 'longitude'), state['coords'].get(f['id_fazenda'], (None, None))))}
+                                  for f in FARMS if f'/fazendas/{f["id_fazenda"]}' not in state['deleted']]}
             elif path == '/clientes':
                 data = {'dados': [dict(id_cliente=i, nome=f'Cliente {i}') for i in (1, 2) if f'/clientes/{i}' not in state['deleted']]}
             elif path == '/usuarios':
@@ -67,36 +83,70 @@ def painel(request):
                 data = {'usuario': dict(id_usuario=7, usuario='gestor.teste', role='gestor_fazenda', criado_em='2026-09-01T12:00:00Z', fazenda=FARMS[0])}
             elif path == '/operadores':
                 data = {'dados': [] if '/operadores/7' in state['deleted'] else [dict(id_operador=7, nome='Ana', uid='01020304', ativo=True)]}
+            elif path == '/resumo':
+                # Resumo diario do dispositivo (grafico "Temperatura por dia").
+                data = {'dados': [
+                    dict(dia='2026-09-17', amostras=40, temp_escape_max=80.5, temp_escape_media=42.0, temp_ambiente_media=24.8),
+                    dict(dia='2026-09-18', amostras=35, temp_escape_max=61.0, temp_escape_media=38.2, temp_ambiente_media=25.1)]}
             elif path.endswith('/resumo'):
                 i = int(path.split('/')[2])
                 data = dict(fazenda=FARMS[i-1], equipamentos=[] if state['sem_maquinas'] or f'/equipamentos/{i}' in state['deleted'] else [dict(
                     id_equipamento=i, nome=f'Trator {i}', fk_fazenda_id_fazenda=i, fk_cliente_id_cliente=i,
                     dispositivo_id=None if state['sem_esp32'] else f'ESP-{i}', fabricacao='2020-01-02',
-                    ultima_manutencao='2026-09-01', valor_segurado='150000.50')])
+                    ultima_manutencao=state['manut'].get(i, '2026-09-01'), valor_segurado=state['valor'].get(i, '150000.50'),
+                    scores=state['scores'].get(i))])
+                data['alertas_recentes'] = [] if not data['equipamentos'] else [dict(
+                    id=10 + k, tipo=t, severidade=sev, equipamento_id=i, equipamento_nome=f'Trator {i}',
+                    horario_ocorrencia='2026-09-18T12:00:00Z', criado_em='2026-09-18T12:00:00Z')
+                    for k, (t, sev) in enumerate([('furto_capo', 2), ('escape_critico', 4)])]
+            elif path == '/ocorrencias':
+                data = {'dados': state['ocorrencias']}
+            elif path == '/ocorrencias/responsaveis':
+                data = {'dados': [dict(id_usuario=1, usuario='ana.sompo', role='sompo')]}
+            elif path == '/eventos':
+                data = {'dados': state['eventos']}
             elif path == '/saude':
                 data = {'api': 'ok', 'banco': 'ok'}
             elif path == '/relatorio/risco':
                 data = {'score_furto': 5, 'score_incendio': 10}
-            elif path.endswith('.docx'):
-                r.fulfill(body=b'PK-test-download', content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                          headers={'Content-Disposition': 'attachment; filename=relatorio.docx'})
+            elif path.endswith('.pdf'):
+                r.fulfill(body=b'%PDF-test-download', content_type='application/pdf',
+                          headers={'Content-Disposition': 'attachment; filename=relatorio.pdf'})
                 return
             r.fulfill(json=data)
 
         page.route('**/*', route)
         page.goto('http://painel.test/')
+        # O perfil Sompo abre no Inicio (carteira); a fazenda e escolhida pelo cartao.
+        page.locator('[data-abrir-fazenda="1"]').click()
         pw.expect(page.locator('#listaMaquinas')).to_contain_text('Trator 1')
+        # Abrir a fazenda dispara cargas em paralelo; o teste so comeca com a rede quieta
+        # (senao uma resposta tardia sobrescreve o que o teste alterou na pagina).
+        page.wait_for_load_state('networkidle')
         yield page, state
         assert not state['errors']
         browser.close()
 
 
 def nav(page, view):
+    # No celular o menu mora na gaveta: abre pelo botao antes de escolher a tela.
+    if page.locator('#btnMenu').is_visible():
+        page.locator('#btnMenu').click()
     page.locator(f'[data-nav="{view}"]:visible').click()
     pw.expect(page.locator('#tituloView')).to_have_text({
-        'visao': 'Painel da máquina', 'risco': 'Análise de Risco', 'telemetria': 'Telemetria',
-        'alertas': 'Alertas', 'maquinas': 'Máquinas', 'operadores': 'Operadores',
-        'historico': 'Histórico', 'fazendas': 'Fazendas', 'clientes': 'Clientes', 'usuarios': 'Usuários'}[view])
+        'inicio': 'Início', 'visao': 'Painel da máquina', 'maquinas': 'Máquinas', 'operadores': 'Operadores',
+        'historico': 'Histórico', 'ocorrencias': 'Ocorrências', 'manutencao': 'Manutenção', 'exposicao': 'Exposição financeira', 'fazendas': 'Fazendas', 'clientes': 'Clientes',
+        'usuarios': 'Usuários'}[view])
+
+
+def acao(page, seletor):
+    """Acoes secundarias ficam no menu ⋯ (popover): abre o menu do item antes de clicar."""
+    alvo = page.locator(seletor).first
+    if not alvo.is_visible():
+        menu = alvo.evaluate("e => e.closest('[popover]')?.id")
+        if menu:
+            page.locator(f'[popovertarget="{menu}"]').click()
+    return alvo
 
 
 def captura(page, nome):
@@ -107,26 +157,42 @@ def captura(page, nome):
         page.screenshot(path=str(path / f'{nome}-{page.viewport_size["width"]}.png'), full_page=True)
 
 
-def test_menus_sem_maquina_refresh_e_word(painel):
+def test_inicio_mostra_carteira_e_abre_a_fazenda(painel):
     page, state = painel
-    for view in ['visao','risco','telemetria','alertas','operadores','historico','fazendas','clientes','usuarios','maquinas']:
+    nav(page, 'inicio')
+    pw.expect(page.locator('#barraContexto')).to_be_hidden()
+    cards = page.locator('#listaInicio [data-abrir-fazenda]')
+    pw.expect(cards).to_have_count(2)
+    pw.expect(page.locator('#inicioResumo')).to_contain_text('2 fazendas · 2 máquinas')
+    pw.expect(cards.nth(1)).to_contain_text('Fazenda 2')
+    page.locator('[data-busca="listaInicio"]').fill('fazenda 2')
+    pw.expect(page.locator('#listaInicio [data-abrir-fazenda]:visible')).to_have_count(1)
+    page.locator('[data-abrir-fazenda="2"]').click()
+    pw.expect(page.locator('#tituloView')).to_have_text('Máquinas')
+    pw.expect(page.locator('#listaMaquinas')).to_contain_text('Trator 2')
+    assert page.evaluate('String(fazendaSelecionada)') == '2'
+
+
+def test_menus_sem_maquina_refresh_e_pdf(painel):
+    page, state = painel
+    # Risco, Alertas e Telemetria agora sao partes do Painel da maquina (visao).
+    for view in ['visao','operadores','historico','fazendas','clientes','usuarios','maquinas']:
         nav(page, view)
         page.evaluate('carregarTudo()')
         assert page.evaluate('viewAtual') == view
         pw.expect(page.locator('#btnBaixar')).to_be_visible()
         pw.expect(page.locator('#btnBaixar')).to_be_disabled()
-        if view in ['visao','risco','telemetria','alertas']:
+        if view == 'visao':
             pw.expect(page.locator('#semMaquina')).to_be_visible()
-    nav(page, 'telemetria')
+    nav(page, 'visao')
     page.clock.install()
     page.clock.fast_forward(5100)
-    assert page.evaluate('viewAtual') == 'telemetria'
-    page.locator('#selecionarNoAviso').click()
+    assert page.evaluate('viewAtual') == 'visao'
     page.select_option('#equipamentoSel', '1')
     pw.expect(page.locator('#btnBaixar')).to_be_enabled()
     page.clock.fast_forward(5100)
-    assert page.evaluate('[viewAtual,equipamentoSelecionado]') == ['telemetria', 1]
-    with page.expect_download(), page.expect_request('**/relatorio/risco.docx?equipamento=1&dias=7'):
+    assert page.evaluate('[viewAtual,equipamentoSelecionado]') == ['visao', 1]
+    with page.expect_download(), page.expect_request('**/relatorio/risco.pdf?equipamento=1&dias=7'):
         page.locator('#btnBaixar').click()
 
 
@@ -173,7 +239,7 @@ def test_permissoes_apos_navegar_e_redimensionar(painel):
     pw.expect(page.locator('#perfilTxt')).to_contain_text('Gestor')
     for width in [390,1280,390]:
         page.set_viewport_size({'width':width,'height':900})
-        for view in ['historico','operadores','telemetria','maquinas']:
+        for view in ['historico','operadores','visao','maquinas']:
             nav(page, view)
             for blocked in ['fazendas','clientes','usuarios']:
                 assert page.locator(f'[data-nav="{blocked}"]:visible').count() == 0
@@ -199,7 +265,7 @@ def test_erros_vazio_retry_e_frota_independente(painel):
 
 def test_formulario_detalhe_operador_e_atalho(painel):
     page, state = painel
-    page.locator('[data-detalhe-maquina="1"]').click()
+    acao(page, '[data-detalhe-maquina="1"]').click()
     for text in ['Cliente 1','02/01/2020','01/09/2026','150.000,50','ID do equipamento','ID do ESP32']:
         pw.expect(page.locator('#detCorpo')).to_contain_text(text)
     page.locator('#detFechar').click()
@@ -224,12 +290,12 @@ def test_formulario_detalhe_operador_e_atalho(painel):
     page.locator('[data-faz="1"]').click()
     page.locator('[data-vertelemetria="2"]').click()
     pw.expect(page.locator('#equipamentoSel')).to_have_value('2')
-    assert page.evaluate('[viewAtual,dispositivo]') == ['telemetria','ESP-2']
+    assert page.evaluate('[viewAtual,dispositivo]') == ['visao','ESP-2']
     captura(page, 'telemetria')
 
 
 def editar_e_salvar(page, id, nome):
-    page.locator(f'#listaMaquinas [data-editar-maquina="{id}"]').click()
+    acao(page, f'#listaMaquinas [data-editar-maquina="{id}"]').click()
     pw.expect(page.locator('#formMaquina')).to_be_visible()
     page.locator('#maqNome').fill(nome)
     page.locator('#formMaquina button[type=submit]').click()
@@ -238,7 +304,7 @@ def editar_e_salvar(page, id, nome):
 
 def test_editar_maquina(painel):
     page, state = painel
-    page.locator('[data-editar-maquina="1"]').click()
+    acao(page, '#listaMaquinas [data-editar-maquina="1"]').click()
     pw.expect(page.locator('#formMaquina')).to_be_visible()
     pw.expect(page.locator('#maqFormTitulo')).to_contain_text('Editar')
     for id, value in [('maqNome','Trator 1'),('maqValor','150000.50'),('maqFabricacao','2020-01-02')]:
@@ -268,7 +334,7 @@ def test_editar_maquina_sem_esp32_e_via_detalhe(painel):
     state['sem_esp32'] = True
     page.select_option('#fazendaSel', '2')
     pw.expect(page.locator('#listaMaquinas')).to_contain_text('Trator 2')
-    page.locator('[data-detalhe-maquina="2"]').click()
+    acao(page, '[data-detalhe-maquina="2"]').click()
     page.locator('#detCorpo [data-editar-maquina="2"]').click()
     pw.expect(page.locator('#modalDetalhe')).not_to_be_visible()
     pw.expect(page.locator('#formMaquina')).to_be_visible()
@@ -291,26 +357,6 @@ def test_editar_maquina_selecionada_atualiza_dispositivo(painel):
     assert page.evaluate('[equipamentoSelecionado, dispositivo]') == [1, 'ESP-1']
     pw.expect(page.locator('#listaMaquinas')).to_contain_text('Trator 1')
     pw.expect(page.locator('#equipamentoSel')).to_have_value('1')
-
-
-def test_selecionar_no_aviso_mantem_aba(painel):
-    page, state = painel
-    nav(page, 'risco')
-    page.locator('#selecionarNoAviso').click()
-    # Com appearance: base-select o picker abre e o foco vai para uma <option> dentro do select.
-    assert page.evaluate("document.getElementById('equipamentoSel').contains(document.activeElement)")
-    assert page.evaluate("document.getElementById('equipamentoSel').matches(':open') || document.getElementById('equipamentoSelWrap').classList.contains('sel-destaque')")
-    assert page.evaluate('viewAtual') == 'risco'
-    pw.expect(page.locator('#semMaquina')).to_be_visible()
-    page.keyboard.press('Escape')
-    state['sem_maquinas'] = True
-    page.select_option('#fazendaSel', '2')
-    pw.expect(page.locator('#resumoFazendaNome')).to_have_text('Fazenda 2')
-    nav(page, 'risco')
-    page.locator('#selecionarNoAviso').click()
-    pw.expect(page.locator('#tituloView')).to_have_text('Máquinas')
-    assert page.evaluate('viewAtual') == 'maquinas'
-    pw.expect(page.locator('#listaMaquinas')).to_contain_text('Nenhuma máquina')
 
 
 def test_selects_estilizados(painel):
@@ -372,13 +418,17 @@ def test_excluir_cadastro_confirma_cancela_e_atualiza(painel, tipo, view, id):
         page.locator('[data-cli="0"]').click()
     elif tipo == 'fazendas':
         page.locator('[data-faz="0"]').click()
-    botao = page.locator(f'[data-excluir-tipo="{tipo}"][data-excluir-id="{id}"]:visible')
-    botao.click()
+    elif tipo == 'operadores':
+        page.locator('[data-op="0"]').click()          # linha abre o detalhe; Excluir fica nele
+    elif tipo == 'usuarios':
+        page.locator('[data-usuario-detalhe="7"]').click()
+    seletor = f'[data-excluir-tipo="{tipo}"][data-excluir-id="{id}"]'
+    acao(page, seletor).click()
     pw.expect(page.locator('#confirmarExclusao')).to_be_visible()
     pw.expect(page.locator('#exclusaoDescricao')).to_contain_text('histórico será preservado')
     page.locator('#exclusaoCancelar').click()
     assert not state['deletes']
-    botao.click()
+    acao(page, seletor).click()
     page.locator('#exclusaoConfirmar').click()
     pw.expect(page.locator('#confirmarExclusao')).not_to_be_visible()
     assert state['deletes'] == [f'/{tipo}/{id}']
@@ -389,7 +439,10 @@ def test_excluir_cadastro_confirma_cancela_e_atualiza(painel, tipo, view, id):
         pw.expect(page.locator('#btnBaixar')).to_be_disabled()
         pw.expect(page.locator('#listaMaquinas')).to_contain_text('Nenhuma máquina')
     if tipo == 'fazendas':
-        pw.expect(page.locator('#fazendaSel')).to_have_value('2')
+        # Sem escolha automatica: excluida a fazenda aberta, nenhuma fica selecionada
+        # (a proxima e escolhida pelo usuario no Inicio ou no seletor).
+        pw.expect(page.locator('#fazendaSel')).to_have_value('')
+        assert page.evaluate('fazendaSelecionada') is None
 
 
 def test_exclusao_bloqueada_exibe_dependencias(painel):
@@ -407,7 +460,7 @@ def test_exclusao_bloqueada_exibe_dependencias(painel):
 def test_detalhe_usuario_completo(painel):
     page, state = painel
     nav(page, 'usuarios')
-    page.locator('[data-usuario-detalhe="7"]').click()
+    acao(page, '[data-usuario-detalhe="7"]').click()
     pw.expect(page.locator('#detTitulo')).to_have_text('gestor.teste')
     for texto in ['Fazenda 1', 'Cliente 1', 'Data de cadastro', '01/09/2026', 'Não informado']:
         pw.expect(page.locator('#detCorpo')).to_contain_text(texto)
@@ -422,8 +475,10 @@ def test_excluir_ultima_fazenda_limpa_seletores(painel):
     page.locator('[data-faz="0"]').click()
     page.locator('[data-excluir-tipo="fazendas"]').click()
     page.locator('#exclusaoConfirmar').click()
-    pw.expect(page.locator('#fazendaSelWrap')).not_to_be_visible()
-    pw.expect(page.locator('#equipamentoSelWrap')).not_to_be_visible()
+    # Na tela Fazendas a barra de contexto ja fica oculta: espera o sinal da propria
+    # exclusao (classe hidden nos seletores), e nao so a invisibilidade.
+    pw.expect(page.locator('#fazendaSelWrap')).to_have_class(re.compile(r'\bhidden\b'))
+    pw.expect(page.locator('#equipamentoSelWrap')).to_have_class(re.compile(r'\bhidden\b'))
     assert page.evaluate('[fazendaSelecionada,equipamentoSelecionado]') == [None, None]
     nav(page, 'maquinas')
     pw.expect(page.locator('#listaMaquinas')).to_contain_text('Nenhuma fazenda selecionada')
@@ -433,6 +488,7 @@ def test_excluir_erro_e_envio_unico(painel):
     page, state = painel
     nav(page, 'operadores')
     state['fail'].add('/operadores/7')
+    page.locator('[data-op="0"]').click()
     page.locator('[data-excluir-tipo="operadores"]').click()
     page.locator('#exclusaoConfirmar').click()
     pw.expect(page.locator('#exclusaoErro')).to_contain_text('Não foi possível excluir')
@@ -448,3 +504,290 @@ def test_excluir_erro_e_envio_unico(painel):
     state['deleted'].add('/operadores/7')
     state['held'][0].fulfill(json={'ok': True})
     pw.expect(page.locator('#confirmarExclusao')).not_to_be_visible()
+
+
+def test_gestor_abre_no_inicio_da_propria_fazenda(painel):
+    page, state = painel
+    state['role'] = 'gestor_fazenda'
+    page.reload()
+    pw.expect(page.locator('#tituloView')).to_have_text('Início')
+    pw.expect(page.locator('#inicioGestor')).to_be_visible()
+    assert page.locator('#inicioCarteira').is_hidden()
+    pw.expect(page.locator('#gMaquinas')).to_have_text('1')
+    pw.expect(page.locator('#gMaquinasLista [data-g-maquina]')).to_have_count(1)
+    pw.expect(page.locator('#gAlertasLista [data-g-alerta]')).to_have_count(2)
+    # O alerta abre o painel da maquina dele; a linha da maquina tambem.
+    page.locator('#gAlertasLista [data-g-alerta]').first.click()
+    pw.expect(page.locator('#tituloView')).to_have_text('Painel da máquina')
+    assert page.evaluate('equipamentoSelecionado') == 1
+    nav(page, 'inicio')
+    page.locator('#gMaquinasLista [data-g-maquina="1"]').click()
+    pw.expect(page.locator('#tituloView')).to_have_text('Painel da máquina')
+    assert not state['errors']
+
+
+def test_manutencao_ordena_por_urgencia_e_edita_maquina_de_outra_fazenda(painel):
+    page, state = painel
+    hoje = date.today()
+    # Regra: proxima = ultima + 180 dias. Trator 1 vence em 10 dias; Trator 2 venceu ha 20.
+    state['manut'] = {1: (hoje - timedelta(days=170)).isoformat(), 2: (hoje - timedelta(days=200)).isoformat()}
+    nav(page, 'manutencao')
+    linhas = page.locator('#listaManutencao [data-manut]')
+    pw.expect(linhas).to_have_count(2)
+    pw.expect(linhas.nth(0)).to_contain_text('Trator 2')
+    pw.expect(linhas.nth(0)).to_contain_text('Vencida')
+    pw.expect(linhas.nth(1)).to_contain_text('Trator 1')
+    pw.expect(linhas.nth(1)).to_contain_text('Vence em até 30 dias')
+    pw.expect(page.locator('[data-section="manutencao"]')).to_contain_text('180 dias')
+    # Detalhe -> Editar: a maquina e da Fazenda 2, entao o painel troca de fazenda antes do formulario.
+    linhas.nth(0).click()
+    pw.expect(page.locator('#detTitulo')).to_have_text('Trator 2')
+    page.locator('#detCorpo [data-editar-maquina]').click()
+    pw.expect(page.locator('#maqNome')).to_have_value('Trator 2')
+    assert page.evaluate('[viewAtual, String(fazendaSelecionada)]') == ['maquinas', '2']
+    assert not state['errors']
+
+
+def test_manutencao_do_gestor_so_tem_a_fazenda_dele(painel):
+    page, state = painel
+    state['role'] = 'gestor_fazenda'
+    state['manut'] = {1: None}
+    page.reload()
+    nav(page, 'manutencao')
+    pw.expect(page.locator('#listaManutencao [data-manut]')).to_have_count(1)
+    pw.expect(page.locator('#listaManutencao')).to_contain_text('Sem registro')
+    assert page.locator('#listaManutencao th', has_text='Fazenda').count() == 0
+
+
+def test_exposicao_soma_valor_e_separa_risco_alto(painel):
+    page, state = painel
+    state['scores'] = {1: dict(score_furto=80, score_incendio=0), 2: dict(score_furto=10, score_incendio=0)}
+    state['valor'] = {2: '50000'}
+    nav(page, 'exposicao')
+    pw.expect(page.locator('#xTotal')).to_have_attribute('title', re.compile(r'200\.000,50'))
+    pw.expect(page.locator('#xAlto')).to_have_attribute('title', re.compile(r'150\.000,50'))
+    pw.expect(page.locator('#xAltoPct')).to_have_text('75%')
+    linhas = page.locator('#listaExposicao [data-linha]')
+    pw.expect(linhas).to_have_count(2)
+    pw.expect(linhas.nth(0)).to_contain_text('Fazenda 1')
+    pw.expect(linhas.nth(0)).to_contain_text('ALTO')
+    pw.expect(page.locator('#xFaixas [data-faixa]')).to_have_count(2)
+    assert not state['errors']
+
+
+def test_exposicao_do_gestor_e_por_maquina_e_conta_sem_valor(painel):
+    page, state = painel
+    state['role'] = 'gestor_fazenda'
+    state['valor'] = {1: None}
+    page.reload()
+    nav(page, 'exposicao')
+    pw.expect(page.locator('#xSemValor')).to_have_text('1')
+    pw.expect(page.locator('#listaExposicao')).to_contain_text('Trator 1')
+    assert page.locator('#listaExposicao th', has_text='Fazenda').count() == 0
+
+
+def _mapa_offline(page):
+    # Tiles e geocodificacao simulados: o teste nao depende dos servidores publicos do OSM.
+    page.route('**/tile.openstreetmap.org/**', lambda r: r.fulfill(status=204))
+    page.route('**/nominatim.openstreetmap.org/**', lambda r: r.fulfill(
+        json=[dict(lat='-22.9056', lon='-47.0608', display_name='Campinas, São Paulo, Brasil')]))
+
+
+def test_mapa_da_carteira_mostra_pinos_e_abre_a_fazenda(painel):
+    page, state = painel
+    _mapa_offline(page)
+    state['coords'] = {1: (-22.7253, -47.6492)}
+    nav(page, 'inicio')
+    page.locator('[data-modo-inicio="mapa"]').click()
+    pw.expect(page.locator('#mapaCarteira path.leaflet-interactive')).to_have_count(1)
+    pw.expect(page.locator('#semLocalizacao')).to_contain_text('Fazenda 2')
+    page.locator('#mapaCarteira path.leaflet-interactive').click()
+    pw.expect(page.locator('.leaflet-popup')).to_contain_text('Fazenda 1')
+    page.locator('.leaflet-popup [data-abrir-fazenda]').click()
+    pw.expect(page.locator('#tituloView')).to_have_text('Máquinas')
+    assert page.evaluate('String(fazendaSelecionada)') == '1'
+    assert not state['errors']
+
+
+def test_localizacao_da_fazenda_busca_cidade_e_salva(painel):
+    page, state = painel
+    _mapa_offline(page)
+    nav(page, 'inicio')
+    page.locator('[data-modo-inicio="mapa"]').click()
+    page.locator('#semLocalizacao [data-localizar-fazenda="2"]').click()
+    page.locator('#detCorpo [data-buscar-cidade]').click()
+    pw.expect(page.locator('#fzLat')).to_have_value('-22.905600')
+    pw.expect(page.locator('#fzCoordAchado')).to_contain_text('Campinas')
+    page.locator('#detCorpo [data-salvar-coord]').click()
+    pw.expect(page.locator('#fzCoordMsg')).to_contain_text('salva')
+    assert ('/fazendas/2', {'latitude': -22.9056, 'longitude': -47.0608}) in state['posts']
+    # Sem a migracao no Supabase a API responde 409: a tela diz o que falta.
+    page.route('**/fazendas/2', lambda r: r.fulfill(status=409, json={'erro': 'migracao_pendente'})
+               if r.request.method == 'PATCH' else r.fallback())
+    page.locator('#detCorpo [data-salvar-coord]').click()
+    pw.expect(page.locator('#fzCoordMsg')).to_contain_text('mapa_ocorrencias.sql')
+    assert not state['errors']
+
+
+def _ocorrencia(i, titulo, status, **extra):
+    return dict(id_ocorrencia=i, titulo=titulo, status=status, fazenda_id=1, fazenda_nome='Fazenda 1',
+                equipamento_id=1, equipamento_nome='Trator 1', tipo='furto_capo', criado_em='2026-09-18T12:00:00Z', **extra)
+
+
+def test_ocorrencias_quadro_move_e_edita(painel):
+    page, state = painel
+    state['ocorrencias'] = [_ocorrencia(1, 'Capô aberto', 'aberta'), _ocorrencia(2, 'Cerca', 'em_verificacao')]
+    nav(page, 'ocorrencias')
+    pw.expect(page.locator('[data-coluna="aberta"] [data-oc]')).to_have_count(1)
+    pw.expect(page.locator('[data-coluna="em_verificacao"] [data-oc]')).to_have_count(1)
+    pw.expect(page.locator('#sidebar [data-contador-ocorr]')).to_have_text('2')
+    page.locator('[data-oc="1"] [data-mover="resolvida"]').click()
+    pw.expect(page.locator('[data-coluna="resolvida"] [data-oc="1"]')).to_have_count(1)
+    assert ('/ocorrencias/1', {'status': 'resolvida'}) in state['posts']
+    pw.expect(page.locator('#sidebar [data-contador-ocorr]')).to_have_text('1')
+    # Detalhe: responsavel e nota.
+    page.locator('[data-oc="2"] [data-abrir-oc]').click()
+    page.locator('#ocResponsavel').select_option('1')
+    page.locator('#ocNota').fill('Cerca refeita')
+    page.locator('#detCorpo [data-salvar-oc]').click()
+    pw.expect(page.locator('#ocMsg')).to_contain_text('salva')
+    assert ('/ocorrencias/2', {'status': 'em_verificacao', 'responsavel_id': 1, 'nota': 'Cerca refeita'}) in state['posts']
+    assert not state['errors']
+
+
+def test_alerta_vira_ocorrencia_e_relato_manual(painel):
+    page, state = painel
+    agora = datetime.now(timezone.utc).isoformat()
+    state['eventos'] = [dict(id=77, dispositivo_id='ESP-1', tipo='furto_capo', severidade=2, criado_em=agora)]
+    page.select_option('#equipamentoSel', '1')
+    page.locator('#eventos [data-ev]').first.click()
+    page.locator('#mevAcoes [data-abrir-ocorrencia]').click()
+    pw.expect(page.locator('#mevAcoes')).to_contain_text('Ocorrência aberta')
+    assert ('/ocorrencias', {'equipamento_id': 1, 'evento_id': 77, 'tipo': 'furto_capo', 'titulo': 'Capô aberto'}) in state['posts']
+    page.locator('#mevFechar').click()
+    nav(page, 'ocorrencias')
+    page.locator('#btnNovaOcorrencia').click()
+    page.locator('#ocFazendaForm').select_option('2')
+    page.locator('#ocTitulo').fill('Cerca quebrada')
+    page.locator('#formOcorrencia [type="submit"]').click()
+    pw.expect(page.locator('[data-coluna="aberta"] [data-oc]')).to_have_count(2)
+    assert ('/ocorrencias', {'fazenda_id': 2, 'equipamento_id': None, 'titulo': 'Cerca quebrada', 'descricao': ''}) in state['posts']
+    assert not state['errors']
+
+
+def test_ocorrencias_sem_migracao_avisa(painel):
+    page, state = painel
+    page.route('**/ocorrencias', lambda r: r.fulfill(status=409, json={'erro': 'migracao_pendente'}))
+    nav(page, 'ocorrencias')
+    pw.expect(page.locator('#ocAviso')).to_contain_text('mapa_ocorrencias.sql')
+    assert not state['errors']
+
+
+def test_menu_em_gaveta_no_celular(painel):
+    page, state = painel
+    menu = page.locator('#btnMenu')
+    if page.viewport_size['width'] >= 1024:
+        pw.expect(menu).to_be_hidden()
+        pw.expect(page.locator('#sidebar')).to_be_visible()
+        return
+    pw.expect(page.locator('#sidebar')).to_be_hidden()
+    menu.click()
+    pw.expect(page.locator('#sidebar')).to_be_visible()
+    pw.expect(menu).to_have_attribute('aria-expanded', 'true')
+    page.keyboard.press('Escape')
+    pw.expect(page.locator('#sidebar')).to_be_hidden()
+    menu.click()
+    page.locator('#gavetaFundo').click(position=dict(x=370, y=400))
+    pw.expect(page.locator('#sidebar')).to_be_hidden()
+    menu.click()
+    page.locator('#sidebar [data-nav="historico"]').click()
+    pw.expect(page.locator('#sidebar')).to_be_hidden()
+    pw.expect(page.locator('#tituloView')).to_have_text('Histórico')
+    pw.expect(menu).to_be_focused()
+    # O cabecalho cabe numa linha so.
+    assert page.locator('header').bounding_box()['height'] <= 60
+    # Dentro da gaveta ha um botao de fechar (o do cabecalho fica sob o fundo, inerte).
+    menu.click()
+    page.locator('#btnFecharMenu').click()
+    pw.expect(page.locator('#sidebar')).to_be_hidden()
+    # Girar para desktop com a gaveta aberta nao pode deixar o painel inerte.
+    menu.click()
+    assert page.evaluate("document.getElementById('conteudo').inert") is True
+    page.set_viewport_size({'width': 1280, 'height': 900})
+    page.wait_for_timeout(300)
+    assert page.evaluate("document.getElementById('conteudo').inert") is False
+    assert not state['errors']
+
+
+def test_atualizacao_pausa_sem_ninguem_olhando(painel):
+    page, state = painel
+    pedidos = []
+    page.on('request', lambda r: pedidos.append(r.url) if 'painel.test' in r.url and not r.url.endswith('/') else None)
+    page.clock.install()
+    # Aba escondida: nenhuma requisicao enquanto ninguem ve; ao voltar, atualiza na hora.
+    page.evaluate("""() => { Object.defineProperty(document, 'hidden', {configurable: true, get: () => true});
+                             document.dispatchEvent(new Event('visibilitychange')); }""")
+    pw.expect(page.locator('#vivoTxt')).to_have_text('Pausado')
+    pedidos.clear()
+    page.clock.fast_forward(30000)
+    page.wait_for_timeout(200)
+    assert pedidos == []
+    page.evaluate("""() => { Object.defineProperty(document, 'hidden', {configurable: true, get: () => false});
+                             document.dispatchEvent(new Event('visibilitychange')); }""")
+    pw.expect(page.locator('#vivoTxt')).to_have_text('Ao vivo')
+    page.wait_for_timeout(200)
+    assert pedidos, 'voltar para a aba deve atualizar na hora'
+    # 15 minutos sem interacao: pausa e oferece Retomar; mexer no painel volta a atualizar.
+    for _ in range(4):
+        page.clock.fast_forward(5 * 60 * 1000)
+    pw.expect(page.locator('#vivoTxt')).to_have_text('Pausado por inatividade')
+    pw.expect(page.locator('#vivoRetomar')).to_be_visible()
+    # Dado congelado nao pode parecer ao vivo: faixa avisa desde quando, e a promessa de nova tentativa some.
+    pw.expect(page.locator('#avisoPausa')).to_be_visible()
+    pw.expect(page.locator('#avisoPausa')).to_contain_text('desatualizados')
+    pw.expect(page.locator('#avisoConexaoRetry')).to_be_hidden()
+    assert page.locator('#vivoTxt').get_attribute('aria-live') == 'polite'
+    pedidos.clear()
+    page.clock.fast_forward(30000)
+    page.wait_for_timeout(200)
+    assert pedidos == []
+    # Qualquer interacao retoma (aqui, uma tecla) e atualiza na hora.
+    page.keyboard.press('Shift')
+    pw.expect(page.locator('#vivoTxt')).to_have_text('Ao vivo')
+    pw.expect(page.locator('#avisoPausa')).to_be_hidden()
+    page.wait_for_timeout(200)
+    assert pedidos
+    # O botao Retomar tambem. (Um clique real rolaria a pagina, e rolar ja retoma sozinho.)
+    for _ in range(4):
+        page.clock.fast_forward(5 * 60 * 1000)
+    pw.expect(page.locator('#vivoRetomar')).to_be_visible()
+    page.locator('#vivoRetomar').dispatch_event('click')
+    pw.expect(page.locator('#vivoTxt')).to_have_text('Ao vivo')
+    pw.expect(page.locator('#vivoRetomar')).to_be_hidden()
+    assert not state['errors']
+
+
+def test_detalhe_do_alerta_nao_executa_html_vindo_do_banco(painel):
+    page, state = painel
+    agora = datetime.now(timezone.utc).isoformat()
+    ataque = '<img src=x onerror="window.__xss=1">'
+    state['eventos'] = [dict(id=5, dispositivo_id=ataque, tipo='furto_capo', severidade=2, criado_em=agora,
+                             detalhes={ataque: ataque})]
+    page.select_option('#equipamentoSel', '1')
+    page.locator('#eventos [data-ev]').first.click()
+    pw.expect(page.locator('#mevCorpo')).to_contain_text('onerror')   # aparece como texto
+    page.wait_for_timeout(300)
+    assert page.evaluate('window.__xss') is None
+    assert page.locator('#mevCorpo img').count() == 0
+
+
+def test_salvar_ocorrencia_sem_mexer_no_responsavel_nao_o_apaga(painel):
+    page, state = painel
+    state['ocorrencias'] = [_ocorrencia(1, 'Capô aberto', 'aberta', responsavel_id=9, responsavel_nome='antigo.sompo')]
+    nav(page, 'ocorrencias')
+    page.locator('[data-oc="1"] [data-abrir-oc]').click()
+    pw.expect(page.locator('#ocResponsavel')).to_have_value('9')
+    page.locator('#ocNota').fill('Conferido')
+    page.locator('#detCorpo [data-salvar-oc]').click()
+    pw.expect(page.locator('#ocMsg')).to_contain_text('salva')
+    assert ('/ocorrencias/1', {'status': 'aberta', 'nota': 'Conferido'}) in state['posts']

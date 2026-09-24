@@ -22,8 +22,8 @@
   histórico completo offline e se perde no reinício. Não existe garantia de retenção infinita.
 - Sessões registram presença associada ao crachá, não prova de condução contínua ou culpa.
   Dados legados sem operador continuam consultáveis como não identificados.
-- Migração existente: `firmware/sql/frota.sql`, aditiva e idempotente. Não há migração nova
-  nesta correção. Não executar `preparar_supabase.sql` em banco existente. A finalização
+- Migrações existentes: `firmware/sql/frota.sql`, `exclusoes.sql` e `mapa_ocorrencias.sql`
+  (coordenadas das fazendas + tabela `ocorrencias`), todas aditivas e idempotentes. Não executar `preparar_supabase.sql` em banco existente. A finalização
   `concluir_migracao_dispositivos()` só ocorre após provisionar e sincronizar todas as placas;
   ver [Ativar frota](docs/ATIVAR_FROTA.md). A compatibilidade legada não equivale a token universal.
 - Máquinas cadastradas são editáveis pelo botão "Editar" do card (ou pelo modal de
@@ -38,8 +38,8 @@
   na fazenda, leva para a aba Máquinas.
   O refresh de cinco segundos preserva aba/seleção; mudanças de fazenda limpam dados e
   invalidam respostas pendentes. Menus restritos do gestor continuam ocultos após resize.
-- Exportar Word permanece visível, desabilitado com explicação sem máquina. Com seleção,
-  usa `/relatorio/risco.docx?equipamento=<id>&dias=7`. O atalho da fazenda seleciona uma
+- Exportar PDF permanece visível, desabilitado com explicação sem máquina. Com seleção,
+  usa `/relatorio/risco.pdf?equipamento=<id>&dias=<período>` (gerado com fpdf2). O atalho da fazenda seleciona uma
   máquina dessa fazenda; fazendas vazias mostram a solicitação de seleção.
 - Carregando, vazio e indisponível são estados distintos. Consultas com falha oferecem
   nova tentativa e não impedem o acesso às outras abas. Histórico vazio não é erro de banco.
@@ -139,8 +139,8 @@ sompo-sprint3/
 │   ├── scores.py              # Cálculo DETERMINÍSTICO de risco (puro, sem I/O)
 │   ├── relatorios.py          # Monta relatório bruto + risco; prompt; fallback
 │   ├── llm.py                 # Camada de IA (Google Gemini) + cache + origem
-│   ├── documento.py           # Gera o relatório de risco em .docx (python-docx)
-│   ├── requirements.txt       # Flask, requests, python-docx, waitress, pytest...
+│   ├── documento.py           # Gera o relatório de risco em PDF (fpdf2)
+│   ├── requirements.txt       # Flask, requests, fpdf2, waitress, pytest...
 │   ├── Dockerfile             # Imagem de produção (python:3.12-slim + waitress + Lambda Web Adapter)
 │   ├── .env / .env.example    # Segredos (gitignorado) / molde versionado
 │   ├── static/index.html      # Painel/dashboard (SPA, Tailwind CDN, JS vanilla)
@@ -271,8 +271,9 @@ TinyGPSPlus 1.0.3 (Mikal Hart), MFRC522 1.4.12, **MAX6675 0.3.4 do RobTillaart**
 ## 5. Banco de dados (Supabase / PostgreSQL + PostgREST)
 
 Scripts em `firmware/sql/`, rodados no **SQL Editor** do Supabase. Ordem:
-`preparar_supabase.sql` → `dados_exemplo.sql` → `fazenda.sql` → `usuarios.sql`. Todos
-**idempotentes**.
+`preparar_supabase.sql` → `dados_exemplo.sql` → `fazenda.sql` → `usuarios.sql` → `frota.sql` →
+`exclusoes.sql` → `mapa_ocorrencias.sql`. Todos **idempotentes** (os testes em
+`firmware/sql/tests/run.mjs` aplicam cada migração duas vezes no PGlite).
 
 ### 5.1 Tabelas do sensor (escritas pelo ESP32, lidas pela API)
 
@@ -297,6 +298,11 @@ relatório bruto.
 
 `cliente` ← `fazenda` ← `equipamentos` ← `riscos` (↔ `telemetria`) ↔ `sinistros`; e `usuario`
 (logins do painel: `usuario`, `senha` em texto plano, `role`, `fk_fazenda_id_fazenda`).
+
+- `fazenda.latitude`/`longitude` (opcionais, par obrigatório, faixas válidas): pinos do mapa.
+- **`ocorrencias`**: alerta (ou relato manual) que alguém verifica até resolver. `status` ∈
+  {aberta, em_verificacao, resolvida}, `responsavel_id` → `usuario`, `nota`; no máximo uma por
+  `evento_id`; `atualizado_em`/`resolvido_em` mantidos por trigger; RLS ligado, só `service_role`.
 
 `dados_exemplo.sql` contém dados de demonstração. O painel atual mostra a frota por fazenda,
 operadores, histórico, telemetria, eventos, scores e cadastros conforme o perfil.
@@ -330,9 +336,13 @@ Arquivo central: `api/app.py`. Servida por **waitress** em produção; `python a
 | `GET /scores` | Scores de risco determinísticos por eixo |
 | `GET /relatorio/bruto` | Relatório factual |
 | `GET /relatorio/risco` | Relatório interpretado por IA (fallback gracioso, sempre 200) |
-| `GET /relatorio/risco.docx` | O mesmo relatório como documento Word para download |
+| `GET /relatorio/risco.pdf` | O mesmo relatório em PDF para download |
 | `GET/POST /clientes` | Lista/cadastra clientes — **só perfil Sompo** (403 p/ gestor) |
 | `GET/POST /fazendas` | Lista/cadastra fazendas — **só perfil Sompo** |
+| `PATCH /fazendas/<id>` | Edita dados e coordenadas — **só Sompo**; 409 sem a migração |
+| `GET /fazendas/<id>/resumo` | Máquinas, comunicação, scores e os 10 alertas mais recentes |
+| `GET/POST /ocorrencias`, `PATCH /ocorrencias/<id>` | Fila de ocorrências (escopo por perfil) |
+| `GET /ocorrencias/responsaveis?fazenda=` | Quem pode assumir (Sompo + gestores da fazenda) |
 | `GET/POST /usuarios` | Lista/cadastra logins do painel — **só perfil Sompo** |
 
 Padrão de dispositivo: `SOMPO-ESP32` (tem de bater com o `DISPOSITIVO_ID` do firmware).
@@ -370,25 +380,31 @@ aberto.
      limite gratuito (429).
    - **Nunca lança** para a rota → o endpoint responde **sempre HTTP 200**.
    - Os **scores no relatório vêm SEMPRE do cálculo determinístico**, jamais do LLM.
-4. **`documento.py`** transforma o relatório de risco em `.docx` (python-docx), com horários
-   convertidos para **Brasília (UTC-3 fixo)**, tabela de eventos e cores por classificação.
+4. **`documento.py`** transforma o relatório de risco em PDF (fpdf2, Helvetica latin-1), com horários
+   convertidos para **Brasília (UTC-3 fixo)**, "de onde vem o score" por eixo, nomes legíveis e tabela de
+   eventos que repete o cabeçalho a cada página.
 
 ---
 
 ## 7. Painel / Frontend
 
-**Arquivo:** `api/static/index.html` (SPA de arquivo único, ~1090 linhas).
+**Arquivo:** `api/static/index.html` (SPA de arquivo único, ~3900 linhas).
 
 - **TailwindCSS via CDN** (`cdn.tailwindcss.com`) + ícones **Material Symbols**. JS
   **vanilla** (sem framework/build).
-- Busca dados com `getJSON()` em caminhos **relativos**; **auto-refresh a cada 5 s**
-  (`setInterval(carregarTudo, 5000)`).
-- **Abas:** Visão Geral (scores, telemetria atual, feed de alertas, últimas leituras, gráfico
-  de temperatura em SVG estilo *line chart*), Fazendas, Clientes, Usuários (as três últimas
-  só para o perfil Sompo).
+- Busca dados com `getJSON()` em caminhos **relativos**; **auto-refresh a cada 5 s**, que
+  **pausa** com a aba escondida ou após 15 min sem interação (faixa "Atualização pausada" +
+  Retomar). Poupa o crédito do Learner Lab e o limite diário do Cloudflare Pages.
+- **Telas:** Início (Sompo: carteira em cartões ou **mapa** Leaflet/OSM; gestor: painel da
+  própria fazenda), Máquinas, **Painel da máquina** (tudo num lugar só, com atalhos Resumo ·
+  Risco · Alertas · Telemetria), **Exposição financeira**, Operadores, Histórico,
+  **Ocorrências** (quadro aberta / em verificação / resolvida), **Manutenção** (última + 180
+  dias, estimativa), e os cadastros Fazendas, Clientes, Usuários (só Sompo).
+- Gráficos em SVG próprio; animação só quando o gráfico entra na tela; tema claro/escuro
+  (`sompo.tema`). No celular, menu em gaveta e tabelas em cartões.
 - **Alerta clicável** (modal de detalhe) e efeito *border beam* no card de risco (CSS puro,
   inspirado no 21st.dev).
-- Botão **📄 Exportar Word** → baixa `/relatorio/risco.docx`.
+- Botão **Exportar PDF** → baixa `/relatorio/risco.pdf` do período escolhido.
 - Seletor de fazendas no topo (perfil Sompo) que troca o `dispositivo` consultado.
 - **Login:** `templates/login.html` (self-contained), com "manter conectado".
 
@@ -440,15 +456,20 @@ uma flag/env desligada por padrão.
 
 ## 10. Testes
 
-`api/tests/` — **pytest**, **56 funções de teste**, todas mockadas (sem rede, sem `.env`,
-sem hardware). Cobrem:
+`api/tests/` — **pytest**, **154 funções de teste** (217 casos, contando desktop e celular nos
+testes de navegador com Playwright), todas mockadas (sem rede real, sem `.env`, sem hardware).
+Mais os asserts de SQL no PGlite (`node firmware/sql/tests/run.mjs`). Cobrem:
 
 - `test_scores.py` — cálculo determinístico de risco.
 - `test_auth.py`, `test_perfis.py` — login, API key, escopo por perfil (gestor não vê outra
   fazenda; cadastro dá 403).
 - `test_relatorios.py`, `test_relatorio_risco_origens.py` — os 3 cenários de origem
   (llm/prompt_apenas/fallback).
-- `test_documento.py` — geração do `.docx`.
+- `test_documento.py` — geração do PDF (texto lido sem compressão).
+- `test_ocorrencias.py` — escopo por perfil, uma ocorrência por alerta, responsável válido, 409
+  sem migração; `test_fazendas.py` inclui o PATCH com coordenadas.
+- `test_painel.py` — Playwright com HTTP simulado (desktop e 390 px): navegação, gaveta,
+  Início do gestor, mapa, exposição, manutenção, ocorrências, PDF.
 - `test_telemetria.py`, `test_eventos.py`, `test_fazendas.py`, `test_usuarios.py`,
   `test_health.py` — rotas.
 - **`test_contrato_firmware.py`** — lê o `.ino` e o `.sql` **como texto** e garante o
@@ -456,7 +477,7 @@ sem hardware). Cobrem:
   `scores.py`, **quebra o pytest**.
 
 > Nota: `README.md` cita "46 testes" e `COMO_TESTAR.md` cita "32 passed" — números
-> **históricos**. A contagem atual de funções `def test_` é **56**.
+> **históricos**. A contagem atual de funções `def test_` é **154**.
 
 ---
 
@@ -546,7 +567,7 @@ de reserva. Os perfis só funcionam com o **login ligado** (`PAINEL_SENHA` defin
 **Hardware/Firmware:** ESP32 DevKit V1 · C++/Arduino (Arduino IDE / arduino-cli) · sensores
 MPU-6050, AHT10, MAX6675, KY-026, RC522, reed switches, GPS NEO-6M, buzzer, potenciômetro.
 **Nuvem:** Supabase (PostgreSQL + PostgREST + RLS).
-**Backend:** Python 3.12 · Flask · waitress · requests · python-docx · pytest.
+**Backend:** Python 3.12 · Flask · waitress · requests · fpdf2 · pytest.
 **IA:** Google Gemini (Generative Language API).
 **Frontend:** HTML + TailwindCSS (CDN) + JavaScript vanilla + Material Symbols.
 **Infra:** Docker · AWS Lambda + ECR (Learner Lab) · Cloudflare Pages · Render (plano B) ·

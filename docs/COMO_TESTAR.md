@@ -80,7 +80,7 @@ cd "<raiz>\api"
 > Ainda não fez o setup? Rode antes (uma vez):
 > `python -m venv venv` e depois `.\venv\Scripts\python.exe -m pip install -r requirements.txt`.
 
-**Esperado:** `32 passed`. Cobre `scores.py`, as rotas, o login/API key, o `.docx`, os 3
+**Esperado:** `32 passed`. Cobre `scores.py`, as rotas, o login/API key, o PDF, os 3
 cenários do relatório de risco (com IA / sem chave / provedor fora) e o **contrato
 firmware ↔ banco ↔ API** (`test_contrato_firmware.py` lê o `.ino` e o `.sql` como texto: uma chave
 nova no firmware sem coluna no SQL, ou um evento que não pontua no `scores.py`, quebra aqui) —
@@ -112,8 +112,8 @@ algo falhar"). Com o banco vazio, os scores vêm **0** e `origem_da_analise` é 
 normal.
 
 **Painel visual (recomendado):** abra **`http://localhost:5000/`** no navegador — mostra os scores,
-telemetria, eventos e o relatório de risco montados. O botão **📄 Exportar Word** gera o relatório de
-risco como documento `.docx` (abre no Word/Google Docs), com os horários já em **Brasília**.
+telemetria, eventos e o relatório de risco montados. O botão **Exportar PDF** gera o relatório de
+risco em PDF (abre em qualquer celular ou computador), com os horários já em **Brasília**.
 
 > 🔐 **Login opcional:** com `PAINEL_SENHA` definida no `.env`, o painel pede usuário/senha em
 > `/login` (vazia = aberto, modo demo). Para publicar o painel na internet (**AWS Lambda + Cloudflare**), veja
@@ -330,9 +330,9 @@ deprecia. Se der erro de modelo, veja os disponíveis para sua chave com o ListM
 **4. Gerar o relatório:**
 ```powershell
 curl.exe "http://localhost:5000/relatorio/risco?dias=7"        # JSON
-curl.exe "http://localhost:5000/relatorio/risco.docx?dias=7" -o relatorio.docx   # documento Word
+curl.exe "http://localhost:5000/relatorio/risco.pdf?dias=7" -o relatorio.pdf     # PDF
 ```
-O `.docx` é o mesmo relatório em formato Word (também no botão **📄 Exportar Word** do painel), com
+O PDF é o mesmo relatório pronto para imprimir ou enviar (também no botão **Exportar PDF** do painel), com
 os horários em Brasília — mais fácil de ler/apresentar que o JSON.
 
 **Como saber se funcionou** → campo `origem_da_analise`:
@@ -405,5 +405,5 @@ nos tamanhos 1280×900 e 390×900. Incluem menus sem máquina, refresh de cinco 
 troca de fazenda com resposta atrasada, permissões após resize, falha/vazio/nova tentativa,
 cadastro completo, matrícula opcional, detalhe e atalho de telemetria, além do download.
 Os assets visuais (Tailwind/fontes) usam os mesmos CDNs do painel e exigem rede.
-O teste da API abre o Word e confere máquina, fazenda e dispositivo selecionados.
+O teste da API lê o PDF e confere máquina, fazenda e dispositivo selecionados.
 Todas as escritas usam fixtures de teste; não executar cadastros de teste em produção.

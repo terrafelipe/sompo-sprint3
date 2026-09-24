@@ -13,7 +13,7 @@ navegador ──► Cloudflare Pages  ──► Function URL ──► Lambda (w
 
 O ESP32 continua falando direto com o Supabase — publicar o painel **não** muda nada no firmware.
 
-> Por que Lambda: o app é **stateless** (dados no Supabase, sessão em cookie assinado, `.docx`
+> Por que Lambda: o app é **stateless** (dados no Supabase, sessão em cookie assinado, PDF
 > gerado em memória). A Lambda escala a zero sozinha — fica em ~US$ 0 — e acorda em ~1–2 s
 > (o Render free levava ~50 s). O Render continua como [plano B](#6-plano-b-render).
 
@@ -62,6 +62,11 @@ O script injeta sozinho as fixas do ambiente Lambda: `PORT=8080` (porta do waitr
 > mundo é deslogado.
 
 ## 3. Deploy pelo AWS CloudShell (recomendado)
+
+> **Banco primeiro.** Mapa da carteira e Ocorrências precisam de `firmware/sql/mapa_ocorrencias.sql`
+> (aditivo e repetível: só acrescenta `latitude`/`longitude` em `fazenda` e a tabela `ocorrencias`).
+> Rode uma vez no **SQL Editor** do Supabase antes de publicar. Sem ele o painel continua no ar: as
+> duas telas mostram um aviso e as rotas respondem 409 `migracao_pendente`.
 
 O CloudShell (ícone `>_` no console) já tem Docker, AWS CLI, git e PowerShell (`pwsh`) com as
 credenciais do lab — não precisa de nada instalado no PC.
@@ -116,7 +121,7 @@ O host de destino é fixo: um caminho `//outro-host` **não** vira proxy aberto.
 ## 5. Verificação e pega-ratões
 
 Depois de cada deploy, pela URL do Pages: login → menus sem máquina → seleção de fazenda/máquina →
-F5 (sessão se mantém) → relatório de risco → download Word → logout. Rápido pelo terminal:
+F5 (sessão se mantém) → relatório de risco → download do PDF → logout. Rápido pelo terminal:
 `/login` → 200, `/saude` → 401 sem login.
 
 - **500 no proxy logo após publicar** → é a propagação da versão nova; some em segundos.

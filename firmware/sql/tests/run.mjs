@@ -11,9 +11,12 @@ try {
     await db.exec(await read('../frota.sql'));
     await db.exec(await read('../exclusoes.sql'));
     await db.exec(await read('../exclusoes.sql'));
+    await db.exec(await read('../mapa_ocorrencias.sql'));
+    await db.exec(await read('../mapa_ocorrencias.sql'));
   }
   const results = await db.exec(await read('assertions.sql'));
   console.log(results.at(-1).rows);
+  console.log((await db.exec(await read('mapa_ocorrencias.sql'))).at(-1).rows);
   console.log((await db.exec(await read('exclusoes.sql'))).at(-1).rows);
 } catch (error) {
   console.error(`${error.code}: ${error.message}`);

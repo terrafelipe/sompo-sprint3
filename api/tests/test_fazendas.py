@@ -111,3 +111,73 @@ def test_criar_fazenda_sem_localizacao_da_400():
     assert response.status_code == 400
     assert response.get_json()['erro'] == 'localizacao_obrigatoria'
     mock_inserir.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# PATCH /fazendas/<id>: edicao (Sompo), inclusive as coordenadas do mapa.
+# ---------------------------------------------------------------------------
+def _patch(corpo, retorno=None, **kw):
+    client = app.test_client()
+    with patch('app.atualizar_tabela', return_value=retorno if retorno is not None else {'id_fazenda': 5}, **kw) as mock:
+        response = client.patch('/fazendas/5', json=corpo)
+    return response, mock
+
+
+def test_patch_fazenda_salva_coordenadas():
+    response, mock = _patch({'latitude': '-22.7253', 'longitude': -47.6492})
+    assert response.status_code == 200
+    assert response.get_json()['ok'] is True
+    tabela, filtros, dados = mock.call_args.args
+    assert tabela == 'fazenda'
+    assert filtros == {'id_fazenda': 'eq.5', 'excluido_em': 'is.null'}
+    assert dados == {'latitude': -22.7253, 'longitude': -47.6492}
+
+
+def test_patch_fazenda_limpa_coordenadas_e_edita_campos():
+    response, mock = _patch({'latitude': None, 'longitude': None, 'nome': '  Santa Rita  ', 'area_ha': '120.5'})
+    assert response.status_code == 200
+    assert mock.call_args.args[2] == {'latitude': None, 'longitude': None, 'nome': 'Santa Rita', 'area_ha': 120.5}
+
+
+def test_patch_fazenda_valida_coordenadas():
+    casos = [({'latitude': 91, 'longitude': 0}, 'latitude_invalida'),
+             ({'latitude': 0, 'longitude': -180.5}, 'longitude_invalida'),
+             ({'latitude': 'abc', 'longitude': 0}, 'latitude_invalida'),
+             ({'latitude': -10}, 'coordenadas_incompletas'),
+             ({'nome': '   '}, 'nome_obrigatorio'),
+             ({}, 'nada_para_atualizar')]
+    for corpo, erro in casos:
+        response, mock = _patch(corpo)
+        assert response.status_code == 400, corpo
+        assert response.get_json()['erro'] == erro, corpo
+        mock.assert_not_called()
+
+
+def test_patch_fazenda_inexistente_ou_excluida_404():
+    response, _ = _patch({'latitude': 1, 'longitude': 1}, retorno={})
+    assert response.status_code == 404
+
+
+def test_patch_fazenda_sem_migracao_avisa():
+    from supabase_client import SupabaseError
+    response, _ = _patch({'latitude': 1, 'longitude': 1}, side_effect=SupabaseError(400, 'PGRST204'))
+    assert response.status_code == 409
+    assert response.get_json()['erro'] == 'migracao_pendente'
+
+
+def test_gestor_nao_edita_fazenda():
+    client = app.test_client()
+    with client.session_transaction() as s:
+        s.update(logado=True, role='gestor_fazenda', fazenda_id=5)
+    with patch('app.atualizar_tabela') as mock:
+        assert client.patch('/fazendas/5', json={'latitude': 1, 'longitude': 1}).status_code == 403
+    mock.assert_not_called()
+
+
+def test_patch_fazenda_recusa_booleanos_area_invalida_e_corpo_que_nao_e_objeto():
+    for corpo, erro in [({'latitude': True, 'longitude': False}, 'latitude_invalida'),
+                        ({'area_ha': True}, 'area_invalida'), ({'area_ha': -5}, 'area_invalida'),
+                        ({'area_ha': 'nan'}, 'area_invalida'), ([1], 'nada_para_atualizar')]:
+        response, mock = _patch(corpo)
+        assert response.status_code == 400 and response.get_json()['erro'] == erro, corpo
+        mock.assert_not_called()

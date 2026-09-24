@@ -92,6 +92,15 @@ def consultar_telemetria(dispositivo: str, limite: int = 50) -> List[Dict[str, A
     return consultar_tabela('telemetria', filtros=filtros, limite=limite, order='criado_em.desc')
 
 
+def consultar_telemetria_intervalo(dispositivo: str, inicio: datetime, fim: datetime) -> List[Dict[str, Any]]:
+    # So as colunas que a linha do tempo usa: 24h de leituras podem ser milhares de linhas.
+    return consultar_todos('telemetria', filtros={
+        'dispositivo_id': f'eq.{dispositivo}',
+        'criado_em': f'gte.{inicio.isoformat()}',
+        'and': f'(criado_em.lte.{fim.isoformat()})',
+    }, select='criado_em,motor_ligado,nivel_risco', order='criado_em.asc')
+
+
 def consultar_eventos(dispositivo: str, dias: int = 7) -> List[Dict[str, Any]]:
     return consultar_periodo('eventos', {'dispositivo_id': f'eq.{dispositivo}'}, dias)
 
