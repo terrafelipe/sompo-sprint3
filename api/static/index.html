@@ -169,9 +169,11 @@
   .oc-coluna{background:var(--v-suave);border:1px solid var(--v-borda);border-radius:.75rem;padding:.75rem;min-height:8rem}
   .oc-card{background:var(--v-card);border:1px solid var(--v-borda);border-radius:.6rem;padding:.75rem}
   .oc-card + .oc-card{margin-top:.5rem}
-  .oc-mover{display:inline-flex;align-items:center;gap:.25rem;height:1.75rem;padding:0 .55rem;border:1px solid var(--v-borda);border-radius:.4rem;font-size:12px;font-weight:500;color:var(--v-texto-sec);background:var(--v-card);transition:background-color 150ms ease}
-  .oc-mover .material-symbols-outlined{font-size:15px}
-  @media (hover:hover) and (pointer:fine){ .oc-mover:hover{background:var(--v-hover)} }
+  /* Quadro como no Trello: a lista inteira recebe o cartão, mesmo vazia. */
+  .oc-lista{min-height:4.5rem}
+  .oc-lista:has(.oc-card) [data-vazio]{display:none}
+  .oc-fantasma{opacity:.35;border-style:dashed}
+  .oc-arrastando{cursor:grabbing;box-shadow:0 14px 32px rgb(0 0 0 / .18);opacity:1 !important}
   .g-linha{display:flex;align-items:center;gap:.75rem;width:100%;text-align:left;padding:.7rem .5rem;border-radius:.5rem;transition:background-color 150ms ease}
   @media (hover:hover) and (pointer:fine){ .g-linha:hover{background:var(--v-hover)} }
   .g-linha:focus-visible{outline:2px solid rgba(183,1,0,.4);outline-offset:-2px}
@@ -1763,12 +1765,11 @@ async function carregarCarteira(){
 
 /* ---------- Ocorrencias ---------- */
 const STATUS_OC = {aberta: ['Aberta', '#ba1a1a'], em_verificacao: ['Em verificação', '#d97706'], resolvida: ['Resolvida', '#10b981']};
-// Botoes "mover para": cada status leva aos outros dois, na ordem natural do fluxo.
-const MOVER_OC = {aberta: [['em_verificacao', 'Verificar', 'arrow_forward'], ['resolvida', 'Resolver', 'check']],
-                  em_verificacao: [['aberta', 'Reabrir', 'undo'], ['resolvida', 'Resolver', 'check']],
-                  resolvida: [['aberta', 'Reabrir', 'undo']]};
 const RESOLVIDAS_VISIVEIS = 15;
-let ocorrenciasCache = [], contadorOcorrEm = 0;
+// Arrastar entre colunas (SortableJS, carregada só quando o quadro aparece). Sem ela, a
+// situação continua mudando pelo detalhe do cartão.
+const SORTABLE = ['https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.7/Sortable.min.js', 'sha512-ri8dokds012Oxz+iFzMs4KNJXVc+h7J1zq6unM1NTtzBLj4jD1R5BWiK6QycK0TdSdkt7zYcIcv6sUPhmYkbdQ=='];
+let ocorrenciasCache = [], contadorOcorrEm = 0, sortablePromessa = null, arrastandoOc = false, movendoOc = 0;
 const MSG_MIGRACAO = 'O banco ainda não tem a tabela de ocorrências: rode firmware/sql/mapa_ocorrencias.sql no Supabase.';
 function mostrarContadorOcorrencias(lista){
   const n = lista.filter(o => o.status !== 'resolvida').length;
@@ -1795,21 +1796,23 @@ async function carregarOcorrencias(){
   const faz = $('ocFazenda').value;
   try{
     const d = await getJSON('/ocorrencias' + (faz ? `?fazenda=${encodeURIComponent(faz)}` : ''));
-    $('ocAviso').innerHTML = '';
+    if(movendoOc) return;   // leitura anterior ao PATCH em andamento: desfaria o cartão que acabou de mudar
+    if($('ocAviso').querySelector('[data-aviso-carga]')) $('ocAviso').innerHTML = '';
     ocorrenciasCache = d.dados || [];
     if(faz) atualizarContadorOcorrencias();
     else { contadorOcorrEm = Date.now(); mostrarContadorOcorrencias(ocorrenciasCache); }
     renderizarQuadro();
   }catch(e){ if(e.obsoleto) return;
     const semTabela = /409/.test(e.message);
-    $('ocAviso').innerHTML = `<p role="alert" class="mb-4 px-4 py-3 rounded-lg border border-error/30 bg-error/10 text-error text-sm">${semTabela ? MSG_MIGRACAO : 'Ocorrências indisponíveis agora. <button data-tentar class="underline font-semibold">Tentar novamente</button>'}</p>`;
+    $('ocAviso').innerHTML = `<p role="alert" data-aviso-carga class="mb-4 px-4 py-3 rounded-lg border border-error/30 bg-error/10 text-error text-sm">${semTabela ? MSG_MIGRACAO : 'Ocorrências indisponíveis agora. <button data-tentar class="underline font-semibold">Tentar novamente</button>'}</p>`;
     $('quadroOcorrencias').innerHTML = '';
   }
 }
 function renderizarQuadro(){
+  if(arrastandoOc) return;   // o refresh de 5 s não tira o cartão da mão de quem arrasta
   const lista = ocorrenciasCache;
   const conta = st => lista.filter(o => o.status === st).length;
-  $('ocResumo').textContent = `${conta('aberta')} ${conta('aberta') === 1 ? 'aberta' : 'abertas'} · ${conta('em_verificacao')} em verificação · ${conta('resolvida')} ${conta('resolvida') === 1 ? 'resolvida' : 'resolvidas'}`;
+  $('ocResumo').textContent = `${conta('aberta')} ${conta('aberta') === 1 ? 'aberta' : 'abertas'} · ${conta('em_verificacao')} em verificação · ${conta('resolvida')} ${conta('resolvida') === 1 ? 'resolvida' : 'resolvidas'}. Arraste os cartões para mudar a situação.`;
   const card = o => {
     const [, cor] = STATUS_OC[o.status] || STATUS_OC.aberta;
     const quando = o.status === 'resolvida' && o.resolvido_em ? `resolvida ${fmtRelativo(o.resolvido_em)}` : `aberta ${fmtRelativo(o.criado_em)}`;
@@ -1822,8 +1825,6 @@ function renderizarQuadro(){
       <div class="flex items-center justify-between gap-2 mt-2.5 text-xs text-on-surface-variant">
         <span>${quando}</span><span class="truncate inline-flex items-center gap-1"><span class="material-symbols-outlined text-[14px]" aria-hidden="true">person</span>${escapar(o.responsavel_nome || 'Sem responsável')}</span>
       </div>
-      <div class="flex flex-wrap gap-1.5 mt-2.5">${(MOVER_OC[o.status] || []).map(([st, rotulo, icone]) =>
-        `<button type="button" class="oc-mover" data-mover="${st}" title="Mover para ${STATUS_OC[st][0]}"><span class="material-symbols-outlined" aria-hidden="true">${icone}</span>${rotulo}</button>`).join('')}</div>
     </article>`;
   };
   const html = Object.entries(STATUS_OC).map(([st, [nome, cor]]) => {
@@ -1832,27 +1833,54 @@ function renderizarQuadro(){
     if(escondidas) itens = itens.slice(0, RESOLVIDAS_VISIVEIS);
     return `<div data-coluna="${st}" class="oc-coluna">
       <div class="flex items-center gap-2 px-1 pb-2.5 text-sm font-semibold text-on-surface"><span class="w-2 h-2 rounded-full" style="background:${cor}"></span>${nome}<span class="ml-auto text-xs font-medium text-on-surface-variant tabular">${lista.filter(o => o.status === st).length}</span></div>
-      ${itens.length ? itens.map(card).join('') : `<p class="text-xs text-on-surface-variant italic px-1 py-2">${st === 'aberta' ? 'Nada aberto. Alertas viram ocorrência pelo detalhe do alerta.' : 'Nada aqui.'}</p>`}
+      <div data-lista-oc="${st}" class="oc-lista">${itens.map(card).join('')}<p data-vazio class="text-xs text-on-surface-variant italic px-1 py-2">${st === 'aberta' ? 'Nada aberto. Alertas viram ocorrência pelo detalhe do alerta.' : 'Nada aqui. Arraste um cartão para cá.'}</p></div>
       ${escondidas ? `<p class="text-xs text-on-surface-variant px-1 pt-2">E mais ${escondidas} resolvidas antes destas.</p>` : ''}
     </div>`;
   }).join('');
   renderLista('quadroOcorrencias', '<div class="contents" data-render></div>' + html);
+  ativarArrastarOc();
+}
+function carregarSortable(){
+  if(window.Sortable) return Promise.resolve();
+  if(!sortablePromessa) sortablePromessa = new Promise((ok, falha) => {
+    const js = Object.assign(document.createElement('script'), {src: SORTABLE[0], integrity: SORTABLE[1], crossOrigin: 'anonymous'});
+    js.onload = () => ok();
+    js.onerror = () => { sortablePromessa = null; falha(new Error('sortable indisponivel')); };
+    document.head.append(js);
+  });
+  return sortablePromessa;
+}
+async function ativarArrastarOc(){
+  try{ await carregarSortable(); }catch(e){ return; }
+  document.querySelectorAll('#quadroOcorrencias [data-lista-oc]').forEach(lista => {
+    if(lista._sortable) return;   // renderLista não redesenhou: a lista já arrasta
+    lista._sortable = Sortable.create(lista, {
+      group: 'ocorrencias', draggable: '.oc-card', sort: false,
+      animation: 180, easing: 'cubic-bezier(0.23, 1, 0.32, 1)',
+      // Arraste próprio (não o nativo do navegador): igual no mouse e no toque. No celular,
+      // segurar um instante antes de arrastar deixa a rolagem da página funcionando.
+      forceFallback: true, fallbackOnBody: true, fallbackTolerance: 4, delay: 180, delayOnTouchOnly: true,
+      ghostClass: 'oc-fantasma', dragClass: 'oc-arrastando',
+      onStart: () => { arrastandoOc = true; },
+      onEnd: e => { arrastandoOc = false; moverOcorrencia(e.item.dataset.oc, e.from.dataset.listaOc, e.to.dataset.listaOc); },
+    });
+    lista.dataset.arrastavel = '1';
+  });
+}
+// O cartão já está na coluna nova; o servidor confirma. Se falhar, a recarga o devolve.
+async function moverOcorrencia(id, de, para){
+  if(de === para) return;
+  const o = ocorrenciasCache.find(x => String(x.id_ocorrencia) === String(id)); if(!o) return;
+  $('ocAviso').innerHTML = '';
+  o.status = para; movendoOc++;
+  renderizarQuadro();
+  const r = await enviarOcorrencia(`/ocorrencias/${id}`, 'PATCH', {status: para}).catch(() => ({ok: false}));
+  movendoOc--;
+  await carregarOcorrencias();
+  if(!r.ok) $('ocAviso').innerHTML = `<p role="alert" class="mb-4 px-4 py-3 rounded-lg border border-error/30 bg-error/10 text-error text-sm">${r.erro === 'migracao_pendente' ? MSG_MIGRACAO : 'Não foi possível mover a ocorrência agora. Ela voltou para onde estava.'}</p>`;
 }
 $('ocFazenda').addEventListener('change', carregarOcorrencias);
-$('quadroOcorrencias').addEventListener('click', async e => {
-  const mover = e.target.closest('[data-mover]');
-  if(mover){
-    const id = mover.closest('[data-oc]').dataset.oc;
-    mover.disabled = true;
-    const r = await enviarOcorrencia(`/ocorrencias/${id}`, 'PATCH', {status: mover.dataset.mover}).catch(() => ({ok: false}));
-    if(!r.ok){
-      $('cadastroAviso').textContent = r.erro === 'migracao_pendente' ? MSG_MIGRACAO : 'Não foi possível mover a ocorrência agora.';
-      $('cadastroAviso').classList.remove('hidden');
-      setTimeout(() => $('cadastroAviso').classList.add('hidden'), 5000);
-    }
-    await carregarOcorrencias();
-    return;
-  }
+$('quadroOcorrencias').addEventListener('click', e => {
   const abrir = e.target.closest('[data-abrir-oc]');
   if(abrir) abrirOcorrencia(ocorrenciasCache.find(o => String(o.id_ocorrencia) === abrir.dataset.abrirOc));
 });

@@ -642,6 +642,22 @@ def _ocorrencia(i, titulo, status, **extra):
                 equipamento_id=1, equipamento_nome='Trator 1', tipo='furto_capo', criado_em='2026-09-18T12:00:00Z', **extra)
 
 
+def arrastar(page, origem, destino):
+    # Arraste com o mouse em passos, como uma pessoa (a SortableJS precisa ver o movimento).
+    pw.expect(page.locator(destino)).to_have_attribute('data-arrastavel', '1')   # biblioteca carregada
+    a = page.locator(origem).bounding_box()
+    b = page.locator(destino).bounding_box()
+    page.mouse.move(a['x'] + a['width'] / 2, a['y'] + a['height'] / 2)
+    page.mouse.down()
+    page.mouse.move(a['x'] + a['width'] / 2 + 12, a['y'] + a['height'] / 2 + 12, steps=4)
+    page.mouse.move(b['x'] + b['width'] / 2, b['y'] + b['height'] / 2, steps=20)
+    # Colunas empilhadas (celular): o cartão passando empurra as de baixo; mira de novo, como o dedo.
+    for _ in range(2):
+        b = page.locator(destino).bounding_box()
+        page.mouse.move(b['x'] + b['width'] / 2, b['y'] + b['height'] / 2, steps=8)
+    page.mouse.up()
+
+
 def test_ocorrencias_quadro_move_e_edita(painel):
     page, state = painel
     state['ocorrencias'] = [_ocorrencia(1, 'Capô aberto', 'aberta'), _ocorrencia(2, 'Cerca', 'em_verificacao')]
@@ -649,7 +665,8 @@ def test_ocorrencias_quadro_move_e_edita(painel):
     pw.expect(page.locator('[data-coluna="aberta"] [data-oc]')).to_have_count(1)
     pw.expect(page.locator('[data-coluna="em_verificacao"] [data-oc]')).to_have_count(1)
     pw.expect(page.locator('#sidebar [data-contador-ocorr]')).to_have_text('2')
-    page.locator('[data-oc="1"] [data-mover="resolvida"]').click()
+    pw.expect(page.locator('[data-mover]')).to_have_count(0)          # sem botões: arrasta o cartão
+    arrastar(page, '[data-oc="1"]', '[data-lista-oc="resolvida"]')
     pw.expect(page.locator('[data-coluna="resolvida"] [data-oc="1"]')).to_have_count(1)
     assert ('/ocorrencias/1', {'status': 'resolvida'}) in state['posts']
     pw.expect(page.locator('#sidebar [data-contador-ocorr]')).to_have_text('1')
