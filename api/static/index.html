@@ -787,6 +787,11 @@
               <div id="gAlertasLista" class="space-y-0.5"></div>
             </section>
           </div>
+          <section id="gMapaSecao" class="mt-4 bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)] p-5">
+            <h2 class="text-base font-semibold text-on-surface">Mapa da fazenda</h2>
+            <p class="text-sm text-on-surface-variant mb-4">Sede e área ilustrativa; máquinas sem posição GPS.</p>
+            <div id="gMapaFazenda"></div>
+          </section>
         </div>
       </section>
 
@@ -1603,12 +1608,18 @@ async function carregarInicioGestor(){
   await carregarResumoFazenda();
   const d = resumoFazenda;
   if(!d){
+    $('gMapaSecao').hidden = true;
     ['gMaquinas','gOnline','gPior','gAlertas'].forEach(id => { $(id).textContent = '–'; });
     $('gPiorSelo').innerHTML = '';
     $('gMaquinasLista').innerHTML = erroLista('Resumo da fazenda indisponível.');
     $('gAlertasLista').innerHTML = '';
     return;
   }
+  $('gMapaSecao').hidden = false;
+  const mapaGestor = $('gMapaFazenda');
+  desenharMapaFazenda(mapaGestor, d.fazenda, d.equipamentos || [], {podeEditar: false});
+  const avisoLocalizacao = mapaGestor.querySelector('[data-mf-vazio] p:last-child');
+  if(avisoLocalizacao) avisoLocalizacao.textContent = 'Peça à Sompo para informar a localização da fazenda.';
   const maqs = (d.equipamentos || []).map(m => ({...m, risco: Math.max(m.scores?.score_furto || 0, m.scores?.score_incendio || 0)}))
     .sort((a, b) => b.risco - a.risco || String(a.nome).localeCompare(String(b.nome)));
   const online = maqs.filter(m => m.comunicacao === 'recente').length;
@@ -1657,6 +1668,7 @@ async function carregarInicioGestor(){
     entrar($('gMaquinasLista'), () => [fade($('gMaquinasLista').querySelectorAll('.g-linha'), {atraso: 45, sobe: 6, dur: 360}),
                                         crescer($('gMaquinasLista').querySelectorAll('[data-barra]'), 'X', {dur: 700, atraso: 60})]);
     entrar($('gAlertasLista'), () => fade($('gAlertasLista').querySelectorAll('.g-linha'), {atraso: 35, sobe: 6, dur: 360}));
+    entrar($('gMapaSecao'), () => fade([$('gMapaSecao')], {dur: 420, sobe: 8}));
   }
 }
 $('gMaquinasLista').addEventListener('click', e => { const b = e.target.closest('[data-g-maquina]'); if(b) selecionarMaquina(b.dataset.gMaquina, 'visao'); });
