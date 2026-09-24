@@ -1239,7 +1239,7 @@ async function trocarFazenda(id){
   if(maquinaEditando) fecharFormMaquina();   // não editar máquina de outra fazenda
   ['listaMaquinas','listaOperadores','listaHistorico'].forEach(id => $(id).innerHTML = '');
   $('resumoFazendaNome').textContent = 'Carregando…';
-  preencherSeletorMaquinas([]);
+  preencherSeletorMaquinas([], id ? 'Carregando máquinas…' : '');
   $('fazendaSel').value = String(id);
   opcoesFazenda($('maqFazenda'),id); opcoesFazenda($('opFazenda'),id);
   setView(viewAtual);
@@ -3321,8 +3321,12 @@ async function criarUsuario(ev){
 /* ---------- Frota, operadores e histórico ---------- */
 const COMUNICACAO = {recente:['Online','#10b981'], atrasada:['Atrasada','#f59e0b'], sem_dados:['Sem dados','#545f73'], sem_dispositivo:['Sem ESP32','#545f73']};
 
-function preencherSeletorMaquinas(maquinas){
-  $('equipamentoSel').innerHTML = '<button type="button"><selectedcontent></selectedcontent></button><option value="">Selecione uma máquina</option>' + maquinas.map(m=>`<option value="${m.id_equipamento}">${escapar(m.nome)}</option>`).join('');
+// Sem fazenda (ou fazenda sem máquinas) a caixa continua visível: o rótulo fica em
+// "Selecione uma máquina" e a lista mostra só um aviso desabilitado, nunca máquinas de outra fazenda.
+function preencherSeletorMaquinas(maquinas, aviso){
+  aviso = aviso || (!fazendaSelecionada ? 'Escolha uma fazenda primeiro' : !maquinas.length ? 'Nenhuma máquina nesta fazenda' : '');
+  $('equipamentoSel').innerHTML = '<button type="button"><selectedcontent></selectedcontent></button><option value=""' + (aviso ? ' hidden' : '') + '>Selecione uma máquina</option>'
+    + (aviso ? `<option value="" disabled>${aviso}</option>` : maquinas.map(m=>`<option value="${m.id_equipamento}">${escapar(m.nome)}</option>`).join(''));
   $('equipamentoSel').value = equipamentoSelecionado || '';
   $('equipamentoSel').title = maquinas.find(m=>String(m.id_equipamento)===String(equipamentoSelecionado))?.nome || 'Selecione uma máquina';
 }
@@ -3371,6 +3375,7 @@ async function carregarResumoFazenda(){
     }).join(''));
   }catch(e){ if(e.obsoleto) return;
     resumoFazenda = null;
+    if(!maquinasCache.length) preencherSeletorMaquinas([], 'Máquinas indisponíveis');
     $('listaMaquinas').innerHTML=erroLista('Frota indisponível.');
     $('frotaEstado').innerHTML = '<p class="text-error mb-4">Não foi possível atualizar a lista de máquinas. <button data-retry-frota class="underline">Tentar novamente</button></p>';
   }
@@ -3580,6 +3585,8 @@ async function carregarSeletorFazendas(){
     // Sem fazenda escolhida, o painel abre no Inicio (a carteira) em vez de cair na 1a fazenda.
     fazendaSelecionada = fs.some(f=>String(f.id_fazenda)===String(fazendaSelecionada)) ? fazendaSelecionada : null;
     $('fazendaSel').value = fazendaSelecionada ? String(fazendaSelecionada) : '';
+    if(!fazendaSelecionada) preencherSeletorMaquinas([]);
+    $('equipamentoSelWrap').classList.remove('hidden');   // visível desde o início, ao lado da fazenda
     opcoesFazenda($('maqFazenda'), fazendaSelecionada); opcoesFazenda($('opFazenda'), fazendaSelecionada);
   }catch(e){ if(e.obsoleto) return; $('frotaEstado').innerHTML = '<p class="text-error">Fazendas indisponíveis. <button data-retry-fazendas class="underline">Tentar novamente</button></p>'; }
 }
