@@ -22,7 +22,7 @@ def painel(request):
         browser = p.chromium.launch(channel=os.getenv('SOMPO_TEST_BROWSER') or None)
         page = browser.new_page(viewport={'width': request.param, 'height': 900})
         state = dict(role='sompo', fail=set(), posts=[], held=[], hold=None, errors=[],
-                     sem_esp32=False, sem_maquinas=False, deleted=set(), deletes=[], delete_error=None, manut={}, valor={}, scores={}, coords={}, ocorrencias=[], eventos=[])
+                     sem_esp32=False, sem_maquinas=False, deleted=set(), deletes=[], delete_error=None, manut={}, valor={}, scores={}, coords={}, ocorrencias=[], eventos=[], gestores={})
         page.on('pageerror', lambda e: state['errors'].append(str(e)))
 
         def resumo(i):
@@ -85,7 +85,8 @@ def painel(request):
             if path == '/me':
                 data = dict(role=state['role'], fazenda_id=1, fazenda_nome='Fazenda 1')
             elif path == '/fazendas':
-                data = {'dados': [{**f, **dict(zip(('latitude', 'longitude'), state['coords'].get(f['id_fazenda'], (None, None))))}
+                data = {'dados': [{**f, **dict(zip(('latitude', 'longitude'), state['coords'].get(f['id_fazenda'], (None, None)))),
+                                   'gestores': state['gestores'].get(f['id_fazenda'], [])}
                                   for f in FARMS if f'/fazendas/{f["id_fazenda"]}' not in state['deleted']]}
             elif path == '/clientes':
                 data = {'dados': [dict(id_cliente=i, nome=f'Cliente {i}') for i in (1, 2) if f'/clientes/{i}' not in state['deleted']]}

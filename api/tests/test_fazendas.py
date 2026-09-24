@@ -6,7 +6,7 @@ from app import app
 def test_listar_fazendas():
     client = app.test_client()
     linhas = [{'id_fazenda': 1, 'nome': 'Santa Rita', 'cliente': {'nome': 'Construtora Andrade Ltda'}}]
-    with patch('app.consultar_fazendas', return_value=linhas):
+    with patch('app.consultar_fazendas', return_value=linhas), patch('app.consultar_gestores', return_value=[]):
         response = client.get('/fazendas')
     assert response.status_code == 200
     data = response.get_json()

@@ -149,6 +149,20 @@ def consultar_fazendas() -> List[Dict[str, Any]]:
     )
 
 
+def consultar_gestores(ids_fazenda) -> List[Dict[str, Any]]:
+    # Gestores (nome para contato) de varias fazendas numa consulta so. Select explicito:
+    # a senha nunca sai do banco.
+    if not ids_fazenda:
+        return []
+    return consultar_todos(
+        'usuario',
+        filtros={'role': 'eq.gestor_fazenda', 'excluido_em': 'is.null',
+                 'fk_fazenda_id_fazenda': 'in.(' + ','.join(map(str, ids_fazenda)) + ')'},
+        select='id_usuario,usuario,fk_fazenda_id_fazenda',
+        order='usuario.asc,id_usuario.asc',
+    )
+
+
 def consultar_usuarios() -> List[Dict[str, Any]]:
     # Lista de logins do painel SEM a senha, com o nome da fazenda vinculada embutido.
     return consultar_tabela(

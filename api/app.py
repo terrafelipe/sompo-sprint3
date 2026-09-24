@@ -45,6 +45,7 @@ from supabase_client import (
     consultar_clientes,
     consultar_eventos,
     consultar_fazendas,
+    consultar_gestores,
     consultar_resumo,
     consultar_telemetria,
     consultar_telemetria_intervalo,
@@ -501,6 +502,10 @@ def clientes_criar():
 def fazendas_listar():
     try:
         dados = consultar_fazendas()
+        gestores = consultar_gestores([f['id_fazenda'] for f in dados])
+        for f in dados:
+            f['gestores'] = [{'id_usuario': g['id_usuario'], 'usuario': g['usuario']}
+                             for g in gestores if g['fk_fazenda_id_fazenda'] == f['id_fazenda']]
         return jsonify({'total': len(dados), 'dados': dados}), 200
     except Exception as exc:
         return _erro('falha_na_consulta', exc, 502)
