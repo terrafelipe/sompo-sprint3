@@ -11,14 +11,28 @@
   #fazendaSel,#equipamentoSel{width:100%;box-sizing:border-box;min-width:0;text-overflow:ellipsis}
   #fazendaSel > button,#equipamentoSel > button{display:flex;min-width:0;width:100%;overflow:hidden;font:inherit}
   #fazendaSel selectedcontent,#equipamentoSel selectedcontent{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  #confirmarExclusao{border:0;border-radius:1rem;padding:1.5rem;width:min(28rem,calc(100% - 2rem));box-sizing:border-box;color:#2a1613;background:#fff}
+  #confirmarExclusao{border:1px solid #e4e4e7;border-radius:.75rem;padding:1.5rem;width:min(28rem,calc(100% - 2rem));box-sizing:border-box;color:#09090b;background:#fff}
   #confirmarExclusao::backdrop{background:#0006;backdrop-filter:blur(3px)}
   #detTitulo{overflow-wrap:anywhere;min-width:0}
   #listaOperadores > div{flex-wrap:wrap}
   #listaOperadores .flex-1{min-width:0;overflow-wrap:anywhere}
   @layer base{html,body{margin:0;padding:0}}
   ::-webkit-scrollbar{width:8px;height:8px}
-  ::-webkit-scrollbar-thumb{background:#e9bcb5;border-radius:8px}
+  ::-webkit-scrollbar-thumb{background:#d4d4d8;border-radius:8px}
+  /* Icones de traco fino, como os do modelo (lucide). */
+  .material-symbols-outlined{font-variation-settings:'wght' 300}
+  body{font-feature-settings:"cv11","ss01";-webkit-font-smoothing:antialiased}
+  .tabular{font-variant-numeric:tabular-nums}
+  /* Cards de indicador: borda fina + leve degrade com o vermelho Sompo. */
+  .kpi{position:relative;border:1px solid #e4e4e7;border-radius:.75rem;padding:1.25rem;
+       background:linear-gradient(to top, rgba(183,1,0,.045), #fff 65%);box-shadow:0 1px 2px rgba(0,0,0,.03)}
+  .kpi-ico{width:2rem;height:2rem;border:1px solid #e4e4e7;border-radius:.5rem;display:grid;place-items:center;color:#71717a;background:#fff}
+  .kpi-ico .material-symbols-outlined{font-size:18px}
+  .kpi-pill{display:inline-flex;align-items:center;gap:.25rem;font-size:11px;font-weight:600;line-height:1;padding:.3rem .5rem;border-radius:.375rem;border:1px solid transparent}
+  .kpi-pill:empty{display:none}
+  /* Sidebar recolhivel (botao no topo). */
+  .sb-off #sidebar{display:none!important}
+  @media (min-width:1024px){ .sb-off #conteudo{padding-left:0!important} }
 
   /* Border Beam (efeito adaptado do Badtz UI / 21st.dev) em CSS puro: um feixe
      percorre a borda do card de risco, na cor do nivel. So aparece quando ha risco. */
@@ -48,23 +62,23 @@
     /* base-select torna o select um flex: sem isto o texto do header quebra em duas linhas */
     select{ font: inherit; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     select::select-fallback-button-text, select selectedcontent{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
-    select::picker-icon{ font-family:'Material Symbols Outlined'; content:'expand_more'; font-size:18px; color:#5f3f3a; transition:rotate .2s ease; }
+    select::picker-icon{ font-family:'Material Symbols Outlined'; content:'expand_more'; font-size:18px; color:#71717a; transition:rotate .2s ease; }
     select:open::picker-icon{ rotate:180deg; }
     /* os dois selects do header já têm a seta desenhada no markup */
     #fazendaSel::picker-icon, #equipamentoSel::picker-icon{ display:none; }
     select:open + .sel-seta{ rotate:180deg; }
     .sel-seta{ transition:rotate .2s ease; }
     ::picker(select){
-      margin-top:6px; padding:6px; border:1px solid #e9bcb5; border-radius:12px;
-      background:#fff; color:#2a1613; box-shadow:0 12px 32px rgba(42,22,19,.12);
+      margin-top:6px; padding:4px; border:1px solid #e4e4e7; border-radius:10px;
+      background:#fff; color:#09090b; box-shadow:0 10px 30px rgba(0,0,0,.08);
       font:500 14px/1.3 Inter, system-ui, sans-serif; min-width:anchor-size(width);
     }
-    option{ display:flex; align-items:center; gap:8px; padding:8px 12px; border-radius:8px; cursor:pointer; }
-    option:hover, option:focus-visible{ background:#ffe9e6; outline:none; }
-    option:checked{ background:#b70100; color:#fff; font-weight:600; }
+    option{ display:flex; align-items:center; gap:8px; padding:7px 10px; border-radius:6px; cursor:pointer; }
+    option:hover, option:focus-visible{ background:#f4f4f5; outline:none; }
+    option:checked{ background:#b701000f; color:#b70100; font-weight:600; }
     option::checkmark{ order:1; margin-left:auto; font-family:'Material Symbols Outlined'; content:'check'; font-size:18px; }
-    option[value=""]{ color:#5f3f3a; }
-    option[value=""]:checked{ background:#ffe9e6; color:#5f3f3a; font-weight:500; }
+    option[value=""]{ color:#71717a; }
+    option[value=""]:checked{ background:#f4f4f5; color:#71717a; font-weight:500; }
   }
 
   /* Pulso no seletor de máquina quando "Selecionar máquina" não consegue abrir a lista. */
@@ -78,12 +92,12 @@
 <script id="tailwind-config">
   tailwind.config={theme:{extend:{
     "colors":{
-      "surface-tint":"#c00000","secondary":"#545f73","primary":"#b70100","surface":"#fff8f6",
-      "background":"#fff8f6","on-primary":"#ffffff","on-surface":"#2a1613","on-background":"#2a1613",
-      "on-surface-variant":"#5f3f3a","surface-variant":"#ffdad4","surface-container-lowest":"#ffffff",
-      "surface-container-low":"#fff0ee","surface-container":"#ffe9e6","surface-container-high":"#ffe2dd",
+      "surface-tint":"#b70100","secondary":"#52525b","primary":"#b70100","surface":"#ffffff",
+      "background":"#ffffff","on-primary":"#ffffff","on-surface":"#09090b","on-background":"#09090b",
+      "on-surface-variant":"#71717a","surface-variant":"#f4f4f5","surface-container-lowest":"#ffffff",
+      "surface-container-low":"#fafafa","surface-container":"#f4f4f5","surface-container-high":"#f4f4f5",
       "primary-container":"#e60000","on-primary-container":"#fff7f5","primary-fixed-dim":"#ffb4a8",
-      "on-primary-fixed-variant":"#930100","outline":"#946e68","outline-variant":"#e9bcb5",
+      "on-primary-fixed-variant":"#930100","outline":"#a1a1aa","outline-variant":"#e4e4e7","sidebar":"#fafafa",
       "tertiary":"#0051c6","tertiary-container":"#0068f9","error":"#ba1a1a","ok":"#10b981","atencao":"#f59e0b"
     },
     "fontFamily":{"sans":["Inter","system-ui","sans-serif"]},
@@ -94,72 +108,71 @@
 <body class="bg-background text-on-background font-sans text-sm overflow-x-hidden">
 
 <!-- ===================== SIDEBAR ===================== -->
-<aside class="hidden lg:flex fixed left-0 top-0 h-full w-64 bg-surface-container-lowest z-50 flex-col shadow-[4px_0_24px_rgba(0,0,0,0.03)]">
-  <div class="px-6 h-20 flex items-center gap-3">
-    <span class="material-symbols-outlined text-primary text-[30px]">agriculture</span>
-    <div>
-      <div class="text-lg font-extrabold text-primary tracking-tight leading-none">SOMPO</div>
-      <div class="text-[10px] uppercase tracking-wider text-on-surface-variant mt-0.5">Painel de Risco</div>
+<aside id="sidebar" class="hidden lg:flex fixed left-0 top-0 h-full w-64 bg-sidebar border-r border-outline-variant z-50 flex-col">
+  <div class="px-4 h-14 flex items-center gap-2.5 shrink-0">
+    <div class="w-8 h-8 rounded-lg bg-primary text-on-primary grid place-items-center"><span class="material-symbols-outlined text-[20px]">agriculture</span></div>
+    <div class="leading-tight">
+      <div class="font-semibold text-on-surface tracking-tight">SOMPO</div>
+      <div class="text-xs text-on-surface-variant">Painel de Risco</div>
     </div>
   </div>
-  <nav class="flex-1 px-3 space-y-1 mt-4">
-    <a href="#" data-nav="maquinas"   class="flex items-center px-4 py-3 rounded-xl font-semibold transition-colors"><span class="material-symbols-outlined mr-3">agriculture</span>Máquinas</a>
-    <a href="#" data-nav="visao"      class="flex items-center px-4 py-3 rounded-xl font-semibold transition-colors"><span class="material-symbols-outlined mr-3">dashboard</span>Painel da máquina</a>
-    <a href="#" data-nav="risco"      class="flex items-center px-4 py-3 rounded-xl font-semibold transition-colors"><span class="material-symbols-outlined mr-3">analytics</span>Análise de Risco</a>
-    <a href="#" data-nav="telemetria" class="flex items-center px-4 py-3 rounded-xl font-semibold transition-colors"><span class="material-symbols-outlined mr-3">sensors</span>Telemetria</a>
-    <a href="#" data-nav="alertas"    class="flex items-center px-4 py-3 rounded-xl font-semibold transition-colors"><span class="material-symbols-outlined mr-3">warning</span>Alertas</a>
-    <a href="#" data-nav="operadores" class="flex items-center px-4 py-3 rounded-xl font-semibold transition-colors"><span class="material-symbols-outlined mr-3">badge</span>Operadores</a>
-    <a href="#" data-nav="historico"  class="flex items-center px-4 py-3 rounded-xl font-semibold transition-colors"><span class="material-symbols-outlined mr-3">history</span>Histórico</a>
-    <a href="#" data-nav="fazendas"   class="flex items-center px-4 py-3 rounded-xl font-semibold transition-colors"><span class="material-symbols-outlined mr-3">landscape</span>Fazendas</a>
-    <a href="#" data-nav="clientes"   class="flex items-center px-4 py-3 rounded-xl font-semibold transition-colors"><span class="material-symbols-outlined mr-3">group</span>Clientes</a>
-    <a href="#" data-nav="usuarios"   class="flex items-center px-4 py-3 rounded-xl font-semibold transition-colors"><span class="material-symbols-outlined mr-3">manage_accounts</span>Usuários</a>
+  <div class="px-3 pt-1">
+    <button id="atalhoNovaMaquina" type="button" class="w-full inline-flex items-center gap-2 h-9 px-3 rounded-lg bg-primary text-on-primary font-medium hover:bg-on-primary-fixed-variant transition-colors">
+      <span class="material-symbols-outlined text-[20px]">add_circle</span>Nova máquina
+    </button>
+  </div>
+  <nav class="flex-1 overflow-y-auto px-3 pb-3">
+    <div class="px-2.5 pt-4 pb-1.5 text-xs font-medium text-on-surface-variant">Monitoramento</div>
+      <a href="#" data-nav="maquinas" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">agriculture</span>Máquinas</a>
+      <a href="#" data-nav="visao" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">dashboard</span>Painel da máquina</a>
+      <a href="#" data-nav="risco" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">analytics</span>Análise de Risco</a>
+      <a href="#" data-nav="telemetria" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">sensors</span>Telemetria</a>
+      <a href="#" data-nav="alertas" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">warning</span>Alertas</a>
+    <div class="px-2.5 pt-4 pb-1.5 text-xs font-medium text-on-surface-variant">Operação</div>
+      <a href="#" data-nav="operadores" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">badge</span>Operadores</a>
+      <a href="#" data-nav="historico" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">history</span>Histórico</a>
+    <div data-rotulo-cadastros class="px-2.5 pt-4 pb-1.5 text-xs font-medium text-on-surface-variant">Cadastros</div>
+      <a href="#" data-nav="fazendas" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">landscape</span>Fazendas</a>
+      <a href="#" data-nav="clientes" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">group</span>Clientes</a>
+      <a href="#" data-nav="usuarios" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">manage_accounts</span>Usuários</a>
   </nav>
-  <div class="px-4 py-5 border-t border-outline-variant/40">
-    <a href="/logout" class="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl text-on-surface-variant hover:bg-surface-container-high hover:text-primary transition-colors font-semibold">
-      <span class="material-symbols-outlined text-[20px]">logout</span> Sair
-    </a>
+  <div class="p-3 border-t border-outline-variant">
+    <div class="flex items-center gap-2.5 p-1.5">
+      <div class="w-8 h-8 rounded-full bg-primary/10 text-primary grid place-items-center shrink-0"><span class="material-symbols-outlined text-[18px]">person</span></div>
+      <div class="min-w-0 flex-1 leading-tight">
+        <div id="sideUsuario" class="text-sm font-medium text-on-surface truncate">Sompo</div>
+        <div id="sidePerfil" class="text-xs text-on-surface-variant truncate">Portfólio</div>
+      </div>
+      <a href="/logout" title="Sair" class="p-1.5 rounded-md text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors"><span class="material-symbols-outlined text-[18px]">logout</span></a>
+    </div>
   </div>
 </aside>
 
 <!-- ===================== CONTEUDO ===================== -->
-<div class="lg:pl-64 min-w-0 max-w-full overflow-x-hidden">
+<div id="conteudo" class="lg:pl-64 min-w-0 max-w-full overflow-x-hidden">
 
   <!-- HEADER -->
-  <header class="sticky top-0 z-40 bg-surface/80 backdrop-blur-xl border-b border-outline-variant/30 px-4 lg:px-8 py-3 lg:min-h-20 flex flex-wrap items-center gap-3">
+  <header class="sticky top-0 z-40 bg-surface/85 backdrop-blur-xl border-b border-outline-variant px-4 lg:px-6 py-2.5 lg:min-h-14 flex flex-wrap items-center gap-2">
+    <button id="btnSidebar" type="button" title="Recolher menu" class="hidden lg:inline-flex p-1.5 rounded-md text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors"><span class="material-symbols-outlined text-[20px]">left_panel_close</span></button>
+    <span class="hidden lg:block w-px h-4 bg-outline-variant mx-1"></span>
+    <span id="migalha" class="hidden lg:block text-sm font-medium text-on-surface">Máquinas</span>
     <!-- Nav mobile (sidebar some no celular) -->
     <div class="lg:hidden flex items-center gap-2 font-extrabold text-primary mr-1">
       <span class="material-symbols-outlined">agriculture</span> SOMPO
     </div>
     <div class="grow"></div>
-    <span class="inline-flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-full bg-surface-container-lowest shadow-sm">
+    <span class="inline-flex items-center gap-2 text-xs font-medium h-9 px-3 rounded-lg border border-outline-variant bg-surface-container-lowest">
       <span id="saudeDot" class="w-2 h-2 rounded-full bg-outline"></span>
       <span id="saudeTxt">verificando…</span>
     </span>
-    <span id="perfilBadge" class="hidden inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-full bg-primary/10 text-primary shadow-sm">
+    <span id="perfilBadge" class="hidden inline-flex items-center gap-1.5 text-xs font-medium h-9 px-3 rounded-lg bg-primary/[0.07] text-primary">
       <span class="material-symbols-outlined text-[16px]">account_circle</span><span id="perfilTxt"></span>
     </span>
-    <div id="fazendaSelWrap" class="relative hidden">
-      <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant pointer-events-none">landscape</span>
-      <select id="fazendaSel" title="Fazenda"
-              class="appearance-none w-48 bg-surface-container-lowest rounded-full py-2 pl-9 pr-9 text-sm text-on-surface font-medium outline-none shadow-sm cursor-pointer focus:ring-2 focus:ring-primary/20"></select>
-      <span class="sel-seta material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant pointer-events-none">expand_more</span>
-    </div>
-    <div id="equipamentoSelWrap" class="relative hidden">
-      <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant pointer-events-none">agriculture</span>
-      <select id="equipamentoSel" title="Máquina" aria-label="Máquina"
-              class="appearance-none w-52 bg-surface-container-lowest rounded-full py-2 pl-9 pr-9 text-sm text-on-surface font-medium outline-none shadow-sm cursor-pointer focus:ring-2 focus:ring-primary/20"></select>
-      <span class="sel-seta material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant pointer-events-none">expand_more</span>
-    </div>
-    <div id="deviceWrap" class="relative">
-      <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant">memory</span>
-      <input id="dispositivo" value="SOMPO-ESP32" title="ID do dispositivo"
-             class="w-36 bg-surface-container-lowest rounded-full py-2 pl-9 pr-3 text-sm outline-none shadow-sm focus:ring-2 focus:ring-primary/20"/>
-    </div>
-    <button id="btnAtualizar" title="Atualizar" class="inline-flex items-center gap-1.5 bg-surface-container text-primary font-semibold px-3 sm:px-4 py-2 rounded-lg hover:bg-surface-container-high transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+    <button id="btnAtualizar" title="Atualizar" class="inline-flex items-center gap-1.5 h-9 border border-outline-variant bg-surface-container-lowest text-on-surface font-medium px-3 rounded-lg hover:bg-surface-container transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
       <span id="iconAtualizar" class="material-symbols-outlined text-[18px]">refresh</span> <span id="txtAtualizar" class="hidden sm:inline">Atualizar</span>
     </button>
     <button id="btnBaixar" title="Baixar o relatório de risco em Word (.docx)"
-            class="inline-flex items-center gap-1.5 bg-primary text-on-primary font-semibold px-3 sm:px-4 py-2 rounded-lg shadow-md hover:bg-on-primary-fixed-variant transition-all">
+            class="inline-flex items-center gap-1.5 h-9 bg-primary text-on-primary font-medium px-3 rounded-lg hover:bg-on-primary-fixed-variant transition-colors">
       <span class="material-symbols-outlined text-[18px]">download</span><span>Exportar Word</span>
     </button>
     <a href="/logout" class="lg:hidden inline-flex items-center p-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high" title="Sair">
@@ -182,47 +195,64 @@
   </div>
 
   <!-- MAIN -->
-  <main class="p-4 lg:p-8">
-    <div class="flex items-end justify-between mb-8 flex-wrap gap-3">
+  <main class="p-4 lg:p-6">
+    <div class="flex items-end justify-between mb-6 flex-wrap gap-3">
       <div>
-        <h1 id="tituloView" class="text-2xl lg:text-3xl font-bold text-on-background mb-1">Máquinas</h1>
+        <h1 id="tituloView" class="text-2xl font-semibold tracking-tight text-on-background mb-1">Máquinas</h1>
         <p class="text-on-surface-variant">Monitoramento de furto e incêndio em máquinas agrícolas.</p>
       </div>
-      <div class="text-xs text-on-surface-variant">Atualizado às <span id="ultima" class="font-semibold text-on-surface">–</span> · auto-refresh 5s</div>
+      <div class="inline-flex items-center gap-1.5 text-xs text-on-surface-variant"><span class="w-1.5 h-1.5 rounded-full bg-ok"></span>Atualizado às <span id="ultima" class="font-medium text-on-surface tabular">–</span> · auto-refresh 5s</div>
+    </div>
+
+    <!-- Contexto: fazenda e maquina (filtros junto do conteudo, como no modelo) -->
+    <div id="barraContexto" class="flex flex-wrap items-center gap-2 mb-6">
+      <div id="fazendaSelWrap" class="relative hidden">
+        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant pointer-events-none">landscape</span>
+        <select id="fazendaSel" title="Fazenda"
+                class="appearance-none w-48 h-9 bg-surface-container-lowest border border-outline-variant rounded-lg py-1.5 pl-9 pr-9 text-sm text-on-surface font-medium outline-none cursor-pointer hover:bg-surface-container-low focus:ring-2 focus:ring-primary/20"></select>
+        <span class="sel-seta material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant pointer-events-none">expand_more</span>
+      </div>
+      <div id="equipamentoSelWrap" class="relative hidden">
+        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant pointer-events-none">agriculture</span>
+        <select id="equipamentoSel" title="Máquina" aria-label="Máquina"
+                class="appearance-none w-52 h-9 bg-surface-container-lowest border border-outline-variant rounded-lg py-1.5 pl-9 pr-9 text-sm text-on-surface font-medium outline-none cursor-pointer hover:bg-surface-container-low focus:ring-2 focus:ring-primary/20"></select>
+        <span class="sel-seta material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant pointer-events-none">expand_more</span>
+      </div>
+      <div id="deviceWrap" class="relative">
+        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant">memory</span>
+        <input id="dispositivo" value="SOMPO-ESP32" title="ID do dispositivo"
+               class="w-36 h-9 bg-surface-container-lowest border border-outline-variant rounded-lg py-1.5 pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-primary/20"/>
+      </div>
     </div>
 
     <div id="semMaquina" hidden class="bg-surface-container-lowest rounded-xl p-6 mb-6" role="status">Selecione uma máquina para consultar esta aba. <button id="selecionarNoAviso" class="inline-flex items-center gap-1 text-primary font-semibold underline underline-offset-2 hover:text-on-primary-fixed-variant">Selecionar máquina<span class="material-symbols-outlined text-[16px]" aria-hidden="true">arrow_outward</span></button></div>
     <p id="wordAjuda" class="text-xs text-on-surface-variant mb-4">Selecione uma máquina para exportar o relatório Word.</p>
     <div id="frotaEstado" role="status"></div>
     <!-- KPI CARDS (só na Visão Geral) -->
-    <div data-section="kpis" class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-      <div id="cardRisco" class="relative bg-surface-container-lowest p-5 rounded-2xl shadow-sm transition-shadow">
-        <div class="flex justify-between items-start mb-3">
-          <h3 class="text-on-surface-variant text-sm">Nível de risco atual</h3>
-          <span class="material-symbols-outlined text-secondary">speed</span>
-        </div>
-        <div id="kpiRisco" class="text-2xl font-extrabold text-on-surface">–</div>
+    <div data-section="kpis" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+      <div id="cardRisco" class="kpi">
+        <div class="kpi-ico"><span class="material-symbols-outlined">speed</span></div>
+        <h3 class="text-sm text-on-surface-variant mt-4">Nível de risco atual</h3>
+        <div id="kpiRisco" class="text-3xl font-semibold tracking-tight mt-1 tabular">–</div>
+        <p class="text-sm text-on-surface-variant mt-1">Leitura mais recente do ESP32</p>
       </div>
-      <div class="bg-surface-container-lowest p-5 rounded-2xl shadow-sm">
-        <div class="flex justify-between items-start mb-3">
-          <h3 class="text-on-surface-variant text-sm">Alertas (7 dias)</h3>
-          <span class="material-symbols-outlined text-error">warning</span>
-        </div>
-        <div id="kpiAlertas" class="text-4xl font-extrabold text-on-surface leading-none">–</div>
+      <div class="kpi">
+        <div class="kpi-ico"><span class="material-symbols-outlined">notifications</span></div>
+        <h3 class="text-sm text-on-surface-variant mt-4">Alertas</h3>
+        <div class="flex items-center gap-2 mt-1"><span id="kpiAlertas" class="text-3xl font-semibold tracking-tight tabular">–</span><span class="kpi-pill" style="background:#f4f4f5;color:#52525b;border-color:#e4e4e7">7 dias</span></div>
+        <p class="text-sm text-on-surface-variant mt-1">Eventos registrados na semana</p>
       </div>
-      <div class="bg-surface-container-lowest p-5 rounded-2xl shadow-sm">
-        <div class="flex justify-between items-start mb-3">
-          <h3 class="text-on-surface-variant text-sm">Score de furto</h3>
-          <span class="material-symbols-outlined text-secondary">lock_open</span>
-        </div>
-        <div class="flex items-end gap-1"><span id="kpiFurto" class="text-4xl font-extrabold text-on-surface leading-none">–</span><span class="text-on-surface-variant mb-1">/100</span></div>
+      <div class="kpi">
+        <div class="kpi-ico"><span class="material-symbols-outlined">lock_open</span></div>
+        <h3 class="text-sm text-on-surface-variant mt-4">Score de furto</h3>
+        <div class="flex items-center gap-2 mt-1"><span class="text-3xl font-semibold tracking-tight tabular"><span id="kpiFurto">–</span><span class="text-base font-normal text-on-surface-variant">/100</span></span><span id="kpiFurtoPill" class="kpi-pill"></span></div>
+        <p class="text-sm text-on-surface-variant mt-1">Capô, tanque, vibração e crachá</p>
       </div>
-      <div class="bg-surface-container-lowest p-5 rounded-2xl shadow-sm">
-        <div class="flex justify-between items-start mb-3">
-          <h3 class="text-on-surface-variant text-sm">Score de incêndio</h3>
-          <span class="material-symbols-outlined text-primary">local_fire_department</span>
-        </div>
-        <div class="flex items-end gap-1"><span id="kpiIncendio" class="text-4xl font-extrabold text-on-surface leading-none">–</span><span class="text-on-surface-variant mb-1">/100</span></div>
+      <div class="kpi">
+        <div class="kpi-ico"><span class="material-symbols-outlined">local_fire_department</span></div>
+        <h3 class="text-sm text-on-surface-variant mt-4">Score de incêndio</h3>
+        <div class="flex items-center gap-2 mt-1"><span class="text-3xl font-semibold tracking-tight tabular"><span id="kpiIncendio">–</span><span class="text-base font-normal text-on-surface-variant">/100</span></span><span id="kpiIncendioPill" class="kpi-pill"></span></div>
+        <p class="text-sm text-on-surface-variant mt-1">Chama e temperatura de escape</p>
       </div>
     </div>
 
@@ -230,9 +260,9 @@
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
 
       <!-- ANALISE DE RISCO -->
-      <section data-section="risco" class="bg-surface-container-lowest rounded-2xl shadow-sm p-6">
+      <section data-section="risco" class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)] p-6">
         <div class="flex items-center justify-between mb-6">
-          <h2 class="text-lg font-semibold text-on-surface">Análise de Risco</h2>
+          <div><h2 class="text-base font-semibold text-on-surface">Análise de Risco</h2><p class="text-sm text-on-surface-variant">Scores dos últimos 7 dias, com a análise redigida pela IA</p></div>
           <span id="origemBadge"></span>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -260,9 +290,9 @@
       </section>
 
       <!-- TELEMETRIA -->
-      <section data-section="telemetria" class="bg-surface-container-lowest rounded-2xl shadow-sm p-6">
+      <section data-section="telemetria" class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)] p-6">
         <div class="flex items-center justify-between mb-5">
-          <h2 class="text-lg font-semibold text-on-surface">Telemetria atual</h2>
+          <div><h2 class="text-base font-semibold text-on-surface">Telemetria atual</h2><p class="text-sm text-on-surface-variant">Sensores da leitura mais recente</p></div>
         </div>
         <div id="kpis" class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6"></div>
         <div class="border-t border-outline-variant/30 pt-4">
@@ -272,32 +302,33 @@
       </section>
 
       <!-- ALERTAS -->
-      <section data-section="alertas" class="bg-surface-container-lowest rounded-2xl shadow-sm flex flex-col">
-        <div class="p-5 border-b border-outline-variant/30 flex items-center justify-between">
-          <h2 class="text-lg font-semibold text-on-surface">Feed de Alertas</h2>
-          <span id="alertasBadge" class="bg-error text-on-primary text-[11px] font-bold px-2 py-0.5 rounded-full">0</span>
+      <section data-section="alertas" class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)] flex flex-col">
+        <div class="p-5 pb-3 flex items-center justify-between">
+          <div><h2 class="text-base font-semibold text-on-surface">Feed de Alertas</h2><p class="text-sm text-on-surface-variant">Eventos dos últimos 7 dias</p></div>
+          <span id="alertasBadge" class="bg-primary text-on-primary text-[11px] font-semibold px-2 py-0.5 rounded-md tabular">0</span>
         </div>
         <div id="eventos" class="p-3 flex-1 overflow-y-auto max-h-[420px] space-y-1"></div>
       </section>
 
       <!-- TABELA DE LEITURAS -->
-      <section data-section="tabela" class="bg-surface-container-lowest rounded-2xl shadow-sm overflow-hidden">
-        <div class="p-5 border-b border-outline-variant/30">
-          <h2 class="text-lg font-semibold text-on-surface">Últimas leituras</h2>
+      <section data-section="tabela" class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)] overflow-hidden">
+        <div class="p-5 pb-4">
+          <h2 class="text-base font-semibold text-on-surface">Últimas leituras</h2>
+          <p class="text-sm text-on-surface-variant">As 10 leituras mais recentes da máquina</p>
         </div>
-        <div class="overflow-x-auto">
+        <div class="mx-5 mb-5 rounded-lg border border-outline-variant overflow-x-auto">
           <table class="w-full text-left">
             <thead>
-              <tr class="bg-surface-container-low border-b border-outline-variant/30 text-[11px] uppercase tracking-wider text-on-surface-variant">
-                <th class="py-3 px-5">Horário</th>
-                <th class="py-3 px-5">Nível de risco</th>
-                <th class="py-3 px-5">Temp. escape</th>
-                <th class="py-3 px-5">Umidade</th>
-                <th class="py-3 px-5">Vibração</th>
-                <th class="py-3 px-5">Motor</th>
-                <th class="py-3 px-5">Capô</th>
-                <th class="py-3 px-5">Tanque</th>
-                <th class="py-3 px-5">Chama</th>
+              <tr class="bg-surface-container-low border-b border-outline-variant text-xs font-medium text-on-surface-variant">
+                <th class="py-2.5 px-4 font-medium">Horário</th>
+                <th class="py-2.5 px-4 font-medium">Nível de risco</th>
+                <th class="py-2.5 px-4 font-medium">Temp. escape</th>
+                <th class="py-2.5 px-4 font-medium">Umidade</th>
+                <th class="py-2.5 px-4 font-medium">Vibração</th>
+                <th class="py-2.5 px-4 font-medium">Motor</th>
+                <th class="py-2.5 px-4 font-medium">Capô</th>
+                <th class="py-2.5 px-4 font-medium">Tanque</th>
+                <th class="py-2.5 px-4 font-medium">Chama</th>
               </tr>
             </thead>
             <tbody id="tabelaTelemetria" class="text-[13px]"></tbody>
@@ -306,13 +337,13 @@
       </section>
 
       <!-- MAQUINAS / RESUMO DA FAZENDA -->
-      <section data-section="maquinas" class="bg-surface-container-lowest rounded-2xl shadow-sm p-6">
+      <section data-section="maquinas" class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)] p-6">
         <div class="flex items-center justify-between mb-5 flex-wrap gap-2">
           <div>
-            <h2 class="text-lg font-semibold text-on-surface">Máquinas da fazenda</h2>
+            <h2 class="text-base font-semibold text-on-surface">Máquinas da fazenda</h2>
             <p id="resumoFazendaNome" class="text-xs text-on-surface-variant mt-1">Selecione uma fazenda para acompanhar a frota.</p>
           </div>
-          <button id="btnNovaMaquina" class="inline-flex items-center gap-1.5 bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg shadow-md hover:bg-on-primary-fixed-variant transition-all">
+          <button id="btnNovaMaquina" class="inline-flex items-center gap-1.5 bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg hover:bg-on-primary-fixed-variant transition-colors">
             <span class="material-symbols-outlined text-[18px]">add</span> Nova máquina
           </button>
         </div>
@@ -333,9 +364,9 @@
       </section>
 
       <!-- OPERADORES RFID -->
-      <section data-section="operadores" class="bg-surface-container-lowest rounded-2xl shadow-sm p-6">
+      <section data-section="operadores" class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)] p-6">
         <div class="flex items-center justify-between mb-5 flex-wrap gap-2">
-          <div><h2 class="text-lg font-semibold text-on-surface">Operadores RFID</h2><p class="text-xs text-on-surface-variant mt-1">Operadores não possuem login; o crachá registra a presença na máquina.</p></div>
+          <div><h2 class="text-base font-semibold text-on-surface">Operadores RFID</h2><p class="text-xs text-on-surface-variant mt-1">Operadores não possuem login; o crachá registra a presença na máquina.</p></div>
           <button id="btnNovoOperador" class="inline-flex items-center gap-1.5 bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg"><span class="material-symbols-outlined text-[18px]">add</span>Novo operador</button>
         </div>
         <form id="formOperador" class="hidden bg-surface-container-low rounded-xl p-5 mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -349,19 +380,19 @@
       </section>
 
       <!-- HISTORICO DE SESSOES -->
-      <section data-section="historico" class="bg-surface-container-lowest rounded-2xl shadow-sm p-6">
+      <section data-section="historico" class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)] p-6">
         <div class="flex items-center justify-between mb-5 flex-wrap gap-3">
-          <div><h2 class="text-lg font-semibold text-on-surface">Histórico de operação</h2><p class="text-xs text-on-surface-variant mt-1">Sessões identificadas pelo crachá, sem atribuição automática de responsabilidade.</p></div>
+          <div><h2 class="text-base font-semibold text-on-surface">Histórico de operação</h2><p class="text-xs text-on-surface-variant mt-1">Sessões identificadas pelo crachá, sem atribuição automática de responsabilidade.</p></div>
           <select id="historicoDias" class="bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer shadow-sm"><option value="7">7 dias</option><option value="30">30 dias</option><option value="90">90 dias</option></select>
         </div>
         <div id="listaHistorico" class="space-y-2"></div>
       </section>
 
       <!-- FAZENDAS -->
-      <section data-section="fazendas" class="bg-surface-container-lowest rounded-2xl shadow-sm p-6">
+      <section data-section="fazendas" class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)] p-6">
         <div class="flex items-center justify-between mb-5 flex-wrap gap-2">
-          <h2 class="text-lg font-semibold text-on-surface">Fazendas cadastradas</h2>
-          <button id="btnNovaFazenda" class="inline-flex items-center gap-1.5 bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg shadow-md hover:bg-on-primary-fixed-variant transition-all">
+          <h2 class="text-base font-semibold text-on-surface">Fazendas cadastradas</h2>
+          <button id="btnNovaFazenda" class="inline-flex items-center gap-1.5 bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg hover:bg-on-primary-fixed-variant transition-colors">
             <span class="material-symbols-outlined text-[18px]">add</span> Nova fazenda
           </button>
         </div>
@@ -386,7 +417,7 @@
             <button type="button" id="linkNovoCliente" class="mt-1.5 text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1"><span class="material-symbols-outlined text-[15px]">add</span>Não achou? Cadastrar novo cliente</button>
           </div>
           <div class="md:col-span-2 flex items-center gap-3 flex-wrap">
-            <button type="submit" class="inline-flex items-center gap-1.5 bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg shadow-md hover:bg-on-primary-fixed-variant transition-all">
+            <button type="submit" class="inline-flex items-center gap-1.5 bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg hover:bg-on-primary-fixed-variant transition-colors">
               <span class="material-symbols-outlined text-[18px]">save</span> Salvar fazenda
             </button>
             <button type="button" id="btnCancelarFazenda" class="px-4 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors font-semibold">Cancelar</button>
@@ -398,10 +429,10 @@
       </section>
 
       <!-- CLIENTES -->
-      <section data-section="clientes" class="bg-surface-container-lowest rounded-2xl shadow-sm p-6">
+      <section data-section="clientes" class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)] p-6">
         <div class="flex items-center justify-between mb-5 flex-wrap gap-2">
-          <h2 class="text-lg font-semibold text-on-surface">Clientes cadastrados</h2>
-          <button id="btnNovoCliente" class="inline-flex items-center gap-1.5 bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg shadow-md hover:bg-on-primary-fixed-variant transition-all">
+          <h2 class="text-base font-semibold text-on-surface">Clientes cadastrados</h2>
+          <button id="btnNovoCliente" class="inline-flex items-center gap-1.5 bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg hover:bg-on-primary-fixed-variant transition-colors">
             <span class="material-symbols-outlined text-[18px]">add</span> Novo cliente
           </button>
         </div>
@@ -428,7 +459,7 @@
             <input id="clEmail" type="email" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20" placeholder="contato@empresa.com.br"/>
           </div>
           <div class="md:col-span-2 flex items-center gap-3 flex-wrap">
-            <button type="submit" class="inline-flex items-center gap-1.5 bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg shadow-md hover:bg-on-primary-fixed-variant transition-all">
+            <button type="submit" class="inline-flex items-center gap-1.5 bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg hover:bg-on-primary-fixed-variant transition-colors">
               <span class="material-symbols-outlined text-[18px]">save</span> Salvar cliente
             </button>
             <button type="button" id="btnCancelarCliente" class="px-4 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors font-semibold">Cancelar</button>
@@ -440,10 +471,10 @@
       </section>
 
       <!-- USUARIOS (logins do painel) -->
-      <section data-section="usuarios" class="bg-surface-container-lowest rounded-2xl shadow-sm p-6">
+      <section data-section="usuarios" class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)] p-6">
         <div class="flex items-center justify-between mb-5 flex-wrap gap-2">
-          <h2 class="text-lg font-semibold text-on-surface">Usuários do painel</h2>
-          <button id="btnNovoUsuario" class="inline-flex items-center gap-1.5 bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg shadow-md hover:bg-on-primary-fixed-variant transition-all">
+          <h2 class="text-base font-semibold text-on-surface">Usuários do painel</h2>
+          <button id="btnNovoUsuario" class="inline-flex items-center gap-1.5 bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg hover:bg-on-primary-fixed-variant transition-colors">
             <span class="material-symbols-outlined text-[18px]">add</span> Novo usuário
           </button>
         </div>
@@ -469,7 +500,7 @@
             <select id="usFazenda" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"></select>
           </div>
           <div class="md:col-span-2 flex items-center gap-3 flex-wrap">
-            <button type="submit" class="inline-flex items-center gap-1.5 bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg shadow-md hover:bg-on-primary-fixed-variant transition-all">
+            <button type="submit" class="inline-flex items-center gap-1.5 bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg hover:bg-on-primary-fixed-variant transition-colors">
               <span class="material-symbols-outlined text-[18px]">save</span> Salvar usuário
             </button>
             <button type="button" id="btnCancelarUsuario" class="px-4 py-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors font-semibold">Cancelar</button>
@@ -559,9 +590,9 @@ const nivelCor = n => { const s=String(n||'').toUpperCase(); if(s.includes('CRIT
 const estadoRisco = n => { const s=String(n||'').toUpperCase(); if(s.includes('CRIT')||s.includes('ALTO'))return 'critico'; if(s.includes('ATEN')||s.includes('MEDIO'))return 'atencao'; return 'seguro'; };
 
 /* ---------- Navegação por views (Visão Geral mostra tudo) ---------- */
-const NAV_BASE = 'flex items-center px-4 py-3 rounded-xl font-semibold transition-colors';
-const NAV_ON = ' bg-primary text-on-primary';
-const NAV_OFF = ' text-on-surface-variant hover:bg-surface-container-high';
+const NAV_BASE = 'flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors';
+const NAV_ON = ' bg-primary/[0.07] text-primary font-medium';
+const NAV_OFF = ' text-on-surface-variant hover:bg-surface-container hover:text-on-surface';
 const CHIP_ON = ' bg-primary text-on-primary';
 const CHIP_OFF = ' bg-surface-container text-on-surface-variant';
 const TITULOS = {maquinas:'Máquinas', visao:'Painel da máquina', risco:'Análise de Risco', telemetria:'Telemetria', alertas:'Alertas', operadores:'Operadores', historico:'Histórico', fazendas:'Fazendas', clientes:'Clientes', usuarios:'Usuários'};
@@ -608,6 +639,8 @@ function setView(view){
     a.className = 'whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors' + (a.dataset.nav === view ? CHIP_ON : CHIP_OFF);
   });
   $('tituloView').textContent = TITULOS[view] || 'Visão Geral';
+  $('migalha').textContent = TITULOS[view] || 'Visão Geral';
+  document.querySelectorAll('[data-rotulo-cadastros]').forEach(el => { el.hidden = perfilRole !== 'sompo'; });
   document.querySelectorAll('[data-nav]').forEach(a => { a.hidden = restrita(a.dataset.nav); });
   $('semMaquina').hidden = !dependeMaquina(view) || !!equipamentoSelecionado;
   $('btnBaixar').classList.remove('hidden');
@@ -637,6 +670,7 @@ function limparMaquina(){
   ['kpis','sparkTemp','tabelaTelemetria','eventos','justFurto','justIncendio','recs','lim','origemBadge'].forEach(id => $(id).innerHTML = '');
   ['kpiRisco','kpiFurto','kpiIncendio','kpiAlertas','scoreFurto','scoreIncendio','classifFurto','classifIncendio','alertasBadge'].forEach(id => $(id).textContent = '–');
   ['barFurto','barIncendio'].forEach(id => $(id).style.width = '0%');
+  ['kpiFurtoPill','kpiIncendioPill'].forEach(id => $(id).textContent = '');
   $('cardRisco').dataset.risco = 'seguro';
   $('equipamentoSel').value = '';
   $('equipamentoSel').title = 'Selecione uma máquina';
@@ -689,13 +723,13 @@ function graficoTemp(rows){
   let grid='', N=4;
   for(let g=0; g<=N; g++){
     const v=mn+(mx-mn)*g/N, yy=Y(v).toFixed(1);
-    grid+=`<line x1="${ML}" y1="${yy}" x2="${W-MR}" y2="${yy}" stroke="#e9bcb5" stroke-width="0.5" stroke-dasharray="2 3"/>`;
-    grid+=`<text x="${ML-6}" y="${(Y(v)+3).toFixed(1)}" text-anchor="end" font-size="9" fill="#5f3f3a">${Math.round(v)}°</text>`;
+    grid+=`<line x1="${ML}" y1="${yy}" x2="${W-MR}" y2="${yy}" stroke="#e4e4e7" stroke-width="0.6" stroke-dasharray="3 3"/>`;
+    grid+=`<text x="${ML-6}" y="${(Y(v)+3).toFixed(1)}" text-anchor="end" font-size="9" fill="#71717a">${Math.round(v)}°</text>`;
   }
   let xlab='';
   [0, Math.floor((pts.length-1)/2), pts.length-1].forEach(i=>{
     const anc = i===0?'start':(i===pts.length-1?'end':'middle');
-    xlab+=`<text x="${X(i).toFixed(1)}" y="${H-8}" text-anchor="${anc}" font-size="9" fill="#5f3f3a">${fmtHoraCurta(pts[i].h)}</text>`;
+    xlab+=`<text x="${X(i).toFixed(1)}" y="${H-8}" text-anchor="${anc}" font-size="9" fill="#71717a">${fmtHoraCurta(pts[i].h)}</text>`;
   });
   let dots='', hits='', slice=iw/pts.length;
   pts.forEach((p,i)=>{
@@ -739,6 +773,8 @@ async function carregarRisco(){
     $('barIncendio').style.width = si+'%'; $('barIncendio').style.background = corRisco(ci);
     const badge = (el, c) => { const cor=corRisco(c); el.textContent=c; el.style.background=cor+'22'; el.style.color=cor; };
     badge($('classifFurto'), cf); badge($('classifIncendio'), ci);
+    const pilula = (el, c) => { const cor=corRisco(c); el.textContent=c; el.style.background=cor+'14'; el.style.color=cor; el.style.borderColor=cor+'33'; };
+    pilula($('kpiFurtoPill'), cf); pilula($('kpiIncendioPill'), ci);
     $('justFurto').textContent = d.justificativa_furto || '';
     $('justIncendio').textContent = d.justificativa_incendio || '';
     const recs = d.recomendacoes || [];
@@ -750,7 +786,7 @@ async function carregarRisco(){
   }catch(e){ if(e.obsoleto) return;
     ['scoreFurto','scoreIncendio','kpiFurto','kpiIncendio','classifFurto','classifIncendio'].forEach(id=>$(id).textContent='–');
     ['barFurto','barIncendio'].forEach(id=>$(id).style.width='0%');
-    ['justIncendio','recs','lim','origemBadge'].forEach(id=>$(id).innerHTML='');
+    ['justIncendio','recs','lim','origemBadge','kpiFurtoPill','kpiIncendioPill'].forEach(id=>$(id).innerHTML='');
     $('justFurto').innerHTML = erroLista('Relatório indisponível.');
   }
 }
@@ -776,9 +812,9 @@ async function carregarTelemetria(){
     $('kpiRisco').style.color = nivelCor(t.nivel_risco);
     $('cardRisco').dataset.risco = estadoRisco(t.nivel_risco);   // aciona o border-beam
 
-    const kpi = (icon,k,v) => `<div class="bg-surface-container-low rounded-xl p-3">
-      <div class="text-[11px] uppercase tracking-wide text-on-surface-variant flex items-center gap-1"><span class="material-symbols-outlined text-[15px]">${icon}</span>${k}</div>
-      <div class="text-lg font-bold mt-1">${v}</div></div>`;
+    const kpi = (icon,k,v) => `<div class="rounded-lg border border-outline-variant p-3">
+      <div class="text-xs text-on-surface-variant flex items-center gap-1.5"><span class="material-symbols-outlined text-[16px]">${icon}</span>${k}</div>
+      <div class="text-base font-semibold mt-1 tabular">${v}</div></div>`;
     $('kpis').innerHTML =
       kpi('shield','Nível de risco', t.nivel_risco ?? '–') +
       kpi('settings','Motor', bool(t.motor_ligado)) +
@@ -795,9 +831,9 @@ async function carregarTelemetria(){
 
     $('tabelaTelemetria').innerHTML = linhas.map(x=>{
       const cor = nivelCor(x.nivel_risco);
-      return `<tr class="border-b border-outline-variant/20 hover:bg-surface-container-low/50 transition-colors">
-        <td class="py-3 px-5 text-on-surface-variant">${fmtHoraCurta(x.criado_em)}</td>
-        <td class="py-3 px-5"><span class="inline-flex items-center gap-1.5 font-semibold" style="color:${cor}"><span class="w-1.5 h-1.5 rounded-full" style="background:${cor}"></span>${x.nivel_risco ?? '–'}</span></td>
+      return `<tr class="border-b border-outline-variant last:border-0 hover:bg-surface-container-low transition-colors">
+        <td class="py-3 px-5 text-on-surface-variant tabular">${fmtHoraCurta(x.criado_em)}</td>
+        <td class="py-3 px-5"><span class="inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-md border" style="color:${cor};border-color:${cor}40;background:${cor}0d"><span class="w-1.5 h-1.5 rounded-full" style="background:${cor}"></span>${x.nivel_risco ?? '–'}</span></td>
         <td class="py-3 px-5">${x.temp_escape ?? '–'} °C</td>
         <td class="py-3 px-5">${x.umidade_ar ?? '–'} %</td>
         <td class="py-3 px-5">${x.vibracao ?? '–'} g</td>
@@ -833,10 +869,10 @@ async function carregarEventos(){
         </div>
         <div class="flex-1 min-w-0">
           <div class="flex justify-between items-start gap-2">
-            <span class="font-semibold text-[13px] text-on-surface truncate">${e.tipo || 'evento'}</span>
+            <span class="font-medium text-[13px] text-on-surface truncate">${TITULO_TIPO[e.tipo] || e.tipo || 'evento'}</span>
             <span class="text-[11px] text-on-surface-variant whitespace-nowrap">${fmtHora(e.criado_em)}</span>
           </div>
-          <span class="text-[10px] font-bold px-2 py-0.5 rounded mt-1 inline-block" style="background:${cor}1a;color:${cor}">Severidade ${s}</span>
+          <span class="text-[11px] font-medium px-1.5 py-0.5 rounded-md border mt-1 inline-block" style="border-color:${cor}40;color:${cor}">Severidade ${s}</span>
         </div>
       </div>`;
     }).join('');
@@ -937,7 +973,7 @@ function abrirFazenda(f){
            + (dono.telefone ? linhaDet('Telefone', dono.telefone) : '')
            + (dono.email ? linhaDet('E-mail', dono.email) : '')
            + linhaDet('Dispositivo', f.dispositivo_id || '— (sem dispositivo)');
-  const botao = `<button data-vertelemetria="${f.id_fazenda}" class="mt-4 inline-flex items-center gap-1.5 bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg shadow-md hover:bg-on-primary-fixed-variant transition-all">
+  const botao = `<button data-vertelemetria="${f.id_fazenda}" class="mt-4 inline-flex items-center gap-1.5 bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg hover:bg-on-primary-fixed-variant transition-colors">
         <span class="material-symbols-outlined text-[18px]">sensors</span> Ver telemetria</button>`;
   abrirDetalhe(f.nome || 'Fazenda', 'landscape', html + botao + botaoExcluir('fazendas',f.id_fazenda,f.nome));
 }
@@ -1284,12 +1320,15 @@ async function aplicarPerfil(){
     $('deviceWrap').classList.add('hidden');
     $('fazendaSelWrap').classList.add('hidden');
     $('perfilTxt').textContent = 'Gestor da Fazenda ' + (me.fazenda_nome || '—');
+    $('sidePerfil').textContent = 'Gestor · ' + (me.fazenda_nome || '—');
   } else {
     $('perfilTxt').textContent = me.usuario ? 'Sompo — Portfólio' : 'Portfólio';
     $('deviceWrap').classList.add('hidden');       // o seletor de fazenda substitui o input
     await carregarSeletorFazendas();
   }
   $('perfilBadge').classList.remove('hidden');
+  $('sideUsuario').textContent = me.usuario || 'Modo demonstração';
+  if(perfilRole !== 'gestor_fazenda') $('sidePerfil').textContent = 'Sompo · Portfólio';
 }
 
 async function carregarSeletorFazendas(){
@@ -1540,6 +1579,9 @@ $('usRole').addEventListener('change', atualizarCampoFazendaUsuario);
 $('formUsuario').addEventListener('submit', criarUsuario);
 
 // Init: descobre o perfil, ajusta a UI e SO ENTAO carrega os dados. Cadastro so p/ Sompo.
+$('btnSidebar')?.addEventListener('click', () => document.body.classList.toggle('sb-off'));
+$('atalhoNovaMaquina')?.addEventListener('click', () => { setView('maquinas'); $('btnNovaMaquina').click(); });
+
 (async function init(){
   await aplicarPerfil();
   if(perfilRole === 'sompo'){
