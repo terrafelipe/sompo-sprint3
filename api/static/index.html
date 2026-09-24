@@ -139,8 +139,10 @@
   #vizTip .tip-l span{color:var(--v-texto2)}
   #vizTip .tip-l b{font-weight:600;font-variant-numeric:tabular-nums}
   .viz-carregando{opacity:.55;transition:opacity .2s}
-  /* ancoras do Painel param abaixo do topo fixo + atalhos */
-  [data-ancora]{scroll-margin-top:7.5rem}
+  /* Atalhos do Painel grudam logo abaixo do cabecalho (e do aviso, se houver);
+     --topo-atalhos vem do JS. As ancoras param abaixo do topo + atalhos. */
+  #atalhosPainel{top:var(--topo-atalhos,3.5rem)}
+  [data-ancora]{scroll-margin-top:calc(var(--topo-atalhos,3.5rem) + 4rem)}
   /* Carteira (Inicio): cartao inteiro e o botao que abre a fazenda */
   .fazenda-card{display:flex;flex-direction:column;width:100%;text-align:left;background:var(--v-card);border:1px solid var(--v-borda);border-radius:.75rem;padding:1.25rem;
                 box-shadow:0 1px 2px rgba(0,0,0,.03);transition:border-color .15s ease,box-shadow .15s ease,transform .12s ease-out}
@@ -426,7 +428,7 @@
 </aside>
 
 <!-- ===================== CONTEUDO ===================== -->
-<div id="conteudo" class="lg:pl-64 min-w-0 max-w-full overflow-x-hidden">
+<div id="conteudo" class="lg:pl-64 min-w-0 max-w-full overflow-x-clip">
 
   <!-- HEADER -->
   <header class="sticky top-0 z-40 bg-surface/85 backdrop-blur-xl border-b border-outline-variant px-3 sm:px-4 lg:px-6 py-2.5 lg:min-h-14 flex items-center gap-1.5 sm:gap-2">
@@ -518,7 +520,7 @@
     </div>
 
     <!-- Atalhos do Painel: rolam ate cada parte; o da parte visivel fica destacado -->
-    <nav id="atalhosPainel" hidden aria-label="Partes do painel" class="sticky top-14 z-30 -mx-4 lg:-mx-6 px-4 lg:px-6 py-2 mb-4 bg-surface/85 backdrop-blur-xl border-b border-outline-variant">
+    <nav id="atalhosPainel" hidden aria-label="Partes do painel" class="sticky z-30 -mx-4 lg:-mx-6 px-4 lg:px-6 py-2 mb-4 bg-surface/85 backdrop-blur-xl border-b border-outline-variant">
       <div class="inline-flex items-center h-9 p-0.5 rounded-lg border border-outline-variant bg-surface-container-low max-w-full overflow-x-auto">
         <button type="button" class="per-btn whitespace-nowrap" data-ir="secResumo" aria-pressed="true">Resumo</button>
         <button type="button" class="per-btn whitespace-nowrap" data-ir="secAlertas" aria-pressed="false">Alertas</button>
@@ -2555,6 +2557,18 @@ document.addEventListener('click', e => { const b = e.target.closest('.menu-acoe
 window.addEventListener('scroll', () => document.querySelectorAll('.menu-acoes:popover-open').forEach(m => m.hidePopover()), {passive:true});
 
 /* ---------- Atalhos do Painel ---------- */
+// Topo dos atalhos = fundo do cabecalho, ou do aviso de conexao/pausa quando aparece
+// (os avisos tambem grudam em top-14, por cima um do outro).
+function ajustarTopoAtalhos(){
+  const alturas = ['avisoConexao','avisoPausa'].map(id => $(id).hidden ? 0 : $(id).offsetHeight);
+  const topo = document.querySelector('#conteudo > header').offsetHeight + Math.max(0, ...alturas);
+  document.documentElement.style.setProperty('--topo-atalhos', topo + 'px');
+}
+if('ResizeObserver' in window){
+  const ro = new ResizeObserver(ajustarTopoAtalhos);
+  ['avisoConexao','avisoPausa'].forEach(id => ro.observe($(id)));
+  ro.observe(document.querySelector('#conteudo > header'));
+}
 function irPara(id){
   const el = $(id); if(!el) return;
   el.scrollIntoView({behavior: MENOS_MOVIMENTO ? 'auto' : 'smooth', block: 'start'});
