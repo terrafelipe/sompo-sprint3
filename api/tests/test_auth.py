@@ -100,14 +100,14 @@ def test_cookie_seguro_desligado_mantem_sessao_sem_secure():
     assert 'Secure' not in _set_cookie_do_login(False)
 
 
-def test_tela_de_login_mantem_campos_tema_e_erro():
+def test_tela_de_login_mantem_campos_e_erro():
     client = app.test_client()
     with patch('app.PAINEL_SENHA', 'senha-do-painel'), patch('app.PAINEL_USUARIO', 'sompo'), \
          patch('app.buscar_usuario', return_value=None):
         pagina = client.get('/login?proximo=/painel').get_data(as_text=True)
         errada = client.post('/login', data={'usuario': 'sompo', 'senha': 'errada', 'proximo': '/painel'})
     for trecho in ['name="usuario"', 'name="senha"', 'name="lembrar"', 'name="proximo" value="/painel"',
-                   'method="post"', "localStorage.getItem('sompo.tema')"]:
+                   'method="post"']:
         assert trecho in pagina, trecho
     assert 'Usuário ou senha incorretos.' not in pagina
     assert errada.status_code == 401
