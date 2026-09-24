@@ -83,9 +83,29 @@
   .chip-filtro:hover{background:#f4f4f5}
   .chip-filtro .material-symbols-outlined{font-size:15px;color:#71717a}
   /* Sidebar recolhivel (botao no topo). */
-  .sb-off #sidebar{display:none!important}
-  @media (min-width:1024px){ .sb-off #conteudo{padding-left:0!important} }
-
+  /* Menu lateral recolhido: vira uma trilha de icones (como no modelo). */
+  @media (min-width:1024px){
+    #sidebar,#conteudo{transition:width .2s ease,padding-left .2s ease}
+    .sb-mini #sidebar{width:4rem}
+    .sb-mini #conteudo{padding-left:4rem}
+    .sb-mini #sidebar .sb-txt{display:none!important}
+    .sb-mini #sidebar nav a,.sb-mini #atalhoNovaMaquina{justify-content:center;padding-left:0;padding-right:0}
+    .sb-mini #sidebar nav{padding-top:.5rem}
+    .sb-mini #sidebar > div:first-child{justify-content:center;padding:0}
+    .sb-mini #sidebar > div:last-child > div{justify-content:center;padding:0}
+  }
+  /* Busca rapida (Ctrl+K) */
+  .paleta{width:min(36rem,calc(100% - 2rem));margin:12vh auto auto;padding:0;border:1px solid #e4e4e7;border-radius:.75rem;box-shadow:0 20px 50px rgba(0,0,0,.15);background:#fff;color:#09090b}
+  .paleta::backdrop{background:rgba(9,9,11,.25);backdrop-filter:blur(2px)}
+  .pal-grupo{padding:.6rem .6rem .25rem;font-size:11px;font-weight:500;color:#71717a}
+  .pal-item{display:flex;align-items:center;gap:.65rem;width:100%;padding:.5rem .6rem;border-radius:.4rem;font-size:13.5px;text-align:left;color:#09090b}
+  .pal-item .material-symbols-outlined{font-size:18px;color:#71717a}
+  .pal-item .pal-sub{margin-left:auto;font-size:12px;color:#71717a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:55%}
+  .pal-item[aria-selected="true"]{background:#f4f4f5}
+  .tecla{display:inline-flex;align-items:center;height:1.25rem;padding:0 .375rem;border-radius:.25rem;border:1px solid #e4e4e7;background:#fafafa;font-size:11px;font-weight:500;color:#71717a;font-family:inherit}
+  .menu-acoes a{display:flex;align-items:center;gap:.55rem;padding:.45rem .6rem;border-radius:.375rem;font-size:13px;color:#09090b}
+  .menu-acoes a:hover{background:#f4f4f5}
+  .menu-acoes a .material-symbols-outlined{font-size:18px;color:#71717a}
   /* Border Beam (efeito adaptado do Badtz UI / 21st.dev) em CSS puro: um feixe
      percorre a borda do card de risco, na cor do nivel. So aparece quando ha risco. */
   @property --beam-angle { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
@@ -165,39 +185,39 @@
 <aside id="sidebar" class="hidden lg:flex fixed left-0 top-0 h-full w-64 bg-sidebar border-r border-outline-variant z-50 flex-col">
   <div class="px-4 h-14 flex items-center gap-2.5 shrink-0">
     <div class="w-8 h-8 rounded-lg bg-primary text-on-primary grid place-items-center"><span class="material-symbols-outlined text-[20px]">agriculture</span></div>
-    <div class="leading-tight">
+    <div class="sb-txt leading-tight">
       <div class="font-semibold text-on-surface tracking-tight">SOMPO</div>
       <div class="text-xs text-on-surface-variant">Painel de Risco</div>
     </div>
   </div>
   <div class="px-3 pt-1">
-    <button id="atalhoNovaMaquina" type="button" class="w-full inline-flex items-center gap-2 h-9 px-3 rounded-lg bg-primary text-on-primary font-medium hover:bg-on-primary-fixed-variant transition-colors">
-      <span class="material-symbols-outlined text-[20px]">add_circle</span>Nova máquina
+    <button id="atalhoNovaMaquina" type="button" title="Nova máquina" class="w-full inline-flex items-center gap-2 h-9 px-3 rounded-lg bg-primary text-on-primary font-medium hover:bg-on-primary-fixed-variant transition-colors">
+      <span class="material-symbols-outlined text-[20px]">add_circle</span><span class="sb-txt">Nova máquina</span>
     </button>
   </div>
   <nav class="flex-1 overflow-y-auto px-3 pb-3">
-    <div class="px-2.5 pt-4 pb-1.5 text-xs font-medium text-on-surface-variant">Monitoramento</div>
-      <a href="#" data-nav="maquinas" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">agriculture</span>Máquinas</a>
-      <a href="#" data-nav="visao" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">dashboard</span>Painel da máquina</a>
-      <a href="#" data-nav="risco" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">analytics</span>Análise de Risco</a>
-      <a href="#" data-nav="telemetria" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">sensors</span>Telemetria</a>
-      <a href="#" data-nav="alertas" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">warning</span>Alertas</a>
-    <div class="px-2.5 pt-4 pb-1.5 text-xs font-medium text-on-surface-variant">Operação</div>
-      <a href="#" data-nav="operadores" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">badge</span>Operadores</a>
-      <a href="#" data-nav="historico" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">history</span>Histórico</a>
-    <div data-rotulo-cadastros class="px-2.5 pt-4 pb-1.5 text-xs font-medium text-on-surface-variant">Cadastros</div>
-      <a href="#" data-nav="fazendas" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">landscape</span>Fazendas</a>
-      <a href="#" data-nav="clientes" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">group</span>Clientes</a>
-      <a href="#" data-nav="usuarios" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">manage_accounts</span>Usuários</a>
+    <div class="sb-txt px-2.5 pt-4 pb-1.5 text-xs font-medium text-on-surface-variant">Monitoramento</div>
+      <a href="#" data-nav="maquinas" title="Máquinas" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">agriculture</span><span class="sb-txt">Máquinas</span></a>
+      <a href="#" data-nav="visao" title="Painel da máquina" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">dashboard</span><span class="sb-txt">Painel da máquina</span></a>
+      <a href="#" data-nav="risco" title="Análise de Risco" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">analytics</span><span class="sb-txt">Análise de Risco</span></a>
+      <a href="#" data-nav="telemetria" title="Telemetria" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">sensors</span><span class="sb-txt">Telemetria</span></a>
+      <a href="#" data-nav="alertas" title="Alertas" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">warning</span><span class="sb-txt">Alertas</span></a>
+    <div class="sb-txt px-2.5 pt-4 pb-1.5 text-xs font-medium text-on-surface-variant">Operação</div>
+      <a href="#" data-nav="operadores" title="Operadores" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">badge</span><span class="sb-txt">Operadores</span></a>
+      <a href="#" data-nav="historico" title="Histórico" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">history</span><span class="sb-txt">Histórico</span></a>
+    <div data-rotulo-cadastros class="sb-txt px-2.5 pt-4 pb-1.5 text-xs font-medium text-on-surface-variant">Cadastros</div>
+      <a href="#" data-nav="fazendas" title="Fazendas" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">landscape</span><span class="sb-txt">Fazendas</span></a>
+      <a href="#" data-nav="clientes" title="Clientes" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">group</span><span class="sb-txt">Clientes</span></a>
+      <a href="#" data-nav="usuarios" title="Usuários" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">manage_accounts</span><span class="sb-txt">Usuários</span></a>
   </nav>
   <div class="p-3 border-t border-outline-variant">
     <div class="flex items-center gap-2.5 p-1.5">
       <div class="w-8 h-8 rounded-full bg-primary/10 text-primary grid place-items-center shrink-0"><span class="material-symbols-outlined text-[18px]">person</span></div>
-      <div class="min-w-0 flex-1 leading-tight">
+      <div class="sb-txt min-w-0 flex-1 leading-tight">
         <div id="sideUsuario" class="text-sm font-medium text-on-surface truncate">Sompo</div>
         <div id="sidePerfil" class="text-xs text-on-surface-variant truncate">Portfólio</div>
       </div>
-      <a href="/logout" title="Sair" class="p-1.5 rounded-md text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors"><span class="material-symbols-outlined text-[18px]">logout</span></a>
+      <a href="/logout" title="Sair" class="sb-txt p-1.5 rounded-md text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors"><span class="material-symbols-outlined text-[18px]">logout</span></a>
     </div>
   </div>
 </aside>
@@ -215,13 +235,10 @@
       <span class="material-symbols-outlined">agriculture</span> SOMPO
     </div>
     <div class="grow"></div>
-    <span class="inline-flex items-center gap-2 text-xs font-medium h-9 px-3 rounded-lg border border-outline-variant bg-surface-container-lowest">
-      <span id="saudeDot" class="w-2 h-2 rounded-full bg-outline"></span>
-      <span id="saudeTxt">verificando…</span>
-    </span>
-    <span id="perfilBadge" class="hidden inline-flex items-center gap-1.5 text-xs font-medium h-9 px-3 rounded-lg bg-primary/[0.07] text-primary">
-      <span class="material-symbols-outlined text-[16px]">account_circle</span><span id="perfilTxt"></span>
-    </span>
+    <button id="btnBusca" type="button" aria-keyshortcuts="Control+K" title="Busca rápida (Ctrl+K)"
+            class="inline-flex items-center gap-2 h-9 pl-2.5 pr-1.5 rounded-lg border border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container transition-colors text-sm">
+      <span class="material-symbols-outlined text-[18px]">search</span><span class="hidden md:inline pr-8">Buscar…</span><kbd class="tecla hidden md:inline-flex">Ctrl K</kbd>
+    </button>
     <button id="btnAtualizar" title="Atualizar" class="inline-flex items-center gap-1.5 h-9 border border-outline-variant bg-surface-container-lowest text-on-surface font-medium px-3 rounded-lg hover:bg-surface-container transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
       <span id="iconAtualizar" class="material-symbols-outlined text-[18px]">refresh</span> <span id="txtAtualizar" class="hidden sm:inline">Atualizar</span>
     </button>
@@ -229,9 +246,21 @@
             class="inline-flex items-center gap-1.5 h-9 bg-primary text-on-primary font-medium px-3 rounded-lg hover:bg-on-primary-fixed-variant transition-colors">
       <span class="material-symbols-outlined text-[18px]">download</span><span>Exportar Word</span>
     </button>
-    <a href="/logout" class="lg:hidden inline-flex items-center p-2 rounded-lg text-on-surface-variant hover:bg-surface-container-high" title="Sair">
-      <span class="material-symbols-outlined">logout</span>
-    </a>
+    <button id="btnUsuario" type="button" popovertarget="menuUsuario" aria-label="Menu do usuário" title="Conta"
+            class="relative w-9 h-9 rounded-full bg-primary/10 text-primary grid place-items-center hover:ring-2 hover:ring-primary/20 transition-shadow">
+      <span class="material-symbols-outlined text-[20px]">person</span>
+      <span id="saudeDot" class="absolute -right-0.5 -bottom-0.5 w-2.5 h-2.5 rounded-full bg-outline ring-2 ring-white"></span>
+    </button>
+    <div id="menuUsuario" popover class="menu-acoes" style="min-width:15rem">
+      <div class="px-2.5 py-2">
+        <div id="menuUsuarioNome" class="text-sm font-medium">Sompo</div>
+        <span id="perfilBadge" class="hidden text-xs text-on-surface-variant"><span id="perfilTxt"></span></span>
+      </div>
+      <hr>
+      <div class="px-2.5 py-1.5 text-xs text-on-surface-variant flex items-center gap-2"><span class="material-symbols-outlined text-[16px]">database</span><span id="saudeTxt">verificando…</span></div>
+      <hr>
+      <a href="/logout"><span class="material-symbols-outlined">logout</span>Sair</a>
+    </div>
   </header>
 
   <!-- Navegacao por abas no mobile (a sidebar some) -->
@@ -684,6 +713,18 @@
     <button id="exclusaoConfirmar" class="px-4 py-2 rounded-lg bg-error text-on-error font-semibold">Excluir</button>
   </div>
 </dialog>
+<dialog id="paleta" class="paleta" aria-label="Busca rápida">
+  <div class="flex items-center gap-2 px-3 border-b border-outline-variant">
+    <span class="material-symbols-outlined text-[20px] text-on-surface-variant">search</span>
+    <input id="paletaInput" type="text" autocomplete="off" placeholder="Buscar máquina, fazenda, tela ou ação…"
+           class="flex-1 h-12 bg-transparent outline-none text-sm" role="combobox" aria-expanded="true" aria-controls="paletaLista"/>
+    <kbd class="tecla">Esc</kbd>
+  </div>
+  <div id="paletaLista" role="listbox" class="max-h-[55vh] overflow-y-auto p-1.5"></div>
+  <div class="px-3 py-2 border-t border-outline-variant text-[11px] text-on-surface-variant flex gap-4">
+    <span><kbd class="tecla">↑</kbd> <kbd class="tecla">↓</kbd> navegar</span><span><kbd class="tecla">Enter</kbd> abrir</span><span><kbd class="tecla">Esc</kbd> fechar</span>
+  </div>
+</dialog>
 <div id="vizTip" hidden></div>
 <div id="cadastroAviso" role="status" class="hidden fixed bottom-4 right-4 z-[70] max-w-[90vw] bg-surface-container-lowest shadow-lg rounded-xl p-4 text-sm"></div>
 
@@ -749,6 +790,7 @@ const dependeMaquina = view => ['visao','risco','telemetria','alertas'].includes
 function setView(view){
   if(restrita(view)) view = 'maquinas';
   const mudou = viewAtual !== view;
+  if(mudou && typeof assinaturas !== 'undefined') ['leituras','eventos','tempdia'].forEach(k => assinaturas.delete(k));
   viewAtual = view;
   const cfg = VIEWS[view] || VIEWS.visao;
   // Os spans de 12 colunas só valem no desktop (lg). No mobile o grid é de 1 coluna,
@@ -895,11 +937,11 @@ async function carregarSaude(){
   try{
     const s = await getJSON('/saude');
     const ok = s.banco === 'ok';
-    $('saudeDot').className = 'w-2 h-2 rounded-full ' + (ok ? 'bg-ok animate-pulse' : 'bg-error');
+    $('saudeDot').className = 'absolute -right-0.5 -bottom-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-white ' + (ok ? 'bg-ok' : 'bg-error');
     $('saudeTxt').textContent = ok ? 'API e banco OK' : 'Banco indisponível';
     $('fonteBanco').textContent = ok ? 'Fonte: Supabase conectado.' : 'Fonte: Supabase indisponível.';
   }catch(e){ if(e.obsoleto) return;
-    $('saudeDot').className = 'w-2 h-2 rounded-full bg-error';
+    $('saudeDot').className = 'absolute -right-0.5 -bottom-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-white bg-error';
     $('saudeTxt').textContent = 'API offline';
   }
 }
@@ -1211,6 +1253,9 @@ $('feedFiltros').addEventListener('click', ev => {
 // Paleta validada (dataviz/validate_palette): Furto azul, Incendio vermelho Sompo;
 // temperatura: max vermelho, media laranja, ambiente azul.
 let periodo = 7;
+// Desenha na largura real do espaco (texto do eixo sempre no mesmo tamanho).
+// Container escondido (largura 0) usa o padrao; o grafico e refeito ao aparecer.
+const larguraGrafico = (el, padrao) => { const w = el.clientWidth - 40; return w > 240 ? Math.round(w) : padrao; };
 const COR = {furto:'#2a78d6', incendio:'#b70100', max:'#b70100', media:'#eb6834', ambiente:'#2a78d6'};
 const GRADE = '#e4e4e7', TXT_MUDO = '#71717a';
 const eixoDoTipo = t => { t = String(t||'');
@@ -1285,7 +1330,7 @@ function renderizarGraficosEventos(evs){
   const cA = $('graficoAtividade'); cA.classList.remove('viz-carregando');
   if(!somaF && !somaI){ cA.innerHTML = `<div class="text-sm text-on-surface-variant italic py-10 text-center">${filtroTipo ? 'Nenhum alerta desse tipo no período.' : 'Nenhum alerta no período.'}</div>`; }
   else {
-    const W=760, H=250, ML=34, MR=6, MT=10, MB=26, iw=W-ML-MR, ih=H-MT-MB;
+    const W=larguraGrafico(cA, 760), H=250, ML=34, MR=6, MT=10, MB=26, iw=W-ML-MR, ih=H-MT-MB;
     const {top, step} = escalaBonita(Math.max(...dias.map((_,i)=>f[i]+inc[i])));
     const Y = v => MT + ih - (v/top)*ih;
     const band = iw/dias.length, bw = Math.max(2, Math.min(24, band*0.72)), GAP = 2;
@@ -1377,7 +1422,7 @@ async function carregarTempDia(){
     ];
     const vals = rows.flatMap(r => series.map(([,,fn]) => fn(r))).filter(v => typeof v === 'number');
     if(!vals.length){ c.innerHTML = '<div class="text-sm text-on-surface-variant italic py-10 text-center">Sem temperatura no período.</div>'; return; }
-    const W=1100, H=240, ML=40, MR=16, MT=12, MB=26, iw=W-ML-MR, ih=H-MT-MB;
+    const W=larguraGrafico(c, 1100), H=240, ML=40, MR=16, MT=12, MB=26, iw=W-ML-MR, ih=H-MT-MB;
     let mn = Math.floor(Math.min(...vals) - 1), mx = Math.ceil(Math.max(...vals) + 1);
     const {step} = escalaBonita(mx - mn); mn = Math.floor(mn/step)*step; mx = Math.ceil(mx/step)*step; if(mx === mn) mx = mn + step;
     if(Math.min(...vals) >= 0 && mn < 0) mn = 0;   // sem temperatura negativa, o eixo nao desce de 0
@@ -1459,7 +1504,7 @@ function renderizarGraficoLeituras(forcar){
   const fmt = v => fmtNum(v, m.dec) + m.un;
   $('leiturasResumo').textContent = `Mín ${fmt(vMin)} · Máx ${fmt(vMax)} · Atual ${fmt(vals[vals.length-1])}`;
 
-  const W=640, H=220, ML=46, MR=14, MT=12, MB=26, iw=W-ML-MR, ih=H-MT-MB;
+  const W=larguraGrafico(c, 640), H=220, ML=46, MR=14, MT=12, MB=26, iw=W-ML-MR, ih=H-MT-MB;
   const folga = Math.max((vMax - vMin) * 0.2, Math.abs(vMax) * 0.02, m.dec === 3 ? 0.005 : 0.5);
   const {step} = escalaBonita((vMax + folga) - (vMin - folga));
   let mn = Math.floor((vMin - folga)/step)*step, mx = Math.ceil((vMax + folga)/step)*step;
@@ -2029,6 +2074,7 @@ async function aplicarPerfil(){
   }
   $('perfilBadge').classList.remove('hidden');
   $('sideUsuario').textContent = me.usuario || 'Modo demonstração';
+  $('menuUsuarioNome').textContent = me.usuario || 'Modo demonstração';
   if(perfilRole !== 'gestor_fazenda') $('sidePerfil').textContent = 'Sompo · Portfólio';
 }
 
@@ -2096,6 +2142,19 @@ document.querySelectorAll('[data-nav]').forEach(a =>
 );
 // Reaplica os spans ao cruzar o breakpoint mobile/desktop.
 window.addEventListener('resize', () => setView(viewAtual));
+// Largura mudou (janela ou menu recolhido): redesenha os graficos com os dados em memoria.
+let redesenhoPendente;
+function redesenharGraficos(){
+  clearTimeout(redesenhoPendente);
+  redesenhoPendente = setTimeout(() => {
+    ['leituras','eventos','tempdia'].forEach(k => assinaturas.delete(k));
+    if(leiturasCache.length) renderizarGraficoLeituras(true);
+    if(eventosPeriodo.length) renderizarGraficosEventos(eventosPeriodo);
+    if(equipamentoSelecionado) carregarTempDia();
+  }, 250);
+}
+window.addEventListener('resize', redesenharGraficos);
+$('btnSidebar')?.addEventListener('click', () => setTimeout(redesenharGraficos, 220));   // apos a transicao da largura
 setView('maquinas');
 
 // Atualizar manual com feedback visual (icone girando + "Atualizando...").
@@ -2282,7 +2341,97 @@ $('usRole').addEventListener('change', atualizarCampoFazendaUsuario);
 $('formUsuario').addEventListener('submit', criarUsuario);
 
 // Init: descobre o perfil, ajusta a UI e SO ENTAO carrega os dados. Cadastro so p/ Sompo.
-$('btnSidebar')?.addEventListener('click', () => document.body.classList.toggle('sb-off'));
+// Menu lateral: recolhe para icones; a preferencia fica no navegador (se permitido).
+const SB_CHAVE = 'sompo.menuRecolhido';
+function aplicarMenuLateral(mini){
+  document.body.classList.toggle('sb-mini', mini);
+  const b = $('btnSidebar');
+  if(b){ b.title = mini ? 'Expandir menu' : 'Recolher menu'; b.firstElementChild.textContent = mini ? 'left_panel_open' : 'left_panel_close'; }
+}
+try{ aplicarMenuLateral(localStorage.getItem(SB_CHAVE) === '1'); }catch(e){}
+$('btnSidebar')?.addEventListener('click', () => {
+  const mini = !document.body.classList.contains('sb-mini');
+  aplicarMenuLateral(mini);
+  try{ localStorage.setItem(SB_CHAVE, mini ? '1' : '0'); }catch(e){}
+});
+
+// Busca rapida (Ctrl+K): maquinas da fazenda, fazendas, telas e acoes.
+const semAcento = t => String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+const ICONE_TELA = {maquinas:'agriculture', visao:'dashboard', risco:'analytics', telemetria:'sensors', alertas:'warning',
+                    operadores:'badge', historico:'history', fazendas:'landscape', clientes:'group', usuarios:'manage_accounts'};
+let paletaItens = [], paletaSel = 0;
+function itensPaleta(){
+  const itens = [];
+  maquinasCache.forEach(m => itens.push({grupo:'Máquinas', icone:'agriculture', texto:m.nome,
+    sub:[m.tipo, m.modelo].filter(Boolean).join(' · '), fazer:() => selecionarMaquina(m.id_equipamento)}));
+  [...$('fazendaSel').options].filter(o => o.value).forEach(o => itens.push({grupo:'Fazendas', icone:'landscape', texto:o.textContent,
+    fazer:() => { $('fazendaSel').value = o.value; $('fazendaSel').dispatchEvent(new Event('change')); setView('maquinas'); }}));
+  Object.entries(TITULOS).filter(([v]) => !restrita(v)).forEach(([v, t]) => itens.push({grupo:'Telas', icone:ICONE_TELA[v] || 'arrow_forward',
+    texto:t, sub:DESCRICOES[v], fazer:() => { setView(v); carregarTudo(); }}));
+  itens.push({grupo:'Ações', icone:'add_circle', texto:'Nova máquina', fazer:() => $('atalhoNovaMaquina').click()});
+  if(equipamentoSelecionado) itens.push({grupo:'Ações', icone:'download', texto:'Exportar relatório Word', fazer:() => $('btnBaixar').click()});
+  itens.push({grupo:'Ações', icone:'refresh', texto:'Atualizar dados', fazer:() => $('btnAtualizar').click()});
+  return itens;
+}
+function renderPaleta(){
+  const termos = semAcento($('paletaInput').value).split(/\s+/).filter(Boolean);
+  // Relevancia: comeco do nome > nome > so descricao/grupo. Grupos na ordem do melhor item.
+  const q = termos.join(' ');
+  const pontua = it => {
+    const nome = semAcento(it.texto), resto = semAcento((it.sub || '') + ' ' + it.grupo);
+    if(!termos.every(t => nome.includes(t) || resto.includes(t))) return 0;
+    if(!q) return 1;
+    return nome.startsWith(q) ? 4 : termos.every(t => nome.includes(t)) ? 3 : 1;
+  };
+  const achados = itensPaleta().map((it, ordem) => ({it, nota: pontua(it), ordem})).filter(x => x.nota)
+    .sort((x, y) => y.nota - x.nota || x.ordem - y.ordem);
+  const porGrupo = new Map();
+  achados.forEach(({it}) => {
+    if(!porGrupo.has(it.grupo)) porGrupo.set(it.grupo, []);
+    if(porGrupo.get(it.grupo).length < 6) porGrupo.get(it.grupo).push(it);
+  });
+  paletaItens = [...porGrupo.values()].flat();
+  paletaSel = Math.min(paletaSel, Math.max(0, paletaItens.length - 1));
+  const lista = $('paletaLista'); lista.replaceChildren();
+  if(!paletaItens.length){ lista.appendChild(Object.assign(document.createElement('div'), {className:'text-sm text-on-surface-variant text-center py-8', textContent:'Nada encontrado.'})); return; }
+  let i = 0;
+  porGrupo.forEach((itens, grupo) => {
+    lista.appendChild(Object.assign(document.createElement('div'), {className:'pal-grupo', textContent:grupo}));
+    itens.forEach(it => {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'pal-item'; b.setAttribute('role', 'option');
+      b.dataset.idx = i; b.setAttribute('aria-selected', String(i === paletaSel));
+      const icone = document.createElement('span'); icone.className = 'material-symbols-outlined'; icone.textContent = it.icone;
+      const txt = document.createElement('span'); txt.textContent = it.texto;
+      b.append(icone, txt);
+      if(it.sub){ const sub = document.createElement('span'); sub.className = 'pal-sub'; sub.textContent = it.sub; b.appendChild(sub); }
+      lista.appendChild(b); i++;
+    });
+  });
+}
+function abrirPaleta(){
+  const d = $('paleta'); if(d.open) return;
+  $('paletaInput').value = ''; paletaSel = 0; renderPaleta();
+  d.showModal(); $('paletaInput').focus();
+}
+function executarPaleta(i){
+  const it = paletaItens[i]; if(!it) return;
+  $('paleta').close(); it.fazer();
+}
+$('btnBusca').addEventListener('click', abrirPaleta);
+document.addEventListener('keydown', e => {
+  if((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k'){ e.preventDefault(); abrirPaleta(); }
+});
+$('paletaInput').addEventListener('input', () => { paletaSel = 0; renderPaleta(); });
+$('paletaInput').addEventListener('keydown', e => {
+  if(e.key === 'ArrowDown' || e.key === 'ArrowUp'){
+    e.preventDefault();
+    paletaSel = (paletaSel + (e.key === 'ArrowDown' ? 1 : -1) + paletaItens.length) % Math.max(1, paletaItens.length);
+    renderPaleta();
+    $('paletaLista').querySelector('[aria-selected="true"]')?.scrollIntoView({block:'nearest'});
+  } else if(e.key === 'Enter'){ e.preventDefault(); executarPaleta(paletaSel); }
+});
+$('paletaLista').addEventListener('click', e => { const b = e.target.closest('[data-idx]'); if(b) executarPaleta(+b.dataset.idx); });
+$('paleta').addEventListener('click', e => { if(e.target === $('paleta')) $('paleta').close(); });   // clique fora fecha
 $('atalhoNovaMaquina')?.addEventListener('click', () => { setView('maquinas'); $('btnNovaMaquina').click(); });
 
 (async function init(){
