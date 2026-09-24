@@ -1,0 +1,2 @@
+# Scripts de shell rodam no Linux (AWS CloudShell): sempre LF, mesmo com checkout no Windows.
+*.sh text eol=lf

@@ -87,6 +87,14 @@ credenciais do lab — não precisa de nada instalado no PC.
 
 Confira se a linha `Deploy ok` termina com o hash do commit esperado.
 
+**Atalho (recomendado):** instale uma vez no CloudShell:
+```bash
+echo "alias sompo-deploy='cd ~/sompo-sprint3 && git fetch -q origin && git checkout -q main && git pull -q --ff-only && bash infra/sompo-deploy.sh'" >> ~/.bashrc && source ~/.bashrc
+```
+Depois, cada deploy é só `sompo-deploy`: ele vai para o `main`, puxa, recusa publicar com
+alterações locais ou clone diferente do GitHub, roda o `deploy-aws.ps1` e confirma que a imagem
+publicada tem o hash do último commit.
+
 O script é **idempotente**: na 1ª vez cria o repositório ECR, a função (`sompo-painel`, 1024 MB,
 timeout 60 s, `LabRole`), a Function URL pública com as duas permissões e a retenção de logs de
 7 dias; nas seguintes só publica a imagem nova e atualiza as variáveis. No fim imprime a
