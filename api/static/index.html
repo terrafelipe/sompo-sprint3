@@ -107,6 +107,21 @@
   .per-btn:hover{color:var(--v-texto)}
   .per-btn[aria-pressed="true"]{background:var(--v-card);color:var(--v-texto);box-shadow:0 1px 2px rgba(0,0,0,.08)}
   /* Graficos: tooltip unico, recarga sem piscar */
+  /* Tooltip aparece com fade curto (120 ms); seguir o ponteiro e instantaneo. */
+  #vizTip{opacity:0;transform:translateY(4px);transition:opacity 120ms cubic-bezier(0.23,1,0.32,1),transform 120ms cubic-bezier(0.23,1,0.32,1)}
+  #vizTip.visivel{opacity:1;transform:none}
+  /* Animacoes de entrada: origem das barras (crescem da base / da esquerda) */
+  .coluna{transform-box:fill-box;transform-origin:50% 100%}
+  .barra-h,.frota-barra{transform-origin:left center}
+  .viz-hit{transition:fill .15s ease}
+  /* Resposta ao toque: botoes afundam levemente ao pressionar */
+  button:not(:disabled):active,a[data-nav]:active{transform:scale(.97)}
+  select > button:active{transform:none}
+  button,a[data-nav]{transition-property:color,background-color,border-color,box-shadow,opacity,transform;transition-duration:.15s;transition-timing-function:cubic-bezier(0.23,1,0.32,1)}
+  @media (prefers-reduced-motion: reduce){
+    #vizTip{transform:none}
+    button:not(:disabled):active,a[data-nav]:active{transform:none}
+  }
   #vizTip{position:fixed;z-index:80;pointer-events:none;min-width:9rem;background:var(--v-card);border:1px solid var(--v-borda);border-radius:.5rem;
           box-shadow:0 8px 24px rgba(0,0,0,.08);padding:.5rem .625rem;font-size:12px;color:var(--v-texto)}
   #vizTip .tip-t{color:var(--v-texto2);margin-bottom:.25rem}
@@ -911,6 +926,7 @@ const dependeMaquina = view => ['visao','risco','telemetria','alertas'].includes
 function setView(view){
   if(restrita(view)) view = 'maquinas';
   const mudou = viewAtual !== view;
+  if(mudou) novaEntrada();
   if(mudou && typeof assinaturas !== 'undefined') ['leituras','eventos','tempdia'].forEach(k => assinaturas.delete(k));
   viewAtual = view;
   const cfg = VIEWS[view] || VIEWS.visao;
@@ -986,6 +1002,7 @@ function limparMaquina(){
   ['gaugeFurto','gaugeIncendio','detFurto','detIncendio','pontosFurto','pontosIncendio','riscoResumo','riscoGerado'].forEach(id => $(id).innerHTML = '');
   $('riscoComplemento').hidden = true;
   ['kpiFurtoPill','kpiIncendioPill'].forEach(id => $(id).textContent = '');
+  novaEntrada();
   ['graficoAtividade','graficoTipos','graficoTempDia','statusAgora','linhaTempo','saudeEsp','saudeSelo','frotaComparacao'].forEach(id => $(id).innerHTML = '');
   leiturasCache = []; $('leiturasResumo').textContent = ''; assinaturas.clear();
   eventosPeriodo = []; filtroDia = null; filtroTipo = null; $('feedFiltros').replaceChildren();
@@ -1089,7 +1106,7 @@ function medidorRisco(score, classif, faixas){
   const md = faixas?.medio ?? 34, al = faixas?.alto ?? 67;
   const bandas = [[0, md, 'var(--v-faixa-b)'], [md, al, 'var(--v-faixa-m)'], [al, 100, 'var(--v-faixa-a)']];
   const trilho = bandas.map(([a,b,c], i) => `<path d="${arco(a + (i ? 0.8 : 0), b - (i < 2 ? 0.8 : 0))}" style="stroke:${c}" stroke-width="${esp}" fill="none"/>`).join('');
-  const valor = score > 0 ? `<path d="${arco(0, score)}" stroke="${corRisco(classif)}" stroke-width="${esp}" fill="none" stroke-linecap="butt"/>` : '';
+  const valor = score > 0 ? `<path class="arco-valor" d="${arco(0, score)}" stroke="${corRisco(classif)}" stroke-width="${esp}" fill="none" stroke-linecap="butt"/>` : '';
   const marca = v => { const a = ang(v), xi = cx + (r+esp/2+3)*Math.cos(a), yi = cy - (r+esp/2+3)*Math.sin(a), xt = cx + (r+esp/2+13)*Math.cos(a), yt = cy - (r+esp/2+13)*Math.sin(a);
     return `<line x1="${(cx+(r-esp/2)*Math.cos(a)).toFixed(1)}" y1="${(cy-(r-esp/2)*Math.sin(a)).toFixed(1)}" x2="${xi.toFixed(1)}" y2="${yi.toFixed(1)}" style="stroke:var(--v-card)" stroke-width="2"/>
             <text x="${xt.toFixed(1)}" y="${(yt+3).toFixed(1)}" text-anchor="middle" font-size="10" style="fill:${TXT_MUDO}">${v}</text>`; };
@@ -1097,7 +1114,7 @@ function medidorRisco(score, classif, faixas){
     ${trilho}${valor}${marca(md)}${marca(al)}
     <text x="${cx - r}" y="${cy + 16}" text-anchor="middle" font-size="10" style="fill:${TXT_MUDO}">0</text>
     <text x="${cx + r}" y="${cy + 16}" text-anchor="middle" font-size="10" style="fill:${TXT_MUDO}">100</text>
-    <text x="${cx}" y="${cy - 8}" text-anchor="middle" font-size="36" font-weight="600" style="fill:var(--v-texto)">${score}</text>
+    <text class="num-gauge" x="${cx}" y="${cy - 8}" text-anchor="middle" font-size="36" font-weight="600" style="fill:var(--v-texto)">${score}</text>
     <text x="${cx}" y="${cy + 12}" text-anchor="middle" font-size="11" style="fill:${TXT_MUDO}">de 100</text>
   </svg>`;
 }
@@ -1127,7 +1144,7 @@ function detalhamentoRisco(el, detalhamento, eixoNome){
     num.append(document.createTextNode(`${v.quantidade} ${v.quantidade === 1 ? 'evento' : 'eventos'} · `), pts);
     topo.append(nome, num);
     const trilho = document.createElement('div'); trilho.className = 'h-1.5 mt-1 rounded-r bg-surface-container';
-    const barra = document.createElement('div'); barra.className = 'h-1.5'; barra.style.borderRadius = '0 3px 3px 0';
+    const barra = document.createElement('div'); barra.className = 'h-1.5 barra-h'; barra.style.borderRadius = '0 3px 3px 0';
     const [, grav, corGrav] = gravidadeDe(v.pontos, v.quantidade);
     b.title += ` · gravidade ${grav}`;
     barra.style.width = Math.max(2, v.pontos/total*100) + '%'; barra.style.background = corGrav;
@@ -1149,7 +1166,8 @@ async function carregarRisco(novo){
     if(per !== periodo) return;   // periodo mudou durante a carga: a resposta e de outra janela
     const sf = d.score_furto ?? 0, si = d.score_incendio ?? 0;
     const cf = d.classificacao_furto || 'BAIXO', ci = d.classificacao_incendio || 'BAIXO';
-    $('kpiFurto').textContent = sf; $('kpiIncendio').textContent = si;
+    if(animarAgora('kpiScores')){ contar($('kpiFurto'), sf); contar($('kpiIncendio'), si); }
+    else { $('kpiFurto').textContent = sf; $('kpiIncendio').textContent = si; }
     const pilula = (el, c) => { const cor=corRisco(c); el.textContent=c; el.style.background=cor+'14'; el.style.color=cor; el.style.borderColor=cor+'33'; };
     pilula($('kpiFurtoPill'), cf); pilula($('kpiIncendioPill'), ci);
     variacao($('kpiFurtoSub'), sf, d.anterior?.score_furto, `${periodo} dias`, 'Capô, tanque, vibração e crachá', true);
@@ -1169,6 +1187,12 @@ async function carregarRisco(novo){
     $('pontosIncendio').textContent = txtPontos(pontos.incendio, si);
     detalhamentoRisco($('detFurto'), d.detalhamento, 'furto');
     detalhamentoRisco($('detIncendio'), d.detalhamento, 'incendio');
+    if(animarAgora('medidores')) ['gaugeFurto','gaugeIncendio','detFurto','detIncendio'].forEach(id => {
+      const g = $(id);
+      desenharTraco(g.querySelectorAll('.arco-valor'), 1000);
+      g.querySelectorAll('.num-gauge').forEach(n => contar(n, n.textContent, 1000));
+      crescer(g.querySelectorAll('.barra-h'), 'X', {atraso: 60});
+    });
     $('riscoResumo').textContent = d.resumo || '';
     $('justFurto').textContent = d.justificativa_furto || '';
     $('justIncendio').textContent = d.justificativa_incendio || '';
@@ -1283,7 +1307,7 @@ async function carregarEventos(){
     const evs = todos.filter(e => !e.criado_em || new Date(e.criado_em).getTime() >= corte);
     variacao($('kpiAlertasSub'), evs.length, todos.length - evs.length, `${periodo} dias`, 'Eventos registrados no período', false);
     eventosPeriodo = evs;
-    $('kpiAlertas').textContent = evs.length;
+    if(animarAgora('kpiAlertas')) contar($('kpiAlertas'), evs.length); else $('kpiAlertas').textContent = evs.length;
     renderizarGraficosEventos(evs);
     renderizarFeed();
   }catch(e){ if(e.obsoleto) return;
@@ -1340,6 +1364,11 @@ async function carregarInicio(){
       + (emAlto ? ` · ${emAlto} com risco alto` : '');
     renderLista('listaInicio', '<div class="contents" data-render></div>' + cards
       + '<div data-sem-resultado hidden class="col-span-full text-sm text-on-surface-variant italic py-6">Nenhuma fazenda encontrada para essa busca.</div>');
+    if(animarAgora('inicio')){
+      const cs = $('listaInicio').querySelectorAll('.fazenda-card');
+      fade(cs, {atraso: 55, sobe: 8, dur: 380});
+      cs.forEach(c => c.querySelectorAll('dd').forEach(dd => { const v = dd.textContent.trim(); if(/^\d+$/.test(v)) contar(dd, v, 700); }));
+    }
   }catch(e){ if(e.obsoleto) return; $('listaInicio').innerHTML = erroLista('Fazendas indisponíveis.'); }
 }
 function abrirFazendaDoInicio(id){
@@ -1455,6 +1484,57 @@ $('feedFiltros').addEventListener('click', ev => {
 // Paleta validada (dataviz/validate_palette): Furto azul, Incendio vermelho Sompo;
 // temperatura: max vermelho, media laranja, ambiente azul.
 let periodo = 7;
+// ===== Animacoes de entrada =====
+// Tocam UMA vez por "entrada" (abrir a tela, trocar maquina, fazenda ou periodo); o
+// auto-refresh de 5 s e a troca de tema nunca repetem. So transform e opacity (GPU),
+// curva de saida forte; "reduzir movimento" do sistema deixa apenas o fade.
+const MENOS_MOVIMENTO = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const EASE_SAIDA = 'cubic-bezier(0.23, 1, 0.32, 1)';
+let animados = new Set();
+const novaEntrada = () => { animados = new Set(); };
+function animarAgora(chave){ if(animados.has(chave)) return false; animados.add(chave); return true; }
+function contar(el, alvo, dur = 700){
+  if(!el) return;
+  const fim = Number(String(alvo).replace(/\./g, ''));
+  cancelAnimationFrame(el._contar);
+  if(MENOS_MOVIMENTO || !isFinite(fim)){ el.textContent = alvo; return; }
+  const t0 = performance.now();
+  const passo = agora => {
+    const p = Math.min(1, (agora - t0) / dur), e = 1 - Math.pow(1 - p, 4);   // ease-out quart
+    el.textContent = Math.round(fim * e).toLocaleString('pt-BR');
+    if(p < 1) el._contar = requestAnimationFrame(passo); else el.textContent = alvo;   // termina no valor exato
+  };
+  el._contar = requestAnimationFrame(passo);
+}
+function fade(els, {dur = 320, atraso = 0, sobe = 0} = {}){
+  [...els].forEach((el, i) => el.animate(
+    [{opacity: 0, transform: `translateY(${MENOS_MOVIMENTO ? 0 : sobe}px)`}, {opacity: 1, transform: 'translateY(0)'}],
+    {duration: dur, delay: Math.min(i * atraso, 400), easing: EASE_SAIDA, fill: 'backwards'}));
+}
+function crescer(els, eixo = 'Y', {dur = 560, atraso = 16} = {}){
+  if(MENOS_MOVIMENTO) return fade(els);
+  [...els].forEach((el, i) => el.animate([{transform: `scale${eixo}(0)`}, {transform: `scale${eixo}(1)`}],
+    {duration: dur, delay: Math.min(i * atraso, 360), easing: EASE_SAIDA, fill: 'backwards'}));
+}
+function desenharTraco(paths, dur = 900){
+  [...paths].forEach(p => {
+    if(!p) return;
+    if(MENOS_MOVIMENTO || p.hasAttribute('stroke-dasharray')) return fade([p], {dur: 500});   // tracejada: so fade
+    const L = p.getTotalLength ? p.getTotalLength() : 0; if(!L) return;
+    p.animate([{strokeDasharray: `${L}`, strokeDashoffset: `${L}`}, {strokeDasharray: `${L}`, strokeDashoffset: '0'}],
+      {duration: dur, easing: EASE_SAIDA});
+  });
+}
+function revelar(el, dur = 750){   // da esquerda para a direita
+  if(!el) return;
+  if(MENOS_MOVIMENTO) return fade([el]);
+  el.animate([{clipPath: 'inset(0 100% 0 0)'}, {clipPath: 'inset(0 0 0 0)'}], {duration: dur, easing: EASE_SAIDA});
+}
+// Mira/ponto deslizam entre leituras; a 1a posicao e instantanea (nao varre desde a borda).
+function mover(el, x, y, instantaneo){
+  el.style.transition = instantaneo || MENOS_MOVIMENTO ? 'none' : `transform 90ms ${EASE_SAIDA}`;
+  el.style.transform = `translate(${x}px, ${y}px)`;
+}
 // "↑ +40 pts vs. 7 dias anteriores": subir risco e ruim (vermelho), descer e bom (verde).
 function variacao(el, atual, anterior, rotuloPeriodo, padrao, emPontos){
   if(anterior == null || atual == null || isNaN(atual)){ el.textContent = padrao; el.className = 'text-sm text-on-surface-variant mt-1'; return; }
@@ -1512,14 +1592,15 @@ function tipMostrar(ev, titulo, linhas){
     const b = document.createElement('b'); b.textContent = val;
     l.append(k, b); t.appendChild(l);
   });
-  t.hidden = false;
+  if(t.hidden){ t.hidden = false; void t.offsetWidth; }   // reflow: o fade parte do estado invisivel
+  t.classList.add('visivel');
   const r = t.getBoundingClientRect();
   let x = ev.clientX + 14, y = ev.clientY + 14;
   if(x + r.width > innerWidth - 8) x = ev.clientX - r.width - 14;
   if(y + r.height > innerHeight - 8) y = ev.clientY - r.height - 14;
   t.style.left = x + 'px'; t.style.top = y + 'px';
 }
-const tipEsconder = () => { $('vizTip').hidden = true; };
+const tipEsconder = () => { $('vizTip').classList.remove('visivel'); };
 function ligarHover(cont, fn){
   cont.querySelectorAll('[data-i]').forEach(el => {
     el.addEventListener('pointermove', ev => fn(ev, +el.dataset.i, el));
@@ -1567,7 +1648,7 @@ function renderizarGraficosEventos(evs){
       const hF = (f[i]/top)*ih, hI = (inc[i]/top)*ih;
       const yF = MT + ih - hF;
       const apaga = filtroDia && d !== filtroDia ? ' opacity="0.3"' : '';
-      barras += `<g${apaga}><path d="${coluna(x, yF, bw, hF, !inc[i])}" fill="${COR.furto}"/>`;
+      barras += `<g class="coluna"${apaga}><path d="${coluna(x, yF, bw, hF, !inc[i])}" fill="${COR.furto}"/>`;
       if(inc[i]){ const gap = f[i] ? GAP : 0; barras += `<path d="${coluna(x, yF - gap - hI, bw, hI, true)}" fill="${COR.incendio}"/>`; }
       barras += '</g>';
       const sel = d === filtroDia;
@@ -1578,6 +1659,7 @@ function renderizarGraficosEventos(evs){
         rot += `<text x="${(x+bw/2).toFixed(1)}" y="${H-8}" text-anchor="middle" font-size="10" style="fill:${TXT_MUDO}">${fmtDia(d)}</text>`;
     });
     cA.innerHTML = `<svg viewBox="0 0 ${W} ${H}" class="w-full" role="img" aria-label="Alertas por dia, furto e incêndio">${g}${barras}${rot}${hits}</svg>`;
+    if(animarAgora('atividade')) crescer(cA.querySelectorAll('.coluna'));
     ligarHover(cA, (ev, i) => { if(ev) tipMostrar(ev, fmtDia(dias[i]) + (dias[i] === filtroDia ? ' · clique para remover' : ' · clique para filtrar'), [[COR.furto,'Furto',f[i]],[COR.incendio,'Incêndio',inc[i]]]); });
     const alternarDia = i => { tipEsconder(); aplicarFiltroAlertas(dias[i] === filtroDia ? null : dias[i], filtroTipo); $('graficoAtividade').querySelector(`[data-i="${i}"]`)?.focus(); };
     cA.querySelectorAll('[data-i]').forEach(el => {
@@ -1609,11 +1691,12 @@ function renderizarGraficosEventos(evs){
       const val = document.createElement('span'); val.className = 'font-semibold text-on-surface tabular'; val.textContent = n;
       topo.append(nome, val);
       const trilho = document.createElement('div'); trilho.className = 'h-2 rounded-r bg-surface-container';
-      const barra = document.createElement('div'); barra.className = 'h-2'; barra.style.borderRadius = '0 4px 4px 0';
+      const barra = document.createElement('div'); barra.className = 'h-2 barra-h'; barra.style.borderRadius = '0 4px 4px 0';
       barra.style.width = Math.max(2, n/mx*100) + '%'; barra.style.background = cor;
       trilho.appendChild(barra); linha.append(topo, trilho); return linha;
     }));
   }
+  if(animarAgora('tipos')) crescer(cT.querySelectorAll('.barra-h'), 'X', {atraso: 45});
   cT.querySelectorAll('[data-tipo]').forEach(b => b.addEventListener('click', () =>
     aplicarFiltroAlertas(filtroDia, b.dataset.tipo === filtroTipo ? null : b.dataset.tipo)));
   const txt = `últimos ${periodo} dias`;
@@ -1676,11 +1759,12 @@ async function carregarTempDia(){
     });
     const mira = `<line id="miraTemp" x1="0" x2="0" y1="${MT}" y2="${MT+ih}" style="stroke:var(--v-texto3)" stroke-width="1" visibility="hidden"/>`;
     c.innerHTML = `<svg viewBox="0 0 ${W} ${H}" class="w-full" role="img" aria-label="Temperatura diária: escape máxima, escape média e ambiente">${g}${mira}${linhas}${pontos}${rot}${hits}</svg>`;
+    if(animarAgora('tempdia')){ desenharTraco(c.querySelectorAll('svg path[stroke]')); fade(c.querySelectorAll('svg circle'), {dur: 300, atraso: 30}); }
     const fmtT = v => typeof v === 'number' ? v.toFixed(1).replace('.', ',') + ' °C' : '–';
     ligarHover(c, (ev, i) => {
       const m = c.querySelector('#miraTemp');
       if(!ev){ m.setAttribute('visibility','hidden'); return; }
-      m.setAttribute('x1', X(i)); m.setAttribute('x2', X(i)); m.setAttribute('visibility','visible');
+      mover(m, X(i), 0, m.getAttribute('visibility') === 'hidden'); m.setAttribute('visibility','visible');
       tipMostrar(ev, fmtDia(rows[i].dia) + ` · ${rows[i].amostras ?? '–'} leituras`, series.map(([k,rot,fn]) => [COR[k], rot, fmtT(fn(rows[i]))]));
     });
   }catch(e){ if(e.obsoleto) return;
@@ -1691,6 +1775,7 @@ async function carregarTempDia(){
 
 document.querySelectorAll('[data-periodo]').forEach(b => b.addEventListener('click', () => {
   periodo = +b.dataset.periodo;
+  novaEntrada();
   filtroDia = null;   // o dia escolhido pode nao existir no novo periodo
   document.querySelectorAll('[data-periodo]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
   carregarTudo();
@@ -1774,12 +1859,14 @@ function renderizarGraficoLeituras(forcar){
   </svg>`;
 
   const svg = c.querySelector('svg'), mira = svg.querySelector('#leitMira');
+  if(animarAgora('leituras')){ desenharTraco([svg.querySelector('path[fill="none"]')]); fade([svg.querySelector('path[fill^="url"]')], {dur: 700}); }
   let atual = null;
   const mostrar = (i, ev) => {
     atual = i;
     const p = P[i], r = pts[i].r;
-    mira.querySelector('line').setAttribute('x1', p.x); mira.querySelector('line').setAttribute('x2', p.x);
-    mira.querySelector('circle').setAttribute('cx', p.x); mira.querySelector('circle').setAttribute('cy', p.y);
+    const primeira = mira.getAttribute('visibility') === 'hidden';
+    mover(mira.querySelector('line'), p.x, 0, primeira);
+    mover(mira.querySelector('circle'), p.x, p.y, primeira);
     mira.setAttribute('visibility', 'visible');
     const b = svg.getBoundingClientRect();
     const pos = ev || {clientX: b.left + p.x/W*b.width, clientY: b.top + p.y/H*b.height};
@@ -1810,6 +1897,7 @@ function renderizarGraficoLeituras(forcar){
 }
 document.querySelectorAll('[data-metrica]').forEach(b => b.addEventListener('click', () => {
   metricaLeituras = b.dataset.metrica;
+  animados.delete('leituras');   // trocar a metrica e uma nova entrada deste grafico
   document.querySelectorAll('[data-metrica]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
   renderizarGraficoLeituras(true);
 }));
@@ -1842,6 +1930,7 @@ function renderizarStatusAgora(){
     celula('Última comunicação', `${PONTO(corCom)}<span class="truncate">${fmtRelativo(t.criado_em)}</span>`, fmtHora(t.criado_em) + (idade > 30 ? ' · sem sinal recente' : '')) +
     celula('Operador', `<span class="truncate">${escapar(t.operador_nome || (t.operador_autorizado === false ? 'Sem crachá' : 'Não identificado'))}</span>`, t.uid ? `Crachá ${escapar(t.uid)}` : '') +
     celula('Sensores em alerta', sensores.length ? sensores.map(n => selo(n, '#ba1a1a')).join(' ') : `${PONTO('#10b981')}Nenhum`, sensores.length ? 'na última leitura' : 'capô, tanque e chama normais');
+  if(animarAgora('statusAgora')) fade(el.children, {atraso: 45, sobe: 4});
 }
 
 function renderizarSaude(){
@@ -1875,6 +1964,7 @@ function renderizarSaude(){
   const pior = Math.max(...itens.map(i => i[2]));
   $('saudeSelo').innerHTML = selo(pior >= 2 ? 'Problema' : pior === 1 ? 'Atenção' : 'Saudável', COR_NIVEL[Math.max(0, pior)]);
   $('saudeSub').textContent = `Nas últimas ${rows.length} leituras recebidas`;
+  if(animarAgora('saude')) fade(el.children, {atraso: 35, sobe: 4});
 }
 
 function renderizarFrota(){
@@ -1901,6 +1991,7 @@ function renderizarFrota(){
         </div>`; }).join('')}</div></div>`;
   };
   el.innerHTML = bloco('Risco máximo (0 a 100)', 'risco', '') + bloco('Alertas', 'alertas', '');
+  if(animarAgora('frota')) crescer(el.querySelectorAll('.frota-barra'), 'X', {atraso: 50});
 }
 
 let linhaTempoDados = null;
@@ -1975,6 +2066,7 @@ function desenharLinhaTempo(){
   }
   const hits = D.faixas.map((f, i) => `<rect class="viz-hit" data-i="${i}" x="${(ML + i * fw).toFixed(2)}" y="${TRILHAS[0][1] - 4}" width="${fw.toFixed(2)}" height="${TRILHAS[3][1] + AT + 8 - TRILHAS[0][1]}"/>`).join('');
   c.innerHTML = `<svg viewBox="0 0 ${W} ${H}" class="w-full" role="img" aria-label="Linha do tempo das 24 horas até a última leitura: motor, risco, sessões de crachá e alertas">${g}${hits}</svg>`;
+  if(animarAgora('linhaTempo')) revelar(c.querySelector('svg'));
   ligarHover(c, (ev, i) => {
     if(!ev) return;
     const f = D.faixas[i], a = ini + i * passo, b = a + passo;
