@@ -3,9 +3,30 @@
 A entrada sai de scale(0.96) + opacidade 0; a saida e mais curta e nao pode deixar o
 pop-up preso na tela. Com "menos movimento" no sistema, so um fade (sem transform).
 """
+import os
+from pathlib import Path
 import re
+import shutil
+
+import pytest
 
 from tests.test_painel import painel, pw, nav, captura  # noqa: F401
+
+
+@pytest.fixture(autouse=True)
+def _navegador_animacoes(monkeypatch, request):
+    # Autouse roda antes de painel; monkeypatch restaura o ambiente apos cada teste.
+    if os.getenv('SOMPO_TEST_BROWSER'):
+        return
+    if Path(r'C:\Program Files\Google\Chrome\Application\chrome.exe').is_file() or shutil.which('chrome'):
+        monkeypatch.setenv('SOMPO_TEST_BROWSER', 'chrome')
+    elif request.node.originalname in (
+        'test_popups_entram_com_escala_e_fade',
+        'test_fechar_por_esc_fundo_botao_e_codigo',
+        'test_menos_movimento_so_fade',
+    ):
+        pytest.skip('headless shell nao avanca transicao de saida de dialog; rode com Chrome')
+
 
 # Abre o pop-up e le o primeiro quadro no mesmo tique (antes de a transicao andar).
 PRIMEIRO_QUADRO = """([abrir, alvo]) => {
@@ -65,8 +86,10 @@ def test_popups_entram_com_escala_e_fade(painel):
         assert 0.95 <= _escala(q['transform']) < 1, (nome, q)       # parte de ~0.96, nunca de 0
         assert any(p.endswith(':opacity') for p in q['fundo']), (nome, q)   # o fundo escuro vem em fade
         assert any(float(d.rstrip('s')) > 0 for d in q['duracao'].split(',')), (nome, q)
-        page.wait_for_timeout(400)
-        assert page.evaluate(f"getComputedStyle(document.querySelector('{POPUPS[nome][1]}')).transform") in ('none', 'matrix(1, 0, 0, 1, 0, 0)')
+        page.wait_for_function("""alvo => {
+          const transform = getComputedStyle(document.querySelector(alvo)).transform;
+          return transform === 'none' || transform === 'matrix(1, 0, 0, 1, 0, 0)';
+        }""", arg=POPUPS[nome][1], timeout=1000)
         captura(page, f'popup-{nome}-aberto')
         _fechar(page, nome, 'codigo')
         page.wait_for_timeout(400)
