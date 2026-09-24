@@ -52,8 +52,10 @@
     select:open::picker-icon{ rotate:180deg; }
     /* os dois selects do header já têm a seta desenhada no markup */
     #fazendaSel::picker-icon, #equipamentoSel::picker-icon{ display:none; }
-    select:open + .sel-seta{ rotate:180deg; }
-    .sel-seta{ transition:rotate .2s ease; }
+    /* Gira pelo --tw-rotate do proprio transform do Tailwind: a propriedade 'rotate'
+       roda ANTES do translate(-50%) e jogava a seta para baixo da caixa. */
+    select:open + .sel-seta{ --tw-rotate:180deg; }
+    .sel-seta{ transition:transform .2s ease; }
     ::picker(select){
       margin-top:6px; padding:6px; border:1px solid #e9bcb5; border-radius:12px;
       background:#fff; color:#2a1613; box-shadow:0 12px 32px rgba(42,22,19,.12);
