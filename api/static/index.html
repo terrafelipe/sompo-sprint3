@@ -1464,12 +1464,69 @@ function verEvidencias(tipo){
   irPara('secAlertas');
 }
 
+// Texto da IA fora do caminho critico: o refresh de 5 s pede /relatorio/risco?ia=0 (so o calculo,
+// ~1 s) e a explicacao da IA (dezenas de segundos) vem a parte, uma vez por (maquina, periodo)
+// e a cada "Gerar de novo".
+const iaRisco = {chave: '', seq: 0, dados: null, pronto: false};
+let riscoTemplate = null;   // ultima resposta ia=0: texto de template enquanto a IA nao chega (ou se falhar)
+const chaveRisco = () => `${seletorEquipamento()}&dias=${periodo}`;
+async function pedirAnaliseIA(novo){
+  const chave = chaveRisco(), seq = ++iaRisco.seq;
+  Object.assign(iaRisco, {chave, dados: null, pronto: false});
+  textoRisco();
+  try{
+    const d = await getJSON(`/relatorio/risco?${chave}${novo ? '&novo=1' : ''}`, {tempoLimite: 60000});
+    if(seq !== iaRisco.seq || chave !== chaveRisco()) return;   // outra maquina/periodo ou pedido mais novo
+    iaRisco.dados = d;
+  }catch(e){
+    if(seq !== iaRisco.seq) return;
+    if(e.obsoleto){ iaRisco.chave = ''; return; }   // trocou de maquina no meio: pede de novo na proxima carga
+    // Falha da IA: fica o texto de template, sem "indisponivel".
+  }
+  iaRisco.pronto = true;
+  textoRisco();
+}
+// Resumo, justificativas, recomendacoes e nota de origem; nunca toca nos medidores.
+function textoRisco(){
+  const chave = chaveRisco();
+  const daIA = iaRisco.chave === chave ? iaRisco.dados : null;
+  const d = daIA || (riscoTemplate?.chave === chave ? riscoTemplate : null);
+  if(!d) return;
+  const esperando = !daIA && iaRisco.chave === chave && !iaRisco.pronto;
+  if(!mudou('riscoTexto', JSON.stringify([chave, esperando, !!daIA, d.origem_da_analise, d.resumo, d.justificativa_furto,
+    d.justificativa_incendio, d.recomendacoes, d.limitacoes, d.complementado_pelo_sistema, daIA ? d.gerado_em : '']))) return;
+  $('riscoResumo').textContent = esperando ? 'Gerando explicação da IA…' : (d.resumo || '');
+  $('justFurto').textContent = d.justificativa_furto || '';
+  $('justIncendio').textContent = d.justificativa_incendio || '';
+  const recs = d.recomendacoes || [];
+  $('recs').replaceChildren(...(recs.length ? recs : ['Sem recomendações para o período.']).map((r, i) => {
+    const li = document.createElement('li'); li.className = 'flex gap-3 items-start';
+    const n = document.createElement('span'); n.className = 'w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-semibold grid place-items-center shrink-0';
+    n.textContent = recs.length ? i + 1 : '–';
+    const t = document.createElement('span'); t.className = 'text-[13px] leading-relaxed text-on-surface pt-0.5'; t.textContent = r;
+    li.append(n, t); return li;
+  }));
+  $('lim').textContent = d.limitacoes || '';
+  const org = esperando ? '' : d.origem_da_analise || '';
+  const meta = {llm:['IA · Gemini','#10b981'], prompt_apenas:['sem IA · texto padrão','#545f73'], fallback:['IA indisponível · texto padrão','#f59e0b']}[org];
+  $('origemBadge').innerHTML = meta ? `<span class="kpi-pill" style="background:${meta[1]}14;color:${meta[1]};border-color:${meta[1]}33">${meta[0]}</span>` : '';
+  $('riscoGerado').textContent = daIA && d.gerado_em ? 'Gerada às ' + new Date(d.gerado_em).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}) : '';
+  const comp = daIA ? d.complementado_pelo_sistema || [] : [];
+  const aviso = $('riscoComplemento');
+  aviso.hidden = !comp.length;
+  aviso.lastElementChild.textContent = 'Parte do texto foi completada pelo sistema porque a IA não preencheu todos os campos.';
+}
+
 async function carregarRisco(novo){
   if(!$('riscoResumo').textContent) $('riscoResumo').textContent = 'Carregando análise…';
   try{
-    const per = periodo;
-    const d = await getJSON(`/relatorio/risco?${seletorEquipamento()}&dias=${per}${novo ? '&novo=1' : ''}`);
+    const per = periodo, chave = chaveRisco();
+    const d = await getJSON(`/relatorio/risco?${chave}&ia=0`);
     if(per !== periodo) return;   // periodo mudou durante a carga: a resposta e de outra janela
+    riscoTemplate = {...d, chave};
+    // A IA e pedida sem esperar: os medidores nao dependem dela.
+    if(novo || iaRisco.chave !== chave) pedirAnaliseIA(novo);
+    textoRisco();
     const sf = d.score_furto ?? 0, si = d.score_incendio ?? 0;
     const cf = d.classificacao_furto || 'BAIXO', ci = d.classificacao_incendio || 'BAIXO';
     if(animarAgora('kpiScores')){ contarAoAparecer($('kpiFurto'), sf); contarAoAparecer($('kpiIncendio'), si); }
@@ -1481,7 +1538,8 @@ async function carregarRisco(novo){
     $('riscoSub').textContent = `Scores dos últimos ${periodo} dias, calculados pelo sistema e explicados pela IA`
       + (periodo > 7 ? ' · em janelas longas o score tende ao teto de 100; os pontos acumulados mostram o tamanho real' : '');
     // Auto-refresh a cada 5s: so redesenha quando a analise muda.
-    if(!novo && !mudou('risco', `${periodo}|${sf}|${si}|${d.gerado_em}|${d.origem_da_analise}`) && $('gaugeFurto').firstChild) return;
+    // Assinatura so com o que afeta medidores e detalhamento (o texto da IA nao redesenha nada aqui).
+    if(!novo && !mudou('risco', JSON.stringify([periodo, sf, si, cf, ci, d.faixas, d.pontos_acumulados, d.detalhamento])) && $('gaugeFurto').firstChild) return;
 
     $('scoreFurto').textContent = sf; $('scoreIncendio').textContent = si;
     pilula($('classifFurto'), cf); pilula($('classifIncendio'), ci);
@@ -1497,32 +1555,12 @@ async function carregarRisco(novo){
       const g = $(id);
       entrar(g, () => crescer(g.querySelectorAll('.barra-h'), 'X', {atraso: 60}));
     });
-    $('riscoResumo').textContent = d.resumo || '';
-    $('justFurto').textContent = d.justificativa_furto || '';
-    $('justIncendio').textContent = d.justificativa_incendio || '';
-    const recs = d.recomendacoes || [];
-    $('recs').replaceChildren(...(recs.length ? recs : ['Sem recomendações para o período.']).map((r, i) => {
-      const li = document.createElement('li'); li.className = 'flex gap-3 items-start';
-      const n = document.createElement('span'); n.className = 'w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-semibold grid place-items-center shrink-0';
-      n.textContent = recs.length ? i + 1 : '–';
-      const t = document.createElement('span'); t.className = 'text-[13px] leading-relaxed text-on-surface pt-0.5'; t.textContent = r;
-      li.append(n, t); return li;
-    }));
-    $('lim').textContent = d.limitacoes || '';
-    const org = d.origem_da_analise || '';
-    const meta = {llm:['IA · Gemini','#10b981'], prompt_apenas:['sem IA · texto padrão','#545f73'], fallback:['IA indisponível · texto padrão','#f59e0b']}[org];
-    $('origemBadge').innerHTML = meta ? `<span class="kpi-pill" style="background:${meta[1]}14;color:${meta[1]};border-color:${meta[1]}33">${meta[0]}</span>` : '';
-    $('riscoGerado').textContent = d.gerado_em ? 'Gerada às ' + new Date(d.gerado_em).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}) : '';
-    const comp = d.complementado_pelo_sistema || [];
-    const aviso = $('riscoComplemento');
-    aviso.hidden = !comp.length;
-    aviso.lastElementChild.textContent = 'Parte do texto foi completada pelo sistema porque a IA não preencheu todos os campos.';
   }catch(e){ if(e.obsoleto) return;
     ['scoreFurto','scoreIncendio','kpiFurto','kpiIncendio','classifFurto','classifIncendio'].forEach(id=>$(id).textContent='–');
     ['gaugeFurto','gaugeIncendio','detFurto','detIncendio','pontosFurto','pontosIncendio','justIncendio','recs','lim','origemBadge','riscoGerado','kpiFurtoPill','kpiIncendioPill'].forEach(id=>$(id).innerHTML='');
     $('riscoResumo').textContent = '';
     $('justFurto').innerHTML = erroLista('Relatório indisponível.');
-    assinaturas.delete('risco');
+    assinaturas.delete('risco'); assinaturas.delete('riscoTexto');
   }
 }
 
@@ -1530,7 +1568,7 @@ $('btnRegerar').addEventListener('click', async () => {
   if(!equipamentoSelecionado) return;
   const b = $('btnRegerar'); b.disabled = true;
   $('iconRegerar').classList.add('animate-spin'); $('txtRegerar').textContent = 'Gerando…';
-  try{ await carregarRisco(true); }
+  try{ await pedirAnaliseIA(true); }
   finally{ b.disabled = false; $('iconRegerar').classList.remove('animate-spin'); $('txtRegerar').textContent = 'Gerar de novo'; }
 });
 ['detFurto','detIncendio'].forEach(id => $(id).addEventListener('click', ev => {

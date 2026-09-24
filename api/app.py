@@ -395,8 +395,10 @@ def relatorio_risco():
         eventos, anteriores = _separar_periodo(todos, dias)
         # novo=1: botao "Gerar de novo" da tela -> ignora o cache da IA.
         novo = request.args.get('novo', '').lower() in {'1', 'true'}
+        # ia=0: refresh de 5 s do painel -> medidores sem esperar o LLM (texto de template).
+        usar_ia = request.args.get('ia', '').lower() not in {'0', 'false'}
         resultado = montar_relatorio_risco(dispositivo, dias, resumo_por_dia, eventos,
-                                           contexto=frota.contexto(), forcar=novo)
+                                           contexto=frota.contexto(), forcar=novo, usar_ia=usar_ia)
         ant = calcular_scores(dispositivo, dias, anteriores)
         resultado['anterior'] = {'score_furto': ant['score_furto'], 'score_incendio': ant['score_incendio'],
                                  'eventos': ant['eventos_considerados']}
