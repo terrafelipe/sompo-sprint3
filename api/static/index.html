@@ -45,6 +45,18 @@
   .viz-carregando{opacity:.55;transition:opacity .2s}
   .viz-hit{fill:transparent;cursor:crosshair}
   .viz-hit:hover{fill:rgba(9,9,11,.04)}
+  .viz-hit[data-i]{cursor:pointer}
+  .viz-hit:focus{outline:none}
+  .viz-hit:focus-visible{stroke:#b70100;stroke-width:1.5}
+  .viz-hit.viz-sel{fill:rgba(183,1,0,.06)}
+  .tipo-btn{display:block;width:100%;text-align:left;border-radius:.375rem;margin:0 -.375rem;padding:.25rem .375rem;width:calc(100% + .75rem);transition:background .15s,opacity .15s}
+  .tipo-btn:hover{background:#fafafa}
+  .tipo-btn[aria-pressed="true"]{background:rgba(183,1,0,.05)}
+  .tipo-btn:focus-visible{outline:2px solid rgba(183,1,0,.35);outline-offset:1px}
+  .viz-apagado{opacity:.4}
+  .chip-filtro{display:inline-flex;align-items:center;gap:.25rem;height:1.625rem;padding:0 .375rem 0 .5rem;border-radius:.375rem;border:1px solid #e4e4e7;background:#fff;font-size:12px;font-weight:500;color:#09090b}
+  .chip-filtro:hover{background:#f4f4f5}
+  .chip-filtro .material-symbols-outlined{font-size:15px;color:#71717a}
   /* Sidebar recolhivel (botao no topo). */
   .sb-off #sidebar{display:none!important}
   @media (min-width:1024px){ .sb-off #conteudo{padding-left:0!important} }
@@ -355,6 +367,7 @@
           <div><h2 class="text-base font-semibold text-on-surface">Feed de Alertas</h2><p id="feedSub" class="text-sm text-on-surface-variant">Eventos dos últimos 7 dias</p></div>
           <span id="alertasBadge" class="bg-primary text-on-primary text-[11px] font-semibold px-2 py-0.5 rounded-md tabular">0</span>
         </div>
+        <div id="feedFiltros" class="flex flex-wrap items-center gap-1.5 px-5 empty:hidden"></div>
         <div id="eventos" class="p-3 flex-1 overflow-y-auto max-h-[420px] space-y-1"></div>
       </section>
 
@@ -736,6 +749,7 @@ function limparMaquina(){
   ['kpiFurtoPill','kpiIncendioPill'].forEach(id => $(id).textContent = '');
   ['graficoAtividade','graficoTipos','graficoTempDia'].forEach(id => $(id).innerHTML = '');
   leiturasCache = []; $('leiturasResumo').textContent = ''; assinaturas.clear();
+  eventosPeriodo = []; filtroDia = null; filtroTipo = null; $('feedFiltros').replaceChildren();
   ['totFurto','totIncendio'].forEach(id => $(id).textContent = '–');
   $('cardRisco').dataset.risco = 'seguro';
   $('equipamentoSel').value = '';
@@ -924,34 +938,79 @@ async function carregarEventos(){
     ['graficoAtividade','graficoTipos'].forEach(id => $(id).classList.add('viz-carregando'));
     const d = await getJSON(`/eventos?${seletorEquipamento()}&dias=${periodo}`);
     const evs = d.dados || [];
-    renderizarGraficosEventos(evs);
-    $('alertasBadge').textContent = evs.length;
+    eventosPeriodo = evs;
     $('kpiAlertas').textContent = evs.length;
-    if(!evs.length){ $('eventos').innerHTML = '<div class="text-on-surface-variant italic text-sm p-3">Nenhum evento no período. 🎉</div>'; return; }
-    const icone = t => { t=String(t||'').toLowerCase(); if(t.includes('chama')||t.includes('escape')||t.includes('incend'))return 'local_fire_department'; if(t.includes('movimento')||t.includes('furto'))return 'directions_run'; if(t.includes('autoriz')||t.includes('operador'))return 'badge'; return 'warning'; };
-    eventosCache = evs.slice(0,20);
-    $('eventos').innerHTML = eventosCache.map((e,i)=>{
-      const s = e.severidade ?? 0, cor = sevCor(s);
-      return `<div data-ev="${i}" title="Ver detalhes" class="flex gap-3 p-3 rounded-lg hover:bg-surface-container-low/60 transition-colors cursor-pointer">
-        <div class="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style="background:${cor}1a">
-          <span class="material-symbols-outlined text-[18px]" style="color:${cor}">${icone(e.tipo)}</span>
-        </div>
-        <div class="flex-1 min-w-0">
-          <div class="flex justify-between items-start gap-2">
-            <span class="font-medium text-[13px] text-on-surface truncate">${TITULO_TIPO[e.tipo] || e.tipo || 'evento'}</span>
-            <span class="text-[11px] text-on-surface-variant whitespace-nowrap">${fmtHora(e.criado_em)}</span>
-          </div>
-          <span class="text-[11px] font-medium px-1.5 py-0.5 rounded-md border mt-1 inline-block" style="border-color:${cor}40;color:${cor}">Severidade ${s}</span>
-        </div>
-      </div>`;
-    }).join('');
+    renderizarGraficosEventos(evs);
+    renderizarFeed();
   }catch(e){ if(e.obsoleto) return;
-    eventosCache = [];
+    eventosCache = []; eventosPeriodo = [];
     $('alertasBadge').textContent = '–'; $('kpiAlertas').textContent = '–';
     $('eventos').innerHTML = erroLista('Eventos indisponíveis.');
     ['graficoAtividade','graficoTipos'].forEach(id => { $(id).classList.remove('viz-carregando'); $(id).innerHTML = erroLista('Gráfico indisponível.'); });
   }
 }
+
+/* ---------- Feed de alertas (respeita o filtro cruzado dia x tipo) ---------- */
+let eventosPeriodo = [];            // todos os eventos do periodo (graficos e feed partem daqui)
+let filtroDia = null, filtroTipo = null;
+const iconeEvento = t => { t=String(t||'').toLowerCase(); if(t.includes('chama')||t.includes('escape')||t.includes('incend'))return 'local_fire_department'; if(t.includes('movimento')||t.includes('furto'))return 'directions_run'; if(t.includes('autoriz')||t.includes('operador'))return 'badge'; return 'warning'; };
+const nomeTipo = t => TITULO_TIPO[t] || t || 'evento';
+
+function renderizarFeed(){
+  let evs = eventosPeriodo;
+  if(filtroDia) evs = evs.filter(e => diaLocal(e.criado_em) === filtroDia);
+  if(filtroTipo) evs = evs.filter(e => e.tipo === filtroTipo);
+  $('alertasBadge').textContent = evs.length;
+
+  // etiquetas dos filtros ativos (conteudo via textContent)
+  const chips = [];
+  const chip = (texto, alvo) => {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'chip-filtro'; b.dataset.limpar = alvo;
+    b.title = 'Remover filtro'; b.append(document.createTextNode(texto));
+    const x = document.createElement('span'); x.className = 'material-symbols-outlined'; x.textContent = 'close'; x.setAttribute('aria-hidden','true');
+    b.appendChild(x); return b;
+  };
+  if(filtroDia) chips.push(chip('Dia ' + fmtDia(filtroDia), 'dia'));
+  if(filtroTipo) chips.push(chip(nomeTipo(filtroTipo), 'tipo'));
+  if(filtroDia && filtroTipo){
+    const l = document.createElement('button'); l.type = 'button'; l.dataset.limpar = 'tudo';
+    l.className = 'text-xs font-medium text-primary hover:underline ml-1'; l.textContent = 'Limpar filtros'; chips.push(l);
+  }
+  $('feedFiltros').replaceChildren(...chips);
+
+  if(!evs.length){
+    eventosCache = [];
+    $('eventos').innerHTML = `<div class="text-on-surface-variant italic text-sm p-3">${filtroDia || filtroTipo ? 'Nenhum alerta com esses filtros.' : 'Nenhum evento no período. 🎉'}</div>`;
+    return;
+  }
+  eventosCache = evs.slice(0,20);
+  $('eventos').innerHTML = eventosCache.map((e,i)=>{
+    const sv = e.severidade ?? 0, cor = sevCor(sv);
+    return `<div data-ev="${i}" title="Ver detalhes" class="flex gap-3 p-3 rounded-lg hover:bg-surface-container-low/60 transition-colors cursor-pointer">
+      <div class="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style="background:${cor}1a">
+        <span class="material-symbols-outlined text-[18px]" style="color:${cor}">${iconeEvento(e.tipo)}</span>
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="flex justify-between items-start gap-2">
+          <span class="font-medium text-[13px] text-on-surface truncate">${escapar(nomeTipo(e.tipo))}</span>
+          <span class="text-[11px] text-on-surface-variant whitespace-nowrap">${fmtHora(e.criado_em)}</span>
+        </div>
+        <span class="text-[11px] font-medium px-1.5 py-0.5 rounded-md border mt-1 inline-block" style="border-color:${cor}40;color:${cor}">Severidade ${sv}</span>
+      </div>
+    </div>`;
+  }).join('') + (evs.length > 20 ? `<div class="text-xs text-on-surface-variant text-center py-2">Mostrando 20 de ${evs.length} alertas</div>` : '');
+}
+
+function aplicarFiltroAlertas(dia, tipo){
+  filtroDia = dia; filtroTipo = tipo;
+  renderizarGraficosEventos(eventosPeriodo);
+  renderizarFeed();
+}
+$('feedFiltros').addEventListener('click', ev => {
+  const b = ev.target.closest('[data-limpar]'); if(!b) return;
+  const alvo = b.dataset.limpar;
+  aplicarFiltroAlertas(alvo === 'dia' || alvo === 'tudo' ? null : filtroDia, alvo === 'tipo' || alvo === 'tudo' ? null : filtroTipo);
+});
 
 /* ---------- Graficos (SVG puro, estilo shadcn) ---------- */
 // Paleta validada (dataviz/validate_palette): Furto azul, Incendio vermelho Sompo;
@@ -1009,14 +1068,17 @@ function ligarHover(cont, fn){
 }
 
 function renderizarGraficosEventos(evs){
-  if(!mudou('eventos', `${periodo}|${evs.length}|${evs[0]?.id ?? ''}`) && $('graficoAtividade').firstChild){
+  if(!mudou('eventos', `${periodo}|${evs.length}|${evs[0]?.id ?? ''}|${filtroDia}|${filtroTipo}`) && $('graficoAtividade').firstChild){
     ['graficoAtividade','graficoTipos'].forEach(id => $(id).classList.remove('viz-carregando')); return;
   }
   tipEsconder();
   const dias = diasDoPeriodo(periodo), idx = new Map(dias.map((d,i)=>[d,i]));
   const f = dias.map(()=>0), inc = dias.map(()=>0), porTipo = new Map();
+  // Filtro cruzado: as colunas respeitam o tipo escolhido; o ranking de tipos, o dia escolhido.
+  evs.forEach(e => { if(!filtroDia || diaLocal(e.criado_em) === filtroDia) porTipo.set(e.tipo, (porTipo.get(e.tipo)||0) + 1); });
+  if(filtroTipo && !porTipo.has(filtroTipo)) porTipo.set(filtroTipo, 0);
   evs.forEach(e => {
-    porTipo.set(e.tipo, (porTipo.get(e.tipo)||0) + 1);
+    if(filtroTipo && e.tipo !== filtroTipo) return;
     const i = idx.get(diaLocal(e.criado_em)); if(i == null) return;
     const eixo = eixoDoTipo(e.tipo);
     if(eixo === 'furto') f[i]++; else if(eixo === 'incendio') inc[i]++;
@@ -1026,7 +1088,7 @@ function renderizarGraficosEventos(evs){
 
   // --- colunas empilhadas por dia
   const cA = $('graficoAtividade'); cA.classList.remove('viz-carregando');
-  if(!somaF && !somaI){ cA.innerHTML = '<div class="text-sm text-on-surface-variant italic py-10 text-center">Nenhum alerta no período.</div>'; }
+  if(!somaF && !somaI){ cA.innerHTML = `<div class="text-sm text-on-surface-variant italic py-10 text-center">${filtroTipo ? 'Nenhum alerta desse tipo no período.' : 'Nenhum alerta no período.'}</div>`; }
   else {
     const W=760, H=250, ML=34, MR=6, MT=10, MB=26, iw=W-ML-MR, ih=H-MT-MB;
     const {top, step} = escalaBonita(Math.max(...dias.map((_,i)=>f[i]+inc[i])));
@@ -1044,14 +1106,24 @@ function renderizarGraficosEventos(evs){
       const x = ML + band*i + (band-bw)/2;
       const hF = (f[i]/top)*ih, hI = (inc[i]/top)*ih;
       const yF = MT + ih - hF;
-      barras += `<path d="${coluna(x, yF, bw, hF, !inc[i])}" fill="${COR.furto}"/>`;
+      const apaga = filtroDia && d !== filtroDia ? ' opacity="0.3"' : '';
+      barras += `<g${apaga}><path d="${coluna(x, yF, bw, hF, !inc[i])}" fill="${COR.furto}"/>`;
       if(inc[i]){ const gap = f[i] ? GAP : 0; barras += `<path d="${coluna(x, yF - gap - hI, bw, hI, true)}" fill="${COR.incendio}"/>`; }
-      hits += `<rect class="viz-hit" data-i="${i}" x="${(ML+band*i).toFixed(1)}" y="${MT}" width="${band.toFixed(1)}" height="${ih}" rx="4"/>`;
+      barras += '</g>';
+      const sel = d === filtroDia;
+      hits += `<rect class="viz-hit${sel ? ' viz-sel' : ''}" data-i="${i}" tabindex="0" role="button" aria-pressed="${sel}"
+        aria-label="${fmtDia(d)}: ${f[i]} de furto, ${inc[i]} de incêndio. ${sel ? 'Remover filtro do dia' : 'Filtrar alertas deste dia'}"
+        x="${(ML+band*i).toFixed(1)}" y="${MT}" width="${band.toFixed(1)}" height="${ih}" rx="4"/>`;
       if(i % cada === 0 || i === dias.length-1 && (dias.length-1) % cada > cada/2)
         rot += `<text x="${(x+bw/2).toFixed(1)}" y="${H-8}" text-anchor="middle" font-size="10" fill="${TXT_MUDO}">${fmtDia(d)}</text>`;
     });
     cA.innerHTML = `<svg viewBox="0 0 ${W} ${H}" class="w-full" role="img" aria-label="Alertas por dia, furto e incêndio">${g}${barras}${rot}${hits}</svg>`;
-    ligarHover(cA, (ev, i) => { if(ev) tipMostrar(ev, fmtDia(dias[i]), [[COR.furto,'Furto',f[i]],[COR.incendio,'Incêndio',inc[i]]]); });
+    ligarHover(cA, (ev, i) => { if(ev) tipMostrar(ev, fmtDia(dias[i]) + (dias[i] === filtroDia ? ' · clique para remover' : ' · clique para filtrar'), [[COR.furto,'Furto',f[i]],[COR.incendio,'Incêndio',inc[i]]]); });
+    const alternarDia = i => { tipEsconder(); aplicarFiltroAlertas(dias[i] === filtroDia ? null : dias[i], filtroTipo); $('graficoAtividade').querySelector(`[data-i="${i}"]`)?.focus(); };
+    cA.querySelectorAll('[data-i]').forEach(el => {
+      el.addEventListener('click', () => alternarDia(+el.dataset.i));
+      el.addEventListener('keydown', ev => { if(ev.key === 'Enter' || ev.key === ' '){ ev.preventDefault(); alternarDia(+el.dataset.i); } });
+    });
   }
 
   // --- barras horizontais por tipo (cor = eixo do tipo)
@@ -1064,7 +1136,14 @@ function renderizarGraficosEventos(evs){
     const mx = tipos[0][1];
     cT.replaceChildren(...tipos.map(([tipo, n]) => {
       const cor = tipo === '__outros' ? '#a1a1aa' : (COR[eixoDoTipo(tipo)] || '#a1a1aa');
-      const linha = document.createElement('div');
+      const outros = tipo === '__outros';
+      const linha = document.createElement(outros ? 'div' : 'button');
+      if(!outros){
+        linha.type = 'button'; linha.className = 'tipo-btn'; linha.dataset.tipo = tipo;
+        linha.setAttribute('aria-pressed', String(tipo === filtroTipo));
+        linha.title = tipo === filtroTipo ? 'Remover filtro deste tipo' : 'Filtrar alertas deste tipo';
+        if(filtroTipo && tipo !== filtroTipo) linha.classList.add('viz-apagado');
+      } else if(filtroTipo) linha.classList.add('viz-apagado');
       const topo = document.createElement('div'); topo.className = 'flex items-baseline justify-between gap-3 text-sm mb-1.5';
       const nome = document.createElement('span'); nome.className = 'text-on-surface truncate'; nome.textContent = tipo === '__outros' ? 'Outros' : (TITULO_TIPO[tipo] || tipo);
       const val = document.createElement('span'); val.className = 'font-semibold text-on-surface tabular'; val.textContent = n;
@@ -1075,9 +1154,11 @@ function renderizarGraficosEventos(evs){
       trilho.appendChild(barra); linha.append(topo, trilho); return linha;
     }));
   }
+  cT.querySelectorAll('[data-tipo]').forEach(b => b.addEventListener('click', () =>
+    aplicarFiltroAlertas(filtroDia, b.dataset.tipo === filtroTipo ? null : b.dataset.tipo)));
   const txt = `últimos ${periodo} dias`;
-  $('atividadeSub').textContent = `Eventos por dia nos ${txt}`;
-  $('tiposSub').textContent = `Total nos ${txt}`;
+  $('atividadeSub').textContent = `Eventos por dia nos ${txt}` + (filtroTipo ? ` · só ${nomeTipo(filtroTipo)}` : '');
+  $('tiposSub').textContent = filtroDia ? `Total no dia ${fmtDia(filtroDia)}` : `Total nos ${txt}`;
   $('feedSub').textContent = `Eventos dos ${txt}`;
   $('kpiAlertasPill').textContent = `${periodo} dias`;
 }
@@ -1148,6 +1229,7 @@ async function carregarTempDia(){
 
 document.querySelectorAll('[data-periodo]').forEach(b => b.addEventListener('click', () => {
   periodo = +b.dataset.periodo;
+  filtroDia = null;   // o dia escolhido pode nao existir no novo periodo
   document.querySelectorAll('[data-periodo]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
   carregarTudo();
 }));
