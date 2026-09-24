@@ -1836,7 +1836,7 @@ const RESOLVIDAS_VISIVEIS = 15;
 // Arrastar entre colunas (SortableJS, carregada só quando o quadro aparece). Sem ela, a
 // situação continua mudando pelo detalhe do cartão.
 const SORTABLE = ['https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.7/Sortable.min.js', 'sha512-ri8dokds012Oxz+iFzMs4KNJXVc+h7J1zq6unM1NTtzBLj4jD1R5BWiK6QycK0TdSdkt7zYcIcv6sUPhmYkbdQ=='];
-let ocorrenciasCache = [], contadorOcorrEm = 0, sortablePromessa = null, arrastandoOc = false, movendoOc = 0;
+let ocorrenciasCache = [], contadorOcorrEm = 0, sortablePromessa = null, arrastandoOc = false, movendoOc = 0, seqMovOc = 0;
 const MSG_MIGRACAO = 'O banco ainda não tem a tabela de ocorrências: rode firmware/sql/mapa_ocorrencias.sql no Supabase.';
 function mostrarContadorOcorrencias(lista){
   const n = lista.filter(o => o.status !== 'resolvida').length;
@@ -1861,9 +1861,11 @@ function opcoesFazendaOc(){
 async function carregarOcorrencias(){
   opcoesFazendaOc();
   const faz = $('ocFazenda').value;
+  const seq = seqMovOc;
   try{
     const d = await getJSON('/ocorrencias' + (faz ? `?fazenda=${encodeURIComponent(faz)}` : ''));
-    if(movendoOc) return;   // leitura anterior ao PATCH em andamento: desfaria o cartão que acabou de mudar
+    // Leitura que saiu antes de um cartão mudar (PATCH em andamento ou já concluído): desfaria a mudança.
+    if(movendoOc || seq !== seqMovOc) return;
     if($('ocAviso').querySelector('[data-aviso-carga]')) $('ocAviso').innerHTML = '';
     ocorrenciasCache = d.dados || [];
     if(faz) atualizarContadorOcorrencias();
@@ -1872,7 +1874,7 @@ async function carregarOcorrencias(){
   }catch(e){ if(e.obsoleto) return;
     const semTabela = /409/.test(e.message);
     $('ocAviso').innerHTML = `<p role="alert" data-aviso-carga class="mb-4 px-4 py-3 rounded-lg border border-error/30 bg-error/10 text-error text-sm">${semTabela ? MSG_MIGRACAO : 'Ocorrências indisponíveis agora. <button data-tentar class="underline font-semibold">Tentar novamente</button>'}</p>`;
-    $('quadroOcorrencias').innerHTML = '';
+    if(!arrastandoOc) $('quadroOcorrencias').innerHTML = '';   // não tira o cartão da mão de quem arrasta
   }
 }
 function renderizarQuadro(){
@@ -1939,7 +1941,7 @@ async function moverOcorrencia(id, de, para){
   if(de === para) return;
   const o = ocorrenciasCache.find(x => String(x.id_ocorrencia) === String(id)); if(!o) return;
   $('ocAviso').innerHTML = '';
-  o.status = para; movendoOc++;
+  o.status = para; movendoOc++; seqMovOc++;
   renderizarQuadro();
   const r = await enviarOcorrencia(`/ocorrencias/${id}`, 'PATCH', {status: para}).catch(() => ({ok: false}));
   movendoOc--;
