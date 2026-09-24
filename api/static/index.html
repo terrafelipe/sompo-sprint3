@@ -154,18 +154,6 @@
   .chip-filtro{display:inline-flex;align-items:center;gap:.25rem;height:1.625rem;padding:0 .375rem 0 .5rem;border-radius:.375rem;border:1px solid var(--v-borda);background:var(--v-card);font-size:12px;font-weight:500;color:var(--v-texto)}
   .chip-filtro:hover{background:var(--v-hover)}
   .chip-filtro .material-symbols-outlined{font-size:15px;color:var(--v-texto2)}
-  /* Sidebar recolhivel (botao no topo). */
-  /* Menu lateral recolhido: vira uma trilha de icones (como no modelo). */
-  @media (min-width:1024px){
-    #sidebar,#conteudo{transition:width .2s ease,padding-left .2s ease}
-    .sb-mini #sidebar{width:4rem}
-    .sb-mini #conteudo{padding-left:4rem}
-    .sb-mini #sidebar .sb-txt{display:none!important}
-    .sb-mini #sidebar nav a,.sb-mini #atalhoNovaMaquina{justify-content:center;padding-left:0;padding-right:0}
-    .sb-mini #sidebar nav{padding-top:.5rem}
-    .sb-mini #sidebar > div:first-child{justify-content:center;padding:0}
-    .sb-mini #sidebar > div:last-child > div{justify-content:center;padding:0}
-  }
   /* Busca rapida (Ctrl+K) */
   .paleta{width:min(36rem,calc(100% - 2rem));margin:12vh auto auto;padding:0;border:1px solid var(--v-borda);border-radius:.75rem;box-shadow:0 20px 50px rgba(0,0,0,.15);background:var(--v-card);color:var(--v-texto)}
   .paleta::backdrop{background:rgba(9,9,11,.25);backdrop-filter:blur(2px)}
@@ -254,11 +242,6 @@
       <div class="text-xs text-on-surface-variant">Painel de Risco</div>
     </div>
   </div>
-  <div class="px-3 pt-1">
-    <button id="atalhoNovaMaquina" type="button" title="Nova máquina" class="w-full inline-flex items-center gap-2 h-9 px-3 rounded-lg bg-primary text-on-primary font-medium hover:bg-on-primary-fixed-variant transition-colors">
-      <span class="material-symbols-outlined text-[20px]">add_circle</span><span class="sb-txt">Nova máquina</span>
-    </button>
-  </div>
   <nav class="flex-1 overflow-y-auto px-3 pb-3">
     <div class="sb-txt px-2.5 pt-4 pb-1.5 text-xs font-medium text-on-surface-variant">Monitoramento</div>
       <a href="#" data-nav="maquinas" title="Máquinas" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">agriculture</span><span class="sb-txt">Máquinas</span></a>
@@ -291,8 +274,6 @@
 
   <!-- HEADER -->
   <header class="sticky top-0 z-40 bg-surface/85 backdrop-blur-xl border-b border-outline-variant px-4 lg:px-6 py-2.5 lg:min-h-14 flex flex-wrap items-center gap-2">
-    <button id="btnSidebar" type="button" title="Recolher menu" class="hidden lg:inline-flex p-1.5 rounded-md text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors"><span class="material-symbols-outlined text-[20px]">left_panel_close</span></button>
-    <span class="hidden lg:block w-px h-4 bg-outline-variant mx-1"></span>
     <span id="migalha" class="hidden lg:block text-sm font-medium text-on-surface">Máquinas</span>
     <!-- Nav mobile (sidebar some no celular) -->
     <div class="lg:hidden flex items-center gap-2 font-extrabold text-primary mr-1">
@@ -330,6 +311,11 @@
       <a href="/logout"><span class="material-symbols-outlined">logout</span>Sair</a>
     </div>
   </header>
+
+  <div id="avisoConexao" hidden role="alert" class="sticky top-14 z-30 flex items-center gap-2 px-4 lg:px-6 py-2 text-sm bg-error/10 text-error border-b border-error/20">
+    <span class="material-symbols-outlined text-[18px]">cloud_off</span>
+    <span><b>Sem conexão com a API.</b> Os dados na tela podem estar desatualizados. Tentando de novo a cada 5 s.</span>
+  </div>
 
   <!-- Navegacao por abas no mobile (a sidebar some) -->
   <div class="lg:hidden flex gap-2 overflow-x-auto px-4 pt-4 w-full max-w-full min-w-0">
@@ -436,7 +422,7 @@
       <!-- ANALISE DE RISCO -->
       <section data-section="risco" class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)] p-6">
         <div class="flex items-start justify-between gap-4 flex-wrap mb-4">
-          <div><h2 class="text-base font-semibold text-on-surface">Análise de Risco</h2><p class="text-sm text-on-surface-variant">Scores dos últimos 7 dias, calculados pelo sistema e explicados pela IA</p></div>
+          <div><h2 class="text-base font-semibold text-on-surface">Análise de Risco</h2><p id="riscoSub" class="text-sm text-on-surface-variant">Scores dos últimos 7 dias, calculados pelo sistema e explicados pela IA</p></div>
           <div class="flex items-center gap-2 flex-wrap">
             <span id="origemBadge"></span>
             <span id="riscoGerado" class="text-xs text-on-surface-variant"></span>
@@ -455,7 +441,7 @@
             </div>
             <div id="gaugeFurto" class="w-full max-w-[280px] mx-auto"></div>
             <p id="pontosFurto" class="text-xs text-on-surface-variant text-center mb-4"></p>
-            <div class="text-xs font-medium text-on-surface-variant mb-1.5">De onde vem o score</div>
+            <div class="text-xs font-medium text-on-surface-variant mb-1.5">De onde vem o score <span class="font-normal">· cor = gravidade</span></div>
             <div id="detFurto" class="space-y-0.5"></div>
             <p id="justFurto" class="text-[13px] leading-relaxed text-on-surface-variant mt-4"></p>
           </div>
@@ -466,11 +452,29 @@
             </div>
             <div id="gaugeIncendio" class="w-full max-w-[280px] mx-auto"></div>
             <p id="pontosIncendio" class="text-xs text-on-surface-variant text-center mb-4"></p>
-            <div class="text-xs font-medium text-on-surface-variant mb-1.5">De onde vem o score</div>
+            <div class="text-xs font-medium text-on-surface-variant mb-1.5">De onde vem o score <span class="font-normal">· cor = gravidade</span></div>
             <div id="detIncendio" class="space-y-0.5"></div>
             <p id="justIncendio" class="text-[13px] leading-relaxed text-on-surface-variant mt-4"></p>
           </div>
         </div>
+        <details class="mt-4 group rounded-lg border border-outline-variant">
+          <summary class="cursor-pointer list-none px-4 py-3 text-sm font-medium text-on-surface flex items-center gap-2 select-none">
+            <span class="material-symbols-outlined text-[18px] text-on-surface-variant">calculate</span>Como o score é calculado
+            <span class="material-symbols-outlined text-[18px] text-on-surface-variant ml-auto transition-transform group-open:rotate-180">expand_more</span>
+          </summary>
+          <div class="px-4 pb-4 text-[13px] text-on-surface-variant leading-relaxed space-y-3">
+            <p>Cada evento soma pontos conforme a <b class="text-on-surface">gravidade</b> dele. O score de cada eixo é a <b class="text-on-surface">soma dos pontos, limitada a 100</b>.</p>
+            <div class="flex flex-wrap gap-1.5">
+              <span class="selo"><i style="background:#a1a1aa"></i>Gravidade 1 · 5 pts</span>
+              <span class="selo"><i style="background:#a1a1aa"></i>Gravidade 2 · 10 pts</span>
+              <span class="selo"><i style="background:#f59e0b"></i>Gravidade 3 · 20 pts</span>
+              <span class="selo"><i style="background:#ea580c"></i>Gravidade 4 · 40 pts</span>
+              <span class="selo"><i style="background:#ba1a1a"></i>Gravidade 5 · 70 pts</span>
+            </div>
+            <p>Faixas: <b class="text-on-surface">Baixo</b> abaixo de 34 · <b class="text-on-surface">Médio</b> de 34 a 66 · <b class="text-on-surface">Alto</b> a partir de 67.
+              Exemplo: 5 partidas sem crachá (gravidade 3) = 5 × 20 = 100 pontos → score 100 (Alto). Por isso os <b class="text-on-surface">pontos acumulados</b> mostram o tamanho real quando o score bate no teto.</p>
+          </div>
+        </details>
         <div class="mt-6 pt-5 border-t border-outline-variant">
           <h3 class="text-sm font-semibold text-on-surface mb-3 flex items-center gap-2"><span class="material-symbols-outlined text-[18px] text-primary">checklist</span>O que fazer</h3>
           <ol id="recs" class="space-y-2.5"></ol>
@@ -600,7 +604,7 @@
       <section data-section="historico" class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)] p-6">
         <div class="flex items-center justify-between mb-5 flex-wrap gap-3">
           <div><h2 class="text-base font-semibold text-on-surface inline-flex items-center gap-2">Sessões de operação <span id="contaHistorico" class="selo"></span></h2><p class="text-xs text-on-surface-variant mt-1">Sessões identificadas pelo crachá, sem atribuição automática de responsabilidade.</p></div>
-          <div class="flex items-center gap-2 flex-wrap"><div class="relative"><span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant pointer-events-none">search</span><input type="search" id="buscaHistorico" placeholder="Buscar máquina ou operador…" aria-label="Buscar máquina ou operador…" class="busca"/></div><select id="historicoDias" class="h-9 bg-surface-container-lowest border border-outline-variant rounded-lg px-3 outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"><option value="7">7 dias</option><option value="30">30 dias</option><option value="90">90 dias</option></select></div>
+          <div class="flex items-center gap-2 flex-wrap"><div class="relative"><span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant pointer-events-none">search</span><input type="search" id="buscaHistorico" placeholder="Buscar máquina ou operador…" aria-label="Buscar máquina ou operador…" class="busca"/></div><select id="historicoDias" class="h-9 inline-flex items-center leading-none bg-surface-container-lowest border border-outline-variant rounded-lg px-3 outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"><option value="7">7 dias</option><option value="30">30 dias</option><option value="90">90 dias</option></select></div>
         </div>
         <div id="listaHistorico"></div>
       </section>
@@ -789,9 +793,6 @@
     <kbd class="tecla">Esc</kbd>
   </div>
   <div id="paletaLista" role="listbox" class="max-h-[55vh] overflow-y-auto p-1.5"></div>
-  <div class="px-3 py-2 border-t border-outline-variant text-[11px] text-on-surface-variant flex gap-4">
-    <span><kbd class="tecla">↑</kbd> <kbd class="tecla">↓</kbd> navegar</span><span><kbd class="tecla">Enter</kbd> abrir</span><span><kbd class="tecla">Esc</kbd> fechar</span>
-  </div>
 </dialog>
 <div id="vizTip" hidden></div>
 <div id="cadastroAviso" role="status" class="hidden fixed bottom-4 right-4 z-[70] max-w-[90vw] bg-surface-container-lowest shadow-lg rounded-xl p-4 text-sm"></div>
@@ -890,7 +891,7 @@ function setView(view){
   document.querySelectorAll('[data-nav]').forEach(a => { a.hidden = restrita(a.dataset.nav); });
   $('semMaquina').hidden = !dependeMaquina(view) || !!equipamentoSelecionado;
   // O score de risco e sempre de 7 dias: o filtro de periodo nao vale na aba Analise de Risco.
-  $('periodoWrap').hidden = !dependeMaquina(view) || !equipamentoSelecionado || view === 'risco';
+  $('periodoWrap').hidden = !dependeMaquina(view) || !equipamentoSelecionado;
   $('btnBaixar').classList.remove('hidden');
   $('btnBaixar').disabled = !equipamentoSelecionado;
   $('btnBaixar').title = equipamentoSelecionado ? 'Baixar relatório da máquina selecionada' : 'Selecione uma máquina para exportar';
@@ -899,17 +900,30 @@ function setView(view){
   if(mudou) window.scrollTo({top:0, behavior:'smooth'});
 }
 
+// Tempo limite: uma requisicao travada nao pode segurar o painel (o carregarTudo reaproveita
+// a carga pendente; sem limite, uma trava congelava todas as atualizacoes seguintes).
+const TEMPO_LIMITE_MS = 20000;
 async function getJSON(path){
   const versao = contextoVersao;
   const obsoleto = () => versao !== contextoVersao;
+  const ctrl = new AbortController();
+  const limite = setTimeout(() => ctrl.abort(), TEMPO_LIMITE_MS);
   try {
-    const r = await fetch(path, {headers:{'Accept':'application/json'}});
+    const r = await fetch(path, {headers:{'Accept':'application/json'}, signal: ctrl.signal});
+    conexao(true);
     if(!r.ok) throw new Error('HTTP '+r.status);
     const dados = await r.json();
     if(obsoleto()) throw new Error('Resposta antiga');
     return dados;
-  } catch(e) { if(obsoleto()) e.obsoleto = true; throw e; }
+  } catch(e) {
+    // Rede fora ou tempo esgotado = API inalcancavel (HTTP 4xx/5xx nao: a API respondeu).
+    if(e.name === 'AbortError' || e instanceof TypeError) conexao(false);
+    if(obsoleto()) e.obsoleto = true;
+    throw e;
+  } finally { clearTimeout(limite); }
 }
+// Faixa "Sem conexao": aparece quando a API nao responde e some sozinha quando volta.
+function conexao(ok){ const a = $('avisoConexao'); if(a) a.hidden = ok; }
 const erroLista = mensagem => `<div role="alert" class="col-span-full text-error py-4">${mensagem} <button data-tentar class="underline font-semibold">Tentar novamente</button></div>`;
 function iniciando(id){ if(!$(id).innerHTML.trim() || $(id).querySelector('[data-tentar]')) $(id).textContent = 'Carregando…'; }
 function limparMaquina(){
@@ -1037,8 +1051,11 @@ function medidorRisco(score, classif, faixas){
 }
 
 // Lista "De onde vem o score": cada tipo e um botao que abre os alertas filtrados.
+// Cor da barra = gravidade media do tipo (pontos por evento), nao a cor do eixo:
+// azul parecia "tranquilo" mesmo com risco ALTO.
+const GRAVIDADE = [[70, 5, '#ba1a1a'], [40, 4, '#ea580c'], [20, 3, '#f59e0b'], [10, 2, '#a1a1aa'], [0, 1, '#a1a1aa']];
+const gravidadeDe = (pontos, qtd) => { const p = qtd ? pontos / qtd : 0; return GRAVIDADE.find(([min]) => p >= min) || GRAVIDADE[GRAVIDADE.length-1]; };
 function detalhamentoRisco(el, detalhamento, eixoNome){
-  const cor = COR[eixoNome];
   const itens = Object.entries(detalhamento || {}).filter(([,v]) => v.eixo === eixoNome).sort((a,b) => b[1].pontos - a[1].pontos);
   if(!itens.length){
     el.replaceChildren(Object.assign(document.createElement('p'), {className:'text-[13px] text-on-surface-variant italic py-1', textContent:'Nenhum evento deste tipo no período.'}));
@@ -1047,7 +1064,7 @@ function detalhamentoRisco(el, detalhamento, eixoNome){
   const total = itens.reduce((a,[,v]) => a + v.pontos, 0) || 1;
   el.replaceChildren(...itens.map(([tipo, v]) => {
     const b = document.createElement('button'); b.type = 'button'; b.className = 'tipo-btn group'; b.dataset.evidencia = tipo;
-    b.title = `Ver os alertas de ${nomeTipo(tipo)} dos últimos 7 dias`;
+    b.title = `Ver os alertas de ${nomeTipo(tipo)} dos últimos ${periodo} dias`;
     const topo = document.createElement('div'); topo.className = 'flex items-baseline justify-between gap-3 text-sm';
     const nome = document.createElement('span'); nome.className = 'text-on-surface truncate inline-flex items-center gap-1';
     nome.append(document.createTextNode(nomeTipo(tipo)));
@@ -1059,34 +1076,36 @@ function detalhamentoRisco(el, detalhamento, eixoNome){
     topo.append(nome, num);
     const trilho = document.createElement('div'); trilho.className = 'h-1.5 mt-1 rounded-r bg-surface-container';
     const barra = document.createElement('div'); barra.className = 'h-1.5'; barra.style.borderRadius = '0 3px 3px 0';
-    barra.style.width = Math.max(2, v.pontos/total*100) + '%'; barra.style.background = cor;
+    const [, grav, corGrav] = gravidadeDe(v.pontos, v.quantidade);
+    b.title += ` · gravidade ${grav}`;
+    barra.style.width = Math.max(2, v.pontos/total*100) + '%'; barra.style.background = corGrav;
     trilho.appendChild(barra); b.append(topo, trilho); return b;
   }));
 }
 
 // Evidencias: abre a aba Alertas no mesmo recorte do score (7 dias) filtrada pelo tipo.
 function verEvidencias(tipo){
-  if(periodo !== 7){
-    periodo = 7;
-    document.querySelectorAll('[data-periodo]').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.periodo === '7')));
-  }
-  filtroDia = null; filtroTipo = tipo;
+  filtroDia = null; filtroTipo = tipo;   // mesmo periodo do score que esta na tela
   setView('alertas'); carregarTudo();
 }
 
 async function carregarRisco(novo){
   if(!$('riscoResumo').textContent) $('riscoResumo').textContent = 'Carregando análise…';
   try{
-    const d = await getJSON(`/relatorio/risco?${seletorEquipamento()}&dias=7${novo ? '&novo=1' : ''}`);
+    const per = periodo;
+    const d = await getJSON(`/relatorio/risco?${seletorEquipamento()}&dias=${per}${novo ? '&novo=1' : ''}`);
+    if(per !== periodo) return;   // periodo mudou durante a carga: a resposta e de outra janela
     const sf = d.score_furto ?? 0, si = d.score_incendio ?? 0;
     const cf = d.classificacao_furto || 'BAIXO', ci = d.classificacao_incendio || 'BAIXO';
     $('kpiFurto').textContent = sf; $('kpiIncendio').textContent = si;
     const pilula = (el, c) => { const cor=corRisco(c); el.textContent=c; el.style.background=cor+'14'; el.style.color=cor; el.style.borderColor=cor+'33'; };
     pilula($('kpiFurtoPill'), cf); pilula($('kpiIncendioPill'), ci);
-    variacao($('kpiFurtoSub'), sf, d.anterior?.score_furto, '7 dias', 'Capô, tanque, vibração e crachá', true);
-    variacao($('kpiIncendioSub'), si, d.anterior?.score_incendio, '7 dias', 'Chama e temperatura de escape', true);
+    variacao($('kpiFurtoSub'), sf, d.anterior?.score_furto, `${periodo} dias`, 'Capô, tanque, vibração e crachá', true);
+    variacao($('kpiIncendioSub'), si, d.anterior?.score_incendio, `${periodo} dias`, 'Chama e temperatura de escape', true);
+    $('riscoSub').textContent = `Scores dos últimos ${periodo} dias, calculados pelo sistema e explicados pela IA`
+      + (periodo > 7 ? ' · em janelas longas o score tende ao teto de 100; os pontos acumulados mostram o tamanho real' : '');
     // Auto-refresh a cada 5s: so redesenha quando a analise muda.
-    if(!novo && !mudou('risco', `${sf}|${si}|${d.gerado_em}|${d.origem_da_analise}`) && $('gaugeFurto').firstChild) return;
+    if(!novo && !mudou('risco', `${periodo}|${sf}|${si}|${d.gerado_em}|${d.origem_da_analise}`) && $('gaugeFurto').firstChild) return;
 
     $('scoreFurto').textContent = sf; $('scoreIncendio').textContent = si;
     pilula($('classifFurto'), cf); pilula($('classifIncendio'), ci);
@@ -1203,7 +1222,9 @@ async function carregarEventos(){
   iniciando('eventos');
   try{
     ['graficoAtividade','graficoTipos'].forEach(id => $(id).classList.add('viz-carregando'));
-    const d = await getJSON(`/eventos?${seletorEquipamento()}&dias=${periodo * 2}`);
+    const per = periodo;
+    const d = await getJSON(`/eventos?${seletorEquipamento()}&dias=${per * 2}`);
+    if(per !== periodo) return;
     const corte = Date.now() - periodo * 864e5;
     const todos = d.dados || [];
     const evs = todos.filter(e => !e.criado_em || new Date(e.criado_em).getTime() >= corte);
@@ -1499,7 +1520,9 @@ async function carregarTempDia(){
   if(!dispositivo){ c.innerHTML = '<div class="text-sm text-on-surface-variant italic py-10 text-center">Máquina sem ESP32 configurado.</div>'; return; }
   c.classList.add('viz-carregando');
   try{
-    const d = await getJSON(`/resumo?dispositivo=${encodeURIComponent(dispositivo)}&dias=${periodo}`);
+    const per = periodo;
+    const d = await getJSON(`/resumo?dispositivo=${encodeURIComponent(dispositivo)}&dias=${per}`);
+    if(per !== periodo) return;
     c.classList.remove('viz-carregando');
     const rows = (d.dados||[]).filter(r => r.dia).sort((a,b) => a.dia < b.dia ? -1 : 1);
     if(!mudou('tempdia', `${periodo}|${dispositivo}|${JSON.stringify(rows)}`) && c.querySelector('svg')) return;
@@ -1741,6 +1764,47 @@ function abrirDetalhe(titulo, icone, corpoHTML){
 }
 const fecharDetalhe = ()=>{ detalheVersao++; $('modalDetalhe').classList.add('hidden'); };
 
+// Detalhe do operador (Excluir fica aqui, como em clientes e fazendas).
+function abrirOperador(o){
+  if(!o) return;
+  const campos = [['Nome', o.nome], ['Crachá (UID)', o.uid], ['Matrícula', o.matricula || 'Não informada'],
+                  ['Status', o.ativo ? 'Ativo' : 'Inativo'], ['ID', o.id_operador]];
+  abrirDetalhe(o.nome || 'Operador', 'badge', campos.map(([k,v]) => linhaDet(k, escapar(v ?? '—'))).join('')
+    + `<div class="mt-4">${botaoExcluir('operadores', o.id_operador, o.nome)}</div>`);
+}
+
+// Detalhe da sessao de operacao + alertas da maquina dentro do intervalo da sessao.
+async function abrirSessao(s){
+  if(!s) return;
+  const [st] = STATUS_SESSAO[s.status] || [s.status || '—'];
+  const motivo = s.motivo ? (MOTIVO_SESSAO[s.motivo] || s.motivo) : '';
+  const ini = s.inicio_em ? new Date(s.inicio_em) : null, fim = s.fim_em ? new Date(s.fim_em) : null;
+  const campos = [['Máquina', s.equipamento_nome || 'Máquina'], ['Operador', s.operador_nome || 'Não identificado'],
+    ['Crachá (UID)', s.uid || s.operador_uid || operadoresCache.find(o => o.id_operador === s.operador_id)?.uid], ['Início', ini ? fmtHora(s.inicio_em) : 'Horário desconhecido'],
+    ['Fim', fim ? fmtHora(s.fim_em) : '—'], ['Duração', ini && fim ? fmtDuracao(fim - ini) : '—'],
+    ['Status', st + (motivo ? ' ' + motivo : '')]];
+  const base = campos.filter(([, v]) => v != null && v !== '').map(([k,v]) => linhaDet(k, escapar(v))).join('');
+  const alvo = '<div class="mt-5"><div class="text-xs font-medium text-on-surface-variant mb-2">Alertas durante a sessão</div><div id="sessaoAlertas" class="text-sm text-on-surface-variant">Carregando…</div></div>';
+  abrirDetalhe('Sessão de operação', 'history', base + alvo);
+  const versao = detalheVersao;
+  if(!ini || !s.equipamento_id){ $('sessaoAlertas').textContent = 'Sem horário de início: não dá para cruzar com os alertas.'; return; }
+  try{
+    const dias = Math.max(1, Math.ceil((Date.now() - ini.getTime()) / 864e5) + 1);
+    const d = await getJSON(`/eventos?equipamento=${encodeURIComponent(s.equipamento_id)}&dias=${dias}`);
+    if(versao !== detalheVersao) return;
+    const ate = (fim || new Date()).getTime();
+    const evs = (d.dados || []).filter(e => { const t = new Date(e.criado_em).getTime(); return t >= ini.getTime() && t <= ate; });
+    const el = $('sessaoAlertas');
+    if(!evs.length){ el.textContent = 'Nenhum alerta durante esta sessão.'; return; }
+    el.replaceChildren(...evs.slice(0, 12).map(e => {
+      const l = document.createElement('div'); l.className = 'flex justify-between gap-4 py-1.5 border-b border-outline-variant last:border-0';
+      const n = document.createElement('span'); n.className = 'text-on-surface'; n.textContent = nomeTipo(e.tipo);
+      const h = document.createElement('span'); h.className = 'text-xs tabular'; h.textContent = fmtHoraCurta(e.criado_em);
+      l.append(n, h); return l;
+    }), ...(evs.length > 12 ? [Object.assign(document.createElement('div'), {className:'text-xs pt-2', textContent:`+ ${evs.length - 12} alertas`})] : []));
+  }catch(e){ if(!e.obsoleto && versao === detalheVersao) $('sessaoAlertas').textContent = 'Não foi possível carregar os alertas da sessão.'; }
+}
+
 function abrirCliente(c){
   if(!c) return;
   let html = linhaDet('Nome / Razão social', c.nome || '—')
@@ -1892,15 +1956,14 @@ async function carregarUsuarios(){
     const us = d.dados||[];
     $('contaUsuarios').textContent = us.length || '';
     if(!us.length){ renderLista('listaUsuarios', vazioHTML('Nenhum usuário cadastrado ainda.')); return; }
-    renderLista('listaUsuarios', tabelaHTML(['Usuário','Perfil','Fazenda','>Ações'], us.map(u => {
+    renderLista('listaUsuarios', tabelaHTML(['Usuário','Perfil','Fazenda','>'], us.map(u => {
       const faz = u.fazenda ? u.fazenda.nome : null;
       const role = ROLE_ROTULO[u.role] || u.role;
-      return `<tr data-linha>
+      return `<tr data-linha data-usuario-detalhe="${u.id_usuario}" title="Ver detalhes" class="cursor-pointer">
         <td><span class="font-medium break-words">${escapar(u.usuario)}</span></td>
         <td>${selo(escapar(role), u.role === 'sompo' ? '#b70100' : '#2a78d6')}</td>
         <td>${faz ? escapar(faz) : '<span class="text-on-surface-variant">Todas (portfólio)</span>'}</td>
-        <td class="text-right">${menuAcoes(`acoes-us-${u.id_usuario}`, u.usuario,
-          `<button data-usuario-detalhe="${u.id_usuario}">${ic('info')}Detalhes</button>${botaoExcluir('usuarios',u.id_usuario,u.usuario) ? '<hr>' + botaoExcluir('usuarios',u.id_usuario,u.usuario) : ''}`)}</td></tr>`;
+        <td class="text-right text-on-surface-variant">${ic('chevron_right')}</td></tr>`;
     }).join(''), 4));
   }catch(e){ if(e.obsoleto) return; $('listaUsuarios').innerHTML =erroLista('Lista de usuários indisponível.'); }
 }
@@ -2054,12 +2117,12 @@ async function carregarOperadores(){
     const d=await getJSON('/operadores'+q); operadoresCache=d.dados||[];
     $('contaOperadores').textContent = operadoresCache.length || '';
     if(!operadoresCache.length){ renderLista('listaOperadores', vazioHTML('Nenhum operador cadastrado.')); return; }
-    renderLista('listaOperadores', tabelaHTML(['Operador','Crachá (UID)','Matrícula','Status','>Ações'], operadoresCache.map(o => `<tr data-linha>
+    renderLista('listaOperadores', tabelaHTML(['Operador','Crachá (UID)','Matrícula','Status','>'], operadoresCache.map((o,i) => `<tr data-linha data-op="${i}" title="Ver detalhes" class="cursor-pointer">
       <td><span class="font-medium">${escapar(o.nome)}</span></td>
       <td class="font-mono text-xs">${escapar(o.uid)}</td>
       <td>${o.matricula ? escapar(o.matricula) : '<span class="text-on-surface-variant">—</span>'}</td>
       <td>${o.ativo ? selo('Ativo', '#10b981') : selo('Inativo', '#71717a')}</td>
-      <td class="text-right">${botaoExcluir('operadores',o.id_operador,o.nome)}</td></tr>`).join(''), 5));
+      <td class="text-right text-on-surface-variant">${ic('chevron_right')}</td></tr>`).join(''), 5));
   }catch(e){ if(e.obsoleto) return; $('listaOperadores').innerHTML=erroLista('Operadores indisponíveis.'); }
 }
 
@@ -2112,16 +2175,18 @@ function renderHistorico(){
   historicoPagina = Math.min(historicoPagina, paginas - 1);
   const ini = historicoPagina * POR_PAGINA, pagina = rows.slice(ini, ini + POR_PAGINA);
   const linhas = pagina.map(s => {
+    const idx = historicoCache.indexOf(s);
     const [st, cor] = STATUS_SESSAO[s.status] || [s.status || '—', '#71717a'];
     const motivo = s.motivo ? (MOTIVO_SESSAO[s.motivo] || s.motivo) : '';
     const dur = s.inicio_em && s.fim_em ? fmtDuracao(new Date(s.fim_em) - new Date(s.inicio_em)) : '—';
-    return `<tr data-linha>
+    return `<tr data-linha data-ses="${idx}" title="Ver detalhes da sessão" class="cursor-pointer">
       <td><span class="font-medium">${escapar(s.equipamento_nome||'Máquina')}</span></td>
       <td>${s.operador_nome ? escapar(s.operador_nome) : '<span class="text-on-surface-variant">Não identificado</span>'}</td>
       <td class="tabular whitespace-nowrap">${s.inicio_em ? fmtHora(s.inicio_em) : '<span class="text-on-surface-variant">Horário desconhecido</span>'}</td>
       <td class="tabular whitespace-nowrap">${s.fim_em ? fmtHora(s.fim_em) : '<span class="text-on-surface-variant">—</span>'}</td>
       <td class="tabular whitespace-nowrap">${dur}</td>
-      <td>${selo(escapar(st), cor)}${motivo ? `<span class="sub">${escapar(motivo)}</span>` : ''}</td></tr>`;
+      <td>${selo(escapar(st), cor)}${motivo ? `<span class="sub">${escapar(motivo)}</span>` : ''}</td>
+      <td class="text-right text-on-surface-variant">${ic('chevron_right')}</td></tr>`;
   }).join('');
   const rodape = `<div class="flex items-center justify-between gap-3 flex-wrap text-xs text-on-surface-variant mt-3">
       <span>${rows.length ? `Mostrando ${ini+1}–${ini+pagina.length} de ${rows.length} sessões` : ''}</span>
@@ -2129,7 +2194,7 @@ function renderHistorico(){
         <button type="button" class="pag-btn" data-pag="-1" aria-label="Página anterior" ${historicoPagina ? '' : 'disabled'}>${ic('chevron_left')}</button>
         <button type="button" class="pag-btn" data-pag="1" aria-label="Próxima página" ${historicoPagina < paginas-1 ? '' : 'disabled'}>${ic('chevron_right')}</button>
       </span></div>`;
-  renderLista('listaHistorico', tabelaHTML(['Máquina','Operador','Início','Fim','Duração','Status'], linhas, 6).replace('<div class="moldura" data-render>', '<div data-render><div class="moldura">').replace(/<\/div>$/, '</div>' + rodape + '</div>'));
+  renderLista('listaHistorico', tabelaHTML(['Máquina','Operador','Início','Fim','Duração','Status','>'], linhas, 7).replace('<div class="moldura" data-render>', '<div data-render><div class="moldura">').replace(/<\/div>$/, '</div>' + rodape + '</div>'));
 }
 async function carregarHistorico(){
   iniciando('listaHistorico');
@@ -2209,7 +2274,8 @@ function mostrarSemDispositivo(){
 
 const atualizacoes = new Map();
 async function carregarTudo(){
-  const chave = `${contextoVersao}:${viewAtual}`;
+  // O periodo entra na chave: trocar 7/30/90 nunca reaproveita a carga do periodo anterior.
+  const chave = `${contextoVersao}:${viewAtual}:${periodo}`;
   if(atualizacoes.has(chave)) return atualizacoes.get(chave);
   const tarefa = atualizarView().finally(()=>atualizacoes.delete(chave));
   atualizacoes.set(chave, tarefa);
@@ -2245,7 +2311,6 @@ function redesenharGraficos(){
   }, 250);
 }
 window.addEventListener('resize', redesenharGraficos);
-$('btnSidebar')?.addEventListener('click', () => setTimeout(redesenharGraficos, 220));   // apos a transicao da largura
 
 // Modo escuro: variaveis CSS trocam sozinhas; graficos sao redesenhados com a paleta do tema.
 function aplicarTema(tema){
@@ -2281,7 +2346,7 @@ async function atualizarManual(){
 $('btnAtualizar').addEventListener('click', atualizarManual);
 $('btnBaixar').addEventListener('click', () => {
   if(!equipamentoSelecionado) return;
-  window.location = `/relatorio/risco.docx?equipamento=${encodeURIComponent(equipamentoSelecionado)}&dias=7`;
+  window.location = `/relatorio/risco.docx?equipamento=${encodeURIComponent(equipamentoSelecionado)}&dias=${periodo}`;
 });
 $('dispositivo').addEventListener('change', carregarTudo);
 $('fazendaSel').addEventListener('change', ()=>trocarFazenda($('fazendaSel').value));
@@ -2415,7 +2480,9 @@ $('btnCancelarOperador').addEventListener('click',()=>$('formOperador').classLis
 $('formOperador').addEventListener('submit',criarOperador);
 $('historicoDias').addEventListener('change',()=>{ historicoPagina = 0; carregarHistorico(); });
 $('buscaHistorico').addEventListener('input',()=>{ historicoPagina = 0; renderHistorico(); });
-$('listaHistorico').addEventListener('click',e=>{ const b=e.target.closest('[data-pag]'); if(b){ historicoPagina += +b.dataset.pag; renderHistorico(); } });
+$('listaHistorico').addEventListener('click',e=>{ const b=e.target.closest('[data-pag]'); if(b){ historicoPagina += +b.dataset.pag; renderHistorico(); return; }
+  const l=e.target.closest('[data-ses]'); if(l) abrirSessao(historicoCache[+l.dataset.ses]); });
+$('listaOperadores').addEventListener('click',e=>{ const l=e.target.closest('[data-op]'); if(l) abrirOperador(operadoresCache[+l.dataset.op]); });
 
 document.addEventListener('keydown', e=>{ if(e.key === 'Escape'){ fecharEvento(); fecharDetalhe(); } });
 
@@ -2450,19 +2517,6 @@ $('usRole').addEventListener('change', atualizarCampoFazendaUsuario);
 $('formUsuario').addEventListener('submit', criarUsuario);
 
 // Init: descobre o perfil, ajusta a UI e SO ENTAO carrega os dados. Cadastro so p/ Sompo.
-// Menu lateral: recolhe para icones; a preferencia fica no navegador (se permitido).
-const SB_CHAVE = 'sompo.menuRecolhido';
-function aplicarMenuLateral(mini){
-  document.body.classList.toggle('sb-mini', mini);
-  const b = $('btnSidebar');
-  if(b){ b.title = mini ? 'Expandir menu' : 'Recolher menu'; b.firstElementChild.textContent = mini ? 'left_panel_open' : 'left_panel_close'; }
-}
-try{ aplicarMenuLateral(localStorage.getItem(SB_CHAVE) === '1'); }catch(e){}
-$('btnSidebar')?.addEventListener('click', () => {
-  const mini = !document.body.classList.contains('sb-mini');
-  aplicarMenuLateral(mini);
-  try{ localStorage.setItem(SB_CHAVE, mini ? '1' : '0'); }catch(e){}
-});
 
 // Busca rapida (Ctrl+K): maquinas da fazenda, fazendas, telas e acoes.
 const semAcento = t => String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
@@ -2471,16 +2525,15 @@ const ICONE_TELA = {maquinas:'agriculture', visao:'dashboard', risco:'analytics'
 let paletaItens = [], paletaSel = 0;
 function itensPaleta(){
   const itens = [];
-  maquinasCache.forEach(m => itens.push({grupo:'Máquinas', icone:'agriculture', texto:m.nome,
-    sub:[m.tipo, m.modelo].filter(Boolean).join(' · '), fazer:() => selecionarMaquina(m.id_equipamento)}));
+  // Maquinas sao da fazenda aberta: o grupo e a descricao dizem de qual fazenda.
+  const opFaz = $('fazendaSel').selectedOptions[0];
+  const nomeFaz = fazendaSelecionada && opFaz && opFaz.value ? opFaz.textContent : '';
+  if(nomeFaz) maquinasCache.forEach(m => itens.push({grupo:`Máquinas · ${nomeFaz}`, icone:'agriculture', texto:m.nome,
+    sub:[nomeFaz, m.tipo, m.modelo].filter(Boolean).join(' · '), fazer:() => selecionarMaquina(m.id_equipamento)}));
   [...$('fazendaSel').options].filter(o => o.value).forEach(o => itens.push({grupo:'Fazendas', icone:'landscape', texto:o.textContent,
     fazer:() => { $('fazendaSel').value = o.value; $('fazendaSel').dispatchEvent(new Event('change')); setView('maquinas'); }}));
   Object.entries(TITULOS).filter(([v]) => !restrita(v)).forEach(([v, t]) => itens.push({grupo:'Telas', icone:ICONE_TELA[v] || 'arrow_forward',
     texto:t, sub:DESCRICOES[v], fazer:() => { setView(v); carregarTudo(); }}));
-  itens.push({grupo:'Ações', icone:'add_circle', texto:'Nova máquina', fazer:() => $('atalhoNovaMaquina').click()});
-  if(equipamentoSelecionado) itens.push({grupo:'Ações', icone:'download', texto:'Exportar relatório Word', fazer:() => $('btnBaixar').click()});
-  itens.push({grupo:'Ações', icone:'refresh', texto:'Atualizar dados', fazer:() => $('btnAtualizar').click()});
-  itens.push({grupo:'Ações', icone:'contrast', texto:'Alternar modo escuro', sub:'tema claro / escuro', fazer:alternarTema});
   return itens;
 }
 function renderPaleta(){
@@ -2542,7 +2595,6 @@ $('paletaInput').addEventListener('keydown', e => {
 });
 $('paletaLista').addEventListener('click', e => { const b = e.target.closest('[data-idx]'); if(b) executarPaleta(+b.dataset.idx); });
 $('paleta').addEventListener('click', e => { if(e.target === $('paleta')) $('paleta').close(); });   // clique fora fecha
-$('atalhoNovaMaquina')?.addEventListener('click', () => { setView('maquinas'); $('btnNovaMaquina').click(); });
 
 (async function init(){
   await aplicarPerfil();

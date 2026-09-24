@@ -388,6 +388,10 @@ def test_excluir_cadastro_confirma_cancela_e_atualiza(painel, tipo, view, id):
         page.locator('[data-cli="0"]').click()
     elif tipo == 'fazendas':
         page.locator('[data-faz="0"]').click()
+    elif tipo == 'operadores':
+        page.locator('[data-op="0"]').click()          # linha abre o detalhe; Excluir fica nele
+    elif tipo == 'usuarios':
+        page.locator('[data-usuario-detalhe="7"]').click()
     seletor = f'[data-excluir-tipo="{tipo}"][data-excluir-id="{id}"]'
     acao(page, seletor).click()
     pw.expect(page.locator('#confirmarExclusao')).to_be_visible()
@@ -451,6 +455,7 @@ def test_excluir_erro_e_envio_unico(painel):
     page, state = painel
     nav(page, 'operadores')
     state['fail'].add('/operadores/7')
+    page.locator('[data-op="0"]').click()
     page.locator('[data-excluir-tipo="operadores"]').click()
     page.locator('#exclusaoConfirmar').click()
     pw.expect(page.locator('#exclusaoErro')).to_contain_text('Não foi possível excluir')

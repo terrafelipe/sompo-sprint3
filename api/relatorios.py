@@ -79,7 +79,14 @@ def montar_relatorio_bruto(dispositivo: str, dias: int, resumo_por_dia: List[Dic
 # Prompt: os scores JA vem calculados e entram como fato dado
 # ---------------------------------------------------------------------------
 
+# Janelas longas (30/90 dias) tem centenas de eventos: o prompt leva os totais exatos
+# (detalhamento) e so uma amostra dos mais recentes, para nao ficar enorme e lento.
+LIMITE_EVENTOS_PROMPT = 60
+
+
 def montar_prompt(dispositivo: str, dias: int, scores: Dict[str, Any], eventos: List[Dict[str, Any]], contexto=None) -> str:
+    eventos = eventos or []
+    amostra = eventos[:LIMITE_EVENTOS_PROMPT]   # consultas vem do mais recente para o mais antigo
     dados = json.dumps(
         {
             'dispositivo': dispositivo,
@@ -92,7 +99,8 @@ def montar_prompt(dispositivo: str, dias: int, scores: Dict[str, Any], eventos: 
                 'classificacao_incendio': scores['classificacao_incendio'],
                 'detalhamento': scores['detalhamento'],
             },
-            'eventos': eventos,
+            'eventos_na_amostra': f'{len(amostra)} de {len(eventos)} (os mais recentes; os totais estao no detalhamento)',
+            'eventos': amostra,
         },
         ensure_ascii=False,
         indent=2,

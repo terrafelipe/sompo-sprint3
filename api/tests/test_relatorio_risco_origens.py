@@ -164,3 +164,17 @@ def test_relatorio_compara_com_o_periodo_anterior():
     assert [e['id'] for e in data['eventos']] == [1]
     assert data['anterior'] == {'score_furto': 20, 'score_incendio': 0,
                                 'eventos': {'furto': 2, 'incendio': 0, 'total': 2}}
+
+
+def test_prompt_leva_so_os_eventos_mais_recentes_em_janelas_longas():
+    # 90 dias podem ter ~700 eventos: o prompt leva o detalhamento completo (totais exatos)
+    # e so uma amostra dos mais recentes, para nao ficar enorme e lento.
+    from relatorios import LIMITE_EVENTOS_PROMPT, montar_prompt
+    from scores import calcular_scores
+    eventos = [{'id': i, 'tipo': 'chama_detectada', 'severidade': 5} for i in range(150)]   # mais recente primeiro
+    prompt = montar_prompt('SOMPO-ESP32', 90, calcular_scores('SOMPO-ESP32', 90, eventos), eventos)
+    assert LIMITE_EVENTOS_PROMPT == 60
+    assert prompt.count('"tipo": "chama_detectada"') == 60
+    assert '"id": 0,' in prompt and '"id": 59,' in prompt and '"id": 60,' not in prompt
+    assert '"quantidade": 150' in prompt          # o detalhamento continua com o total real
+    assert '60 de 150' in prompt
