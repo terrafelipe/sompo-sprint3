@@ -4,69 +4,141 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SOMPO · Painel de Risco</title>
+<script>try{var t=localStorage.getItem('sompo.tema');if(t!=='claro'&&t!=='escuro')t=matchMedia('(prefers-color-scheme: dark)').matches?'escuro':'claro';document.documentElement.dataset.tema=t;}catch(e){document.documentElement.dataset.tema='claro';}</script>
 <style>
+  /* ===== Temas (claro/escuro): tokens do Tailwind e cores da camada visual ===== */
+  :root{
+    color-scheme:light;
+    --c-surface-tint:183 1 0;
+    --c-secondary:82 82 91;
+    --c-primary:183 1 0;
+    --c-surface:255 255 255;
+    --c-background:255 255 255;
+    --c-on-primary:255 255 255;
+    --c-on-surface:9 9 11;
+    --c-on-background:9 9 11;
+    --c-on-surface-variant:113 113 122;
+    --c-surface-variant:244 244 245;
+    --c-surface-container-lowest:255 255 255;
+    --c-surface-container-low:250 250 250;
+    --c-surface-container:244 244 245;
+    --c-surface-container-high:244 244 245;
+    --c-primary-container:230 0 0;
+    --c-on-primary-container:255 247 245;
+    --c-primary-fixed-dim:255 180 168;
+    --c-on-primary-fixed-variant:147 1 0;
+    --c-outline:161 161 170;
+    --c-outline-variant:228 228 231;
+    --c-sidebar:250 250 250;
+    --c-tertiary:0 81 198;
+    --c-tertiary-container:0 104 249;
+    --c-error:186 26 26;
+    --c-ok:16 185 129;
+    --c-atencao:245 158 11;
+    --v-card:#ffffff; --v-suave:#fafafa; --v-hover:#f4f4f5; --v-borda:#e4e4e7; --v-borda-forte:#d4d4d8;
+    --v-texto:#09090b; --v-texto2:#71717a; --v-texto3:#a1a1aa; --v-texto-sec:#52525b;
+    --v-faixa-b:#d1fae5; --v-faixa-m:#fef3c7; --v-faixa-a:#fee2e2;
+    /* series dos graficos (validadas no dataviz, uma paleta por tema) */
+    --s-furto:#2a78d6; --s-incendio:#b70100; --s-media:#eb6834; --s-ambiente:#2a78d6;
+  }
+  :root[data-tema="escuro"]{
+    color-scheme:dark;
+    --c-surface-tint:229 72 77;
+    --c-secondary:161 161 170;
+    --c-primary:229 72 77;
+    --c-surface:9 9 11;
+    --c-background:9 9 11;
+    --c-on-primary:255 255 255;
+    --c-on-surface:250 250 250;
+    --c-on-background:250 250 250;
+    --c-on-surface-variant:161 161 170;
+    --c-surface-variant:39 39 42;
+    --c-surface-container-lowest:17 17 19;
+    --c-surface-container-low:24 24 27;
+    --c-surface-container:39 39 42;
+    --c-surface-container-high:39 39 42;
+    --c-primary-container:229 72 77;
+    --c-on-primary-container:255 247 245;
+    --c-primary-fixed-dim:255 180 168;
+    --c-on-primary-fixed-variant:200 40 45;
+    --c-outline:113 113 122;
+    --c-outline-variant:39 39 42;
+    --c-sidebar:12 12 14;
+    --c-tertiary:96 165 250;
+    --c-tertiary-container:59 130 246;
+    --c-error:248 113 113;
+    --c-ok:52 211 153;
+    --c-atencao:251 191 36;
+    --v-card:#111113; --v-suave:#18181b; --v-hover:#27272a; --v-borda:#27272a; --v-borda-forte:#3f3f46;
+    --v-texto:#fafafa; --v-texto2:#a1a1aa; --v-texto3:#71717a; --v-texto-sec:#d4d4d8;
+    --v-faixa-b:#064e3b; --v-faixa-m:#713f12; --v-faixa-a:#7f1d1d;
+    --s-furto:#3987e5; --s-incendio:#e5484d; --s-media:#c98500; --s-ambiente:#3987e5;
+  }
+  :root[data-tema="escuro"] .kpi{background:linear-gradient(to top, rgba(229,72,77,.08), var(--v-card) 65%)}
+  html{transition:background-color .2s}
+
   [hidden]{display:none!important}
   button:disabled{opacity:.55;cursor:not-allowed}
   #fazendaSelWrap,#equipamentoSelWrap{width:22rem;max-width:100%;min-width:0}
   #fazendaSel,#equipamentoSel{width:100%;box-sizing:border-box;min-width:0;text-overflow:ellipsis}
   #fazendaSel > button,#equipamentoSel > button{display:flex;min-width:0;width:100%;overflow:hidden;font:inherit}
   #fazendaSel selectedcontent,#equipamentoSel selectedcontent{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  #confirmarExclusao{border:1px solid #e4e4e7;border-radius:.75rem;padding:1.5rem;width:min(28rem,calc(100% - 2rem));box-sizing:border-box;color:#09090b;background:#fff}
+  #confirmarExclusao{border:1px solid var(--v-borda);border-radius:.75rem;padding:1.5rem;width:min(28rem,calc(100% - 2rem));box-sizing:border-box;color:var(--v-texto);background:var(--v-card)}
   #confirmarExclusao::backdrop{background:#0006;backdrop-filter:blur(3px)}
   #detTitulo{overflow-wrap:anywhere;min-width:0}
   #listaOperadores > div{flex-wrap:wrap}
   #listaOperadores .flex-1{min-width:0;overflow-wrap:anywhere}
   @layer base{html,body{margin:0;padding:0}}
   ::-webkit-scrollbar{width:8px;height:8px}
-  ::-webkit-scrollbar-thumb{background:#d4d4d8;border-radius:8px}
+  ::-webkit-scrollbar-thumb{background:var(--v-borda-forte);border-radius:8px}
   /* Icones de traco fino, como os do modelo (lucide). */
   .material-symbols-outlined{font-variation-settings:'wght' 300}
   body{font-feature-settings:"cv11","ss01";-webkit-font-smoothing:antialiased}
   .tabular{font-variant-numeric:tabular-nums}
   /* Cards de indicador: borda fina + leve degrade com o vermelho Sompo. */
-  .kpi{position:relative;border:1px solid #e4e4e7;border-radius:.75rem;padding:1.25rem;
-       background:linear-gradient(to top, rgba(183,1,0,.045), #fff 65%);box-shadow:0 1px 2px rgba(0,0,0,.03)}
-  .kpi-ico{width:2rem;height:2rem;border:1px solid #e4e4e7;border-radius:.5rem;display:grid;place-items:center;color:#71717a;background:#fff}
+  .kpi{position:relative;border:1px solid var(--v-borda);border-radius:.75rem;padding:1.25rem;
+       background:linear-gradient(to top, rgba(183,1,0,.045), var(--v-card) 65%);box-shadow:0 1px 2px rgba(0,0,0,.03)}
+  .kpi-ico{width:2rem;height:2rem;border:1px solid var(--v-borda);border-radius:.5rem;display:grid;place-items:center;color:var(--v-texto2);background:var(--v-card)}
   .kpi-ico .material-symbols-outlined{font-size:18px}
   .kpi-pill{display:inline-flex;align-items:center;gap:.25rem;font-size:11px;font-weight:600;line-height:1;padding:.3rem .5rem;border-radius:.375rem;border:1px solid transparent}
   .kpi-pill:empty{display:none}
   /* Filtro de periodo (segmentado) */
-  .per-btn{height:100%;padding:0 .75rem;border-radius:.4rem;font-size:13px;font-weight:500;color:#71717a;transition:background .15s,color .15s}
-  .per-btn:hover{color:#09090b}
-  .per-btn[aria-pressed="true"]{background:#fff;color:#09090b;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+  .per-btn{height:100%;padding:0 .75rem;border-radius:.4rem;font-size:13px;font-weight:500;color:var(--v-texto2);transition:background .15s,color .15s}
+  .per-btn:hover{color:var(--v-texto)}
+  .per-btn[aria-pressed="true"]{background:var(--v-card);color:var(--v-texto);box-shadow:0 1px 2px rgba(0,0,0,.08)}
   /* Graficos: tooltip unico, recarga sem piscar */
-  #vizTip{position:fixed;z-index:80;pointer-events:none;min-width:9rem;background:#fff;border:1px solid #e4e4e7;border-radius:.5rem;
-          box-shadow:0 8px 24px rgba(0,0,0,.08);padding:.5rem .625rem;font-size:12px;color:#09090b}
-  #vizTip .tip-t{color:#71717a;margin-bottom:.25rem}
+  #vizTip{position:fixed;z-index:80;pointer-events:none;min-width:9rem;background:var(--v-card);border:1px solid var(--v-borda);border-radius:.5rem;
+          box-shadow:0 8px 24px rgba(0,0,0,.08);padding:.5rem .625rem;font-size:12px;color:var(--v-texto)}
+  #vizTip .tip-t{color:var(--v-texto2);margin-bottom:.25rem}
   #vizTip .tip-l{display:flex;align-items:center;gap:.5rem;justify-content:space-between}
   #vizTip .tip-l i{display:inline-block;width:10px;height:2px;border-radius:1px}
-  #vizTip .tip-l span{color:#71717a}
+  #vizTip .tip-l span{color:var(--v-texto2)}
   #vizTip .tip-l b{font-weight:600;font-variant-numeric:tabular-nums}
   .viz-carregando{opacity:.55;transition:opacity .2s}
   /* Tabelas no padrao do modelo */
-  .moldura{border:1px solid #e4e4e7;border-radius:.5rem;overflow-x:auto}
+  .moldura{border:1px solid var(--v-borda);border-radius:.5rem;overflow-x:auto}
   .tabela{width:100%;font-size:13px;border-collapse:collapse}
-  .tabela th{font-weight:500;color:#71717a;font-size:12px;text-align:left;padding:.625rem 1rem;background:#fafafa;border-bottom:1px solid #e4e4e7;white-space:nowrap}
-  .tabela td{padding:.7rem 1rem;border-bottom:1px solid #e4e4e7;vertical-align:middle;color:#09090b}
+  .tabela th{font-weight:500;color:var(--v-texto2);font-size:12px;text-align:left;padding:.625rem 1rem;background:var(--v-suave);border-bottom:1px solid var(--v-borda);white-space:nowrap}
+  .tabela td{padding:.7rem 1rem;border-bottom:1px solid var(--v-borda);vertical-align:middle;color:var(--v-texto)}
   .tabela tbody tr:last-child td{border-bottom:0}
-  .tabela tbody tr:hover{background:#fafafa}
+  .tabela tbody tr:hover{background:var(--v-suave)}
   .tabela tbody tr[data-faz],.tabela tbody tr[data-cli]{cursor:pointer}
-  .tabela .sub{display:block;font-size:12px;color:#71717a;margin-top:1px}
-  .selo{display:inline-flex;align-items:center;gap:.35rem;font-size:11px;font-weight:500;line-height:1;padding:.3rem .5rem;border-radius:.375rem;border:1px solid #e4e4e7;color:#52525b;background:#fff;white-space:nowrap}
+  .tabela .sub{display:block;font-size:12px;color:var(--v-texto2);margin-top:1px}
+  .selo{display:inline-flex;align-items:center;gap:.35rem;font-size:11px;font-weight:500;line-height:1;padding:.3rem .5rem;border-radius:.375rem;border:1px solid var(--v-borda);color:var(--v-texto-sec);background:var(--v-card);white-space:nowrap}
   .selo:empty{display:none}
   .selo i{width:6px;height:6px;border-radius:9999px;display:inline-block;flex:none}
-  .busca{height:2.25rem;width:15rem;max-width:100%;border:1px solid #e4e4e7;border-radius:.5rem;padding:0 .75rem 0 2.1rem;font-size:13px;background:#fff;outline:none}
+  .busca{height:2.25rem;width:15rem;max-width:100%;border:1px solid var(--v-borda);border-radius:.5rem;padding:0 .75rem 0 2.1rem;font-size:13px;background:var(--v-card);outline:none}
   .busca:focus{box-shadow:0 0 0 3px rgba(183,1,0,.12)}
-  .pag-btn{height:2rem;min-width:2rem;padding:0 .5rem;border:1px solid #e4e4e7;border-radius:.5rem;display:inline-grid;place-items:center;background:#fff;color:#09090b}
+  .pag-btn{height:2rem;min-width:2rem;padding:0 .5rem;border:1px solid var(--v-borda);border-radius:.5rem;display:inline-grid;place-items:center;background:var(--v-card);color:var(--v-texto)}
   .pag-btn:disabled{opacity:.4}
   /* Menu de acoes (⋯) em popover nativo */
-  .btn-mais{width:2rem;height:2rem;display:inline-grid;place-items:center;border-radius:.5rem;color:#71717a;flex:none}
-  .btn-mais:hover{background:#f4f4f5;color:#09090b}
-  .menu-acoes{position:fixed;inset:auto;margin:0;padding:4px;min-width:11.5rem;border:1px solid #e4e4e7;border-radius:.625rem;background:#fff;box-shadow:0 10px 30px rgba(0,0,0,.08);color:#09090b}
-  .menu-acoes button{display:flex!important;width:100%;align-items:center;gap:.55rem;padding:.45rem .6rem!important;border-radius:.375rem!important;font-size:13px!important;font-weight:400!important;color:#09090b!important;text-align:left;background:none!important;text-decoration:none!important}
-  .menu-acoes button:hover{background:#f4f4f5!important}
-  .menu-acoes button .material-symbols-outlined{font-size:18px;color:#71717a}
-  .menu-acoes hr{border:0;border-top:1px solid #e4e4e7;margin:4px 0}
+  .btn-mais{width:2rem;height:2rem;display:inline-grid;place-items:center;border-radius:.5rem;color:var(--v-texto2);flex:none}
+  .btn-mais:hover{background:var(--v-hover);color:var(--v-texto)}
+  .menu-acoes{position:fixed;inset:auto;margin:0;padding:4px;min-width:11.5rem;border:1px solid var(--v-borda);border-radius:.625rem;background:var(--v-card);box-shadow:0 10px 30px rgba(0,0,0,.08);color:var(--v-texto)}
+  .menu-acoes button{display:flex!important;width:100%;align-items:center;gap:.55rem;padding:.45rem .6rem!important;border-radius:.375rem!important;font-size:13px!important;font-weight:400!important;color:var(--v-texto)!important;text-align:left;background:none!important;text-decoration:none!important}
+  .menu-acoes button:hover{background:var(--v-hover)!important}
+  .menu-acoes button .material-symbols-outlined{font-size:18px;color:var(--v-texto2)}
+  .menu-acoes hr{border:0;border-top:1px solid var(--v-borda);margin:4px 0}
   .menu-acoes [data-excluir-tipo]{color:#ba1a1a!important}
   .viz-hit{fill:transparent;cursor:crosshair}
   .viz-hit:hover{fill:rgba(9,9,11,.04)}
@@ -75,13 +147,13 @@
   .viz-hit:focus-visible{stroke:#b70100;stroke-width:1.5}
   .viz-hit.viz-sel{fill:rgba(183,1,0,.06)}
   .tipo-btn{display:block;width:100%;text-align:left;border-radius:.375rem;margin:0 -.375rem;padding:.25rem .375rem;width:calc(100% + .75rem);transition:background .15s,opacity .15s}
-  .tipo-btn:hover{background:#fafafa}
+  .tipo-btn:hover{background:var(--v-suave)}
   .tipo-btn[aria-pressed="true"]{background:rgba(183,1,0,.05)}
   .tipo-btn:focus-visible{outline:2px solid rgba(183,1,0,.35);outline-offset:1px}
   .viz-apagado{opacity:.4}
-  .chip-filtro{display:inline-flex;align-items:center;gap:.25rem;height:1.625rem;padding:0 .375rem 0 .5rem;border-radius:.375rem;border:1px solid #e4e4e7;background:#fff;font-size:12px;font-weight:500;color:#09090b}
-  .chip-filtro:hover{background:#f4f4f5}
-  .chip-filtro .material-symbols-outlined{font-size:15px;color:#71717a}
+  .chip-filtro{display:inline-flex;align-items:center;gap:.25rem;height:1.625rem;padding:0 .375rem 0 .5rem;border-radius:.375rem;border:1px solid var(--v-borda);background:var(--v-card);font-size:12px;font-weight:500;color:var(--v-texto)}
+  .chip-filtro:hover{background:var(--v-hover)}
+  .chip-filtro .material-symbols-outlined{font-size:15px;color:var(--v-texto2)}
   /* Sidebar recolhivel (botao no topo). */
   /* Menu lateral recolhido: vira uma trilha de icones (como no modelo). */
   @media (min-width:1024px){
@@ -95,17 +167,17 @@
     .sb-mini #sidebar > div:last-child > div{justify-content:center;padding:0}
   }
   /* Busca rapida (Ctrl+K) */
-  .paleta{width:min(36rem,calc(100% - 2rem));margin:12vh auto auto;padding:0;border:1px solid #e4e4e7;border-radius:.75rem;box-shadow:0 20px 50px rgba(0,0,0,.15);background:#fff;color:#09090b}
+  .paleta{width:min(36rem,calc(100% - 2rem));margin:12vh auto auto;padding:0;border:1px solid var(--v-borda);border-radius:.75rem;box-shadow:0 20px 50px rgba(0,0,0,.15);background:var(--v-card);color:var(--v-texto)}
   .paleta::backdrop{background:rgba(9,9,11,.25);backdrop-filter:blur(2px)}
-  .pal-grupo{padding:.6rem .6rem .25rem;font-size:11px;font-weight:500;color:#71717a}
-  .pal-item{display:flex;align-items:center;gap:.65rem;width:100%;padding:.5rem .6rem;border-radius:.4rem;font-size:13.5px;text-align:left;color:#09090b}
-  .pal-item .material-symbols-outlined{font-size:18px;color:#71717a}
-  .pal-item .pal-sub{margin-left:auto;font-size:12px;color:#71717a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:55%}
-  .pal-item[aria-selected="true"]{background:#f4f4f5}
-  .tecla{display:inline-flex;align-items:center;height:1.25rem;padding:0 .375rem;border-radius:.25rem;border:1px solid #e4e4e7;background:#fafafa;font-size:11px;font-weight:500;color:#71717a;font-family:inherit}
-  .menu-acoes a{display:flex;align-items:center;gap:.55rem;padding:.45rem .6rem;border-radius:.375rem;font-size:13px;color:#09090b}
-  .menu-acoes a:hover{background:#f4f4f5}
-  .menu-acoes a .material-symbols-outlined{font-size:18px;color:#71717a}
+  .pal-grupo{padding:.6rem .6rem .25rem;font-size:11px;font-weight:500;color:var(--v-texto2)}
+  .pal-item{display:flex;align-items:center;gap:.65rem;width:100%;padding:.5rem .6rem;border-radius:.4rem;font-size:13.5px;text-align:left;color:var(--v-texto)}
+  .pal-item .material-symbols-outlined{font-size:18px;color:var(--v-texto2)}
+  .pal-item .pal-sub{margin-left:auto;font-size:12px;color:var(--v-texto2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:55%}
+  .pal-item[aria-selected="true"]{background:var(--v-hover)}
+  .tecla{display:inline-flex;align-items:center;height:1.25rem;padding:0 .375rem;border-radius:.25rem;border:1px solid var(--v-borda);background:var(--v-suave);font-size:11px;font-weight:500;color:var(--v-texto2);font-family:inherit}
+  .menu-acoes a{display:flex;align-items:center;gap:.55rem;padding:.45rem .6rem;border-radius:.375rem;font-size:13px;color:var(--v-texto)}
+  .menu-acoes a:hover{background:var(--v-hover)}
+  .menu-acoes a .material-symbols-outlined{font-size:18px;color:var(--v-texto2)}
   /* Border Beam (efeito adaptado do Badtz UI / 21st.dev) em CSS puro: um feixe
      percorre a borda do card de risco, na cor do nivel. So aparece quando ha risco. */
   @property --beam-angle { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
@@ -134,7 +206,7 @@
     /* base-select torna o select um flex: sem isto o texto do header quebra em duas linhas */
     select{ font: inherit; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     select::select-fallback-button-text, select selectedcontent{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
-    select::picker-icon{ font-family:'Material Symbols Outlined'; content:'expand_more'; font-size:18px; color:#71717a; transition:rotate .2s ease; }
+    select::picker-icon{ font-family:'Material Symbols Outlined'; content:'expand_more'; font-size:18px; color:var(--v-texto2); transition:rotate .2s ease; }
     select:open::picker-icon{ rotate:180deg; }
     /* os dois selects do header já têm a seta desenhada no markup */
     #fazendaSel::picker-icon, #equipamentoSel::picker-icon{ display:none; }
@@ -143,16 +215,16 @@
     select:open + .sel-seta{ --tw-rotate:180deg; }
     .sel-seta{ transition:transform .2s ease; }
     ::picker(select){
-      margin-top:6px; padding:4px; border:1px solid #e4e4e7; border-radius:10px;
-      background:#fff; color:#09090b; box-shadow:0 10px 30px rgba(0,0,0,.08);
+      margin-top:6px; padding:4px; border:1px solid var(--v-borda); border-radius:10px;
+      background:var(--v-card); color:var(--v-texto); box-shadow:0 10px 30px rgba(0,0,0,.08);
       font:500 14px/1.3 Inter, system-ui, sans-serif; min-width:anchor-size(width);
     }
     option{ display:flex; align-items:center; gap:8px; padding:7px 10px; border-radius:6px; cursor:pointer; }
-    option:hover, option:focus-visible{ background:#f4f4f5; outline:none; }
+    option:hover, option:focus-visible{ background:var(--v-hover); outline:none; }
     option:checked{ background:#b701000f; color:#b70100; font-weight:600; }
     option::checkmark{ order:1; margin-left:auto; font-family:'Material Symbols Outlined'; content:'check'; font-size:18px; }
-    option[value=""]{ color:#71717a; }
-    option[value=""]:checked{ background:#f4f4f5; color:#71717a; font-weight:500; }
+    option[value=""]{ color:var(--v-texto2); }
+    option[value=""]:checked{ background:var(--v-hover); color:var(--v-texto2); font-weight:500; }
   }
 
   /* Pulso no seletor de máquina quando "Selecionar máquina" não consegue abrir a lista. */
@@ -165,15 +237,7 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script id="tailwind-config">
   tailwind.config={theme:{extend:{
-    "colors":{
-      "surface-tint":"#b70100","secondary":"#52525b","primary":"#b70100","surface":"#ffffff",
-      "background":"#ffffff","on-primary":"#ffffff","on-surface":"#09090b","on-background":"#09090b",
-      "on-surface-variant":"#71717a","surface-variant":"#f4f4f5","surface-container-lowest":"#ffffff",
-      "surface-container-low":"#fafafa","surface-container":"#f4f4f5","surface-container-high":"#f4f4f5",
-      "primary-container":"#e60000","on-primary-container":"#fff7f5","primary-fixed-dim":"#ffb4a8",
-      "on-primary-fixed-variant":"#930100","outline":"#a1a1aa","outline-variant":"#e4e4e7","sidebar":"#fafafa",
-      "tertiary":"#0051c6","tertiary-container":"#0068f9","error":"#ba1a1a","ok":"#10b981","atencao":"#f59e0b"
-    },
+    "colors":{"surface-tint":"rgb(var(--c-surface-tint) / <alpha-value>)","secondary":"rgb(var(--c-secondary) / <alpha-value>)","primary":"rgb(var(--c-primary) / <alpha-value>)","surface":"rgb(var(--c-surface) / <alpha-value>)","background":"rgb(var(--c-background) / <alpha-value>)","on-primary":"rgb(var(--c-on-primary) / <alpha-value>)","on-surface":"rgb(var(--c-on-surface) / <alpha-value>)","on-background":"rgb(var(--c-on-background) / <alpha-value>)","on-surface-variant":"rgb(var(--c-on-surface-variant) / <alpha-value>)","surface-variant":"rgb(var(--c-surface-variant) / <alpha-value>)","surface-container-lowest":"rgb(var(--c-surface-container-lowest) / <alpha-value>)","surface-container-low":"rgb(var(--c-surface-container-low) / <alpha-value>)","surface-container":"rgb(var(--c-surface-container) / <alpha-value>)","surface-container-high":"rgb(var(--c-surface-container-high) / <alpha-value>)","primary-container":"rgb(var(--c-primary-container) / <alpha-value>)","on-primary-container":"rgb(var(--c-on-primary-container) / <alpha-value>)","primary-fixed-dim":"rgb(var(--c-primary-fixed-dim) / <alpha-value>)","on-primary-fixed-variant":"rgb(var(--c-on-primary-fixed-variant) / <alpha-value>)","outline":"rgb(var(--c-outline) / <alpha-value>)","outline-variant":"rgb(var(--c-outline-variant) / <alpha-value>)","sidebar":"rgb(var(--c-sidebar) / <alpha-value>)","tertiary":"rgb(var(--c-tertiary) / <alpha-value>)","tertiary-container":"rgb(var(--c-tertiary-container) / <alpha-value>)","error":"rgb(var(--c-error) / <alpha-value>)","ok":"rgb(var(--c-ok) / <alpha-value>)","atencao":"rgb(var(--c-atencao) / <alpha-value>)"},
     "fontFamily":{"sans":["Inter","system-ui","sans-serif"]},
     "borderRadius":{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","2xl":"1rem","full":"9999px"}
   }}};
@@ -246,10 +310,14 @@
             class="inline-flex items-center gap-1.5 h-9 bg-primary text-on-primary font-medium px-3 rounded-lg hover:bg-on-primary-fixed-variant transition-colors">
       <span class="material-symbols-outlined text-[18px]">download</span><span>Exportar Word</span>
     </button>
+    <button id="btnTema" type="button" title="Modo escuro" aria-label="Alternar modo escuro"
+            class="w-9 h-9 grid place-items-center rounded-lg border border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors">
+      <span class="material-symbols-outlined text-[20px]">dark_mode</span>
+    </button>
     <button id="btnUsuario" type="button" popovertarget="menuUsuario" aria-label="Menu do usuário" title="Conta"
             class="relative w-9 h-9 rounded-full bg-primary/10 text-primary grid place-items-center hover:ring-2 hover:ring-primary/20 transition-shadow">
       <span class="material-symbols-outlined text-[20px]">person</span>
-      <span id="saudeDot" class="absolute -right-0.5 -bottom-0.5 w-2.5 h-2.5 rounded-full bg-outline ring-2 ring-white"></span>
+      <span id="saudeDot" class="absolute -right-0.5 -bottom-0.5 w-2.5 h-2.5 rounded-full bg-outline ring-2 ring-surface"></span>
     </button>
     <div id="menuUsuario" popover class="menu-acoes" style="min-width:15rem">
       <div class="px-2.5 py-2">
@@ -327,20 +395,20 @@
       <div class="kpi">
         <div class="kpi-ico"><span class="material-symbols-outlined">notifications</span></div>
         <h3 class="text-sm text-on-surface-variant mt-4">Alertas</h3>
-        <div class="flex items-center gap-2 mt-1"><span id="kpiAlertas" class="text-3xl font-semibold tracking-tight tabular">–</span><span id="kpiAlertasPill" class="kpi-pill" style="background:#f4f4f5;color:#52525b;border-color:#e4e4e7">7 dias</span></div>
+        <div class="flex items-center gap-2 mt-1"><span id="kpiAlertas" class="text-3xl font-semibold tracking-tight tabular">–</span><span id="kpiAlertasPill" class="kpi-pill" style="background:var(--v-hover);color:var(--v-texto-sec);border-color:var(--v-borda)">7 dias</span></div>
         <p id="kpiAlertasSub" class="text-sm text-on-surface-variant mt-1">Eventos registrados no período</p>
       </div>
       <div class="kpi">
         <div class="kpi-ico"><span class="material-symbols-outlined">lock_open</span></div>
         <h3 class="text-sm text-on-surface-variant mt-4">Score de furto</h3>
         <div class="flex items-center gap-2 mt-1"><span class="text-3xl font-semibold tracking-tight tabular"><span id="kpiFurto">–</span><span class="text-base font-normal text-on-surface-variant">/100</span></span><span id="kpiFurtoPill" class="kpi-pill"></span></div>
-        <p class="text-sm text-on-surface-variant mt-1">Capô, tanque, vibração e crachá</p>
+        <p id="kpiFurtoSub" class="text-sm text-on-surface-variant mt-1">Capô, tanque, vibração e crachá</p>
       </div>
       <div class="kpi">
         <div class="kpi-ico"><span class="material-symbols-outlined">local_fire_department</span></div>
         <h3 class="text-sm text-on-surface-variant mt-4">Score de incêndio</h3>
         <div class="flex items-center gap-2 mt-1"><span class="text-3xl font-semibold tracking-tight tabular"><span id="kpiIncendio">–</span><span class="text-base font-normal text-on-surface-variant">/100</span></span><span id="kpiIncendioPill" class="kpi-pill"></span></div>
-        <p class="text-sm text-on-surface-variant mt-1">Chama e temperatura de escape</p>
+        <p id="kpiIncendioSub" class="text-sm text-on-surface-variant mt-1">Chama e temperatura de escape</p>
       </div>
     </div>
 
@@ -352,8 +420,8 @@
         <div class="p-5 pb-2 flex items-start justify-between gap-4 flex-wrap">
           <div><h2 class="text-base font-semibold text-on-surface">Atividade de alertas</h2><p id="atividadeSub" class="text-sm text-on-surface-variant">Eventos por dia nos últimos 7 dias</p></div>
           <div class="flex items-center gap-4 text-xs text-on-surface-variant pt-1">
-            <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm" style="background:#2a78d6"></span>Furto <b id="totFurto" class="text-on-surface font-semibold">–</b></span>
-            <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm" style="background:#b70100"></span>Incêndio <b id="totIncendio" class="text-on-surface font-semibold">–</b></span>
+            <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm" style="background:var(--s-furto)"></span>Furto <b id="totFurto" class="text-on-surface font-semibold">–</b></span>
+            <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm" style="background:var(--s-incendio)"></span>Incêndio <b id="totIncendio" class="text-on-surface font-semibold">–</b></span>
           </div>
         </div>
         <div id="graficoAtividade" class="px-5 pb-4"></div>
@@ -451,9 +519,9 @@
         <div class="p-5 pb-2 flex items-start justify-between gap-4 flex-wrap">
           <div><h2 class="text-base font-semibold text-on-surface">Temperatura por dia</h2><p id="tempDiaSub" class="text-sm text-on-surface-variant">Escape e ambiente, por dia com leituras</p></div>
           <div class="flex items-center gap-4 text-xs text-on-surface-variant pt-1">
-            <span class="inline-flex items-center gap-1.5"><span class="w-3 h-0.5 rounded" style="background:#b70100"></span>Escape máx.</span>
-            <span class="inline-flex items-center gap-1.5"><span class="w-3 h-0.5 rounded" style="background:#eb6834"></span>Escape média</span>
-            <span class="inline-flex items-center gap-1.5"><span class="w-3 h-0.5 rounded" style="background:#2a78d6"></span>Ambiente média</span>
+            <span class="inline-flex items-center gap-1.5"><span class="w-3 h-0.5 rounded" style="background:var(--s-incendio)"></span>Escape máx.</span>
+            <span class="inline-flex items-center gap-1.5"><span class="w-3.5 border-t-2 border-dashed" style="border-color:var(--s-media)"></span>Escape média</span>
+            <span class="inline-flex items-center gap-1.5"><span class="w-3 h-0.5 rounded" style="background:var(--s-ambiente)"></span>Ambiente média</span>
           </div>
         </div>
         <div id="graficoTempDia" class="px-5 pb-4"></div>
@@ -909,26 +977,26 @@ function graficoTemp(rows){
   for(let g=0; g<=N; g++){
     const v=mn+(mx-mn)*g/N, yy=Y(v).toFixed(1);
     grid+=`<line x1="${ML}" y1="${yy}" x2="${W-MR}" y2="${yy}" stroke="#e4e4e7" stroke-width="1"/>`;
-    grid+=`<text x="${ML-6}" y="${(Y(v)+3).toFixed(1)}" text-anchor="end" font-size="9" fill="#71717a">${Math.round(v)}°</text>`;
+    grid+=`<text x="${ML-6}" y="${(Y(v)+3).toFixed(1)}" text-anchor="end" font-size="9" style="fill:var(--v-texto2)">${Math.round(v)}°</text>`;
   }
   let xlab='';
   [0, Math.floor((pts.length-1)/2), pts.length-1].forEach(i=>{
     const anc = i===0?'start':(i===pts.length-1?'end':'middle');
-    xlab+=`<text x="${X(i).toFixed(1)}" y="${H-8}" text-anchor="${anc}" font-size="9" fill="#71717a">${fmtHoraCurta(pts[i].h)}</text>`;
+    xlab+=`<text x="${X(i).toFixed(1)}" y="${H-8}" text-anchor="${anc}" font-size="9" style="fill:var(--v-texto2)">${fmtHoraCurta(pts[i].h)}</text>`;
   });
   let dots='', hits='', slice=iw/pts.length;
   pts.forEach((p,i)=>{
-    if(i===pts.length-1) dots+=`<circle cx="${X(i).toFixed(1)}" cy="${Y(p.t).toFixed(1)}" r="4" fill="#b70100" stroke="#fff" stroke-width="2"/>`;
+    if(i===pts.length-1) dots+=`<circle cx="${X(i).toFixed(1)}" cy="${Y(p.t).toFixed(1)}" r="4" fill="${COR.marca}" style="stroke:var(--v-card)" stroke-width="2"/>`;
     hits+=`<rect x="${(X(i)-slice/2).toFixed(1)}" y="${MT}" width="${slice.toFixed(1)}" height="${ih}" fill="transparent"><title>${p.t} °C · ${fmtHoraCurta(p.h)}</title></rect>`;
   });
 
   return `<svg viewBox="0 0 ${W} ${H}" class="w-full" role="img" aria-label="Temperatura de escape ao longo do tempo">
     <defs><linearGradient id="gTemp" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#b70100" stop-opacity="0.18"/><stop offset="100%" stop-color="#b70100" stop-opacity="0"/>
+      <stop offset="0%" stop-color="${COR.marca}" stop-opacity="0.18"/><stop offset="100%" stop-color="${COR.marca}" stop-opacity="0"/>
     </linearGradient></defs>
     ${grid}
     <path d="${darea}" fill="url(#gTemp)"/>
-    <path d="${dline}" fill="none" stroke="#b70100" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="${dline}" fill="none" stroke="${COR.marca}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
     ${dots}${xlab}${hits}
   </svg>`;
 }
@@ -937,11 +1005,11 @@ async function carregarSaude(){
   try{
     const s = await getJSON('/saude');
     const ok = s.banco === 'ok';
-    $('saudeDot').className = 'absolute -right-0.5 -bottom-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-white ' + (ok ? 'bg-ok' : 'bg-error');
+    $('saudeDot').className = 'absolute -right-0.5 -bottom-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-surface ' + (ok ? 'bg-ok' : 'bg-error');
     $('saudeTxt').textContent = ok ? 'API e banco OK' : 'Banco indisponível';
     $('fonteBanco').textContent = ok ? 'Fonte: Supabase conectado.' : 'Fonte: Supabase indisponível.';
   }catch(e){ if(e.obsoleto) return;
-    $('saudeDot').className = 'absolute -right-0.5 -bottom-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-white bg-error';
+    $('saudeDot').className = 'absolute -right-0.5 -bottom-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-surface bg-error';
     $('saudeTxt').textContent = 'API offline';
   }
 }
@@ -953,18 +1021,18 @@ function medidorRisco(score, classif, faixas){
   const pt = v => [cx + r*Math.cos(ang(v)), cy - r*Math.sin(ang(v))];
   const arco = (v0, v1) => { const [x0,y0]=pt(v0), [x1,y1]=pt(v1); return `M${x0.toFixed(1)},${y0.toFixed(1)} A${r},${r} 0 0 1 ${x1.toFixed(1)},${y1.toFixed(1)}`; };
   const md = faixas?.medio ?? 34, al = faixas?.alto ?? 67;
-  const bandas = [[0, md, '#d1fae5'], [md, al, '#fef3c7'], [al, 100, '#fee2e2']];
-  const trilho = bandas.map(([a,b,c], i) => `<path d="${arco(a + (i ? 0.8 : 0), b - (i < 2 ? 0.8 : 0))}" stroke="${c}" stroke-width="${esp}" fill="none"/>`).join('');
+  const bandas = [[0, md, 'var(--v-faixa-b)'], [md, al, 'var(--v-faixa-m)'], [al, 100, 'var(--v-faixa-a)']];
+  const trilho = bandas.map(([a,b,c], i) => `<path d="${arco(a + (i ? 0.8 : 0), b - (i < 2 ? 0.8 : 0))}" style="stroke:${c}" stroke-width="${esp}" fill="none"/>`).join('');
   const valor = score > 0 ? `<path d="${arco(0, score)}" stroke="${corRisco(classif)}" stroke-width="${esp}" fill="none" stroke-linecap="butt"/>` : '';
   const marca = v => { const a = ang(v), xi = cx + (r+esp/2+3)*Math.cos(a), yi = cy - (r+esp/2+3)*Math.sin(a), xt = cx + (r+esp/2+13)*Math.cos(a), yt = cy - (r+esp/2+13)*Math.sin(a);
-    return `<line x1="${(cx+(r-esp/2)*Math.cos(a)).toFixed(1)}" y1="${(cy-(r-esp/2)*Math.sin(a)).toFixed(1)}" x2="${xi.toFixed(1)}" y2="${yi.toFixed(1)}" stroke="#ffffff" stroke-width="2"/>
-            <text x="${xt.toFixed(1)}" y="${(yt+3).toFixed(1)}" text-anchor="middle" font-size="10" fill="${TXT_MUDO}">${v}</text>`; };
+    return `<line x1="${(cx+(r-esp/2)*Math.cos(a)).toFixed(1)}" y1="${(cy-(r-esp/2)*Math.sin(a)).toFixed(1)}" x2="${xi.toFixed(1)}" y2="${yi.toFixed(1)}" style="stroke:var(--v-card)" stroke-width="2"/>
+            <text x="${xt.toFixed(1)}" y="${(yt+3).toFixed(1)}" text-anchor="middle" font-size="10" style="fill:${TXT_MUDO}">${v}</text>`; };
   return `<svg viewBox="0 0 220 122" class="w-full" aria-hidden="true">
     ${trilho}${valor}${marca(md)}${marca(al)}
-    <text x="${cx - r}" y="${cy + 16}" text-anchor="middle" font-size="10" fill="${TXT_MUDO}">0</text>
-    <text x="${cx + r}" y="${cy + 16}" text-anchor="middle" font-size="10" fill="${TXT_MUDO}">100</text>
-    <text x="${cx}" y="${cy - 8}" text-anchor="middle" font-size="36" font-weight="600" fill="#09090b">${score}</text>
-    <text x="${cx}" y="${cy + 12}" text-anchor="middle" font-size="11" fill="${TXT_MUDO}">de 100</text>
+    <text x="${cx - r}" y="${cy + 16}" text-anchor="middle" font-size="10" style="fill:${TXT_MUDO}">0</text>
+    <text x="${cx + r}" y="${cy + 16}" text-anchor="middle" font-size="10" style="fill:${TXT_MUDO}">100</text>
+    <text x="${cx}" y="${cy - 8}" text-anchor="middle" font-size="36" font-weight="600" style="fill:var(--v-texto)">${score}</text>
+    <text x="${cx}" y="${cy + 12}" text-anchor="middle" font-size="11" style="fill:${TXT_MUDO}">de 100</text>
   </svg>`;
 }
 
@@ -1015,6 +1083,8 @@ async function carregarRisco(novo){
     $('kpiFurto').textContent = sf; $('kpiIncendio').textContent = si;
     const pilula = (el, c) => { const cor=corRisco(c); el.textContent=c; el.style.background=cor+'14'; el.style.color=cor; el.style.borderColor=cor+'33'; };
     pilula($('kpiFurtoPill'), cf); pilula($('kpiIncendioPill'), ci);
+    variacao($('kpiFurtoSub'), sf, d.anterior?.score_furto, '7 dias', 'Capô, tanque, vibração e crachá', true);
+    variacao($('kpiIncendioSub'), si, d.anterior?.score_incendio, '7 dias', 'Chama e temperatura de escape', true);
     // Auto-refresh a cada 5s: so redesenha quando a analise muda.
     if(!novo && !mudou('risco', `${sf}|${si}|${d.gerado_em}|${d.origem_da_analise}`) && $('gaugeFurto').firstChild) return;
 
@@ -1133,8 +1203,11 @@ async function carregarEventos(){
   iniciando('eventos');
   try{
     ['graficoAtividade','graficoTipos'].forEach(id => $(id).classList.add('viz-carregando'));
-    const d = await getJSON(`/eventos?${seletorEquipamento()}&dias=${periodo}`);
-    const evs = d.dados || [];
+    const d = await getJSON(`/eventos?${seletorEquipamento()}&dias=${periodo * 2}`);
+    const corte = Date.now() - periodo * 864e5;
+    const todos = d.dados || [];
+    const evs = todos.filter(e => !e.criado_em || new Date(e.criado_em).getTime() >= corte);
+    variacao($('kpiAlertasSub'), evs.length, todos.length - evs.length, `${periodo} dias`, 'Eventos registrados no período', false);
     eventosPeriodo = evs;
     $('kpiAlertas').textContent = evs.length;
     renderizarGraficosEventos(evs);
@@ -1253,11 +1326,29 @@ $('feedFiltros').addEventListener('click', ev => {
 // Paleta validada (dataviz/validate_palette): Furto azul, Incendio vermelho Sompo;
 // temperatura: max vermelho, media laranja, ambiente azul.
 let periodo = 7;
+// "↑ +40 pts vs. 7 dias anteriores": subir risco e ruim (vermelho), descer e bom (verde).
+function variacao(el, atual, anterior, rotuloPeriodo, padrao, emPontos){
+  if(anterior == null || atual == null || isNaN(atual)){ el.textContent = padrao; el.className = 'text-sm text-on-surface-variant mt-1'; return; }
+  const dif = atual - anterior;
+  const icone = dif > 0 ? 'trending_up' : dif < 0 ? 'trending_down' : 'trending_flat';
+  let txt;
+  if(dif === 0) txt = `Igual aos ${rotuloPeriodo} anteriores`;
+  else if(emPontos) txt = `${dif > 0 ? '+' : '−'}${Math.abs(dif)} pts vs. ${rotuloPeriodo} anteriores`;
+  else if(anterior === 0) txt = `+${atual} (nenhum nos ${rotuloPeriodo} anteriores)`;
+  else txt = `${dif > 0 ? '+' : '−'}${Math.abs(Math.round(dif / anterior * 100))}% vs. ${rotuloPeriodo} anteriores`;
+  el.className = 'text-sm mt-1 inline-flex items-center gap-1 ' + (dif > 0 ? 'text-error' : dif < 0 ? 'text-ok' : 'text-on-surface-variant');
+  const i = document.createElement('span'); i.className = 'material-symbols-outlined text-[18px]'; i.textContent = icone; i.setAttribute('aria-hidden', 'true');
+  el.replaceChildren(i, document.createTextNode(txt));
+}
 // Desenha na largura real do espaco (texto do eixo sempre no mesmo tamanho).
 // Container escondido (largura 0) usa o padrao; o grafico e refeito ao aparecer.
 const larguraGrafico = (el, padrao) => { const w = el.clientWidth - 40; return w > 240 ? Math.round(w) : padrao; };
-const COR = {furto:'#2a78d6', incendio:'#b70100', max:'#b70100', media:'#eb6834', ambiente:'#2a78d6'};
-const GRADE = '#e4e4e7', TXT_MUDO = '#71717a';
+const COR_TEMAS = {
+  claro:  {furto:'#2a78d6', incendio:'#b70100', max:'#b70100', media:'#eb6834', ambiente:'#2a78d6', marca:'#b70100'},
+  escuro: {furto:'#3987e5', incendio:'#e5484d', max:'#e5484d', media:'#c98500', ambiente:'#3987e5', marca:'#e5484d'},
+};
+const COR = {...COR_TEMAS[document.documentElement.dataset.tema === 'escuro' ? 'escuro' : 'claro']};
+const GRADE = 'var(--v-borda)', TXT_MUDO = 'var(--v-texto2)';
 const eixoDoTipo = t => { t = String(t||'');
   if(t.startsWith('furto') || t === 'operador_nao_autorizado' || t === 'sensor_falha') return 'furto';
   if(t.startsWith('chama') || t.startsWith('escape') || t.startsWith('fumaca')) return 'incendio';
@@ -1337,8 +1428,8 @@ function renderizarGraficosEventos(evs){
     let g = '';
     for(let v=0; v<=top; v+=step){
       const y = Y(v).toFixed(1);
-      g += `<line x1="${ML}" x2="${W-MR}" y1="${y}" y2="${y}" stroke="${GRADE}" stroke-width="1"/>`;
-      g += `<text x="${ML-8}" y="${(+y+3).toFixed(1)}" text-anchor="end" font-size="10" fill="${TXT_MUDO}">${v}</text>`;
+      g += `<line x1="${ML}" x2="${W-MR}" y1="${y}" y2="${y}" style="stroke:${GRADE}" stroke-width="1"/>`;
+      g += `<text x="${ML-8}" y="${(+y+3).toFixed(1)}" text-anchor="end" font-size="10" style="fill:${TXT_MUDO}">${v}</text>`;
     }
     let barras = '', hits = '', rot = '';
     const cada = Math.max(1, Math.ceil(dias.length/7));
@@ -1355,7 +1446,7 @@ function renderizarGraficosEventos(evs){
         aria-label="${fmtDia(d)}: ${f[i]} de furto, ${inc[i]} de incêndio. ${sel ? 'Remover filtro do dia' : 'Filtrar alertas deste dia'}"
         x="${(ML+band*i).toFixed(1)}" y="${MT}" width="${band.toFixed(1)}" height="${ih}" rx="4"/>`;
       if(i % cada === 0 || i === dias.length-1 && (dias.length-1) % cada > cada/2)
-        rot += `<text x="${(x+bw/2).toFixed(1)}" y="${H-8}" text-anchor="middle" font-size="10" fill="${TXT_MUDO}">${fmtDia(d)}</text>`;
+        rot += `<text x="${(x+bw/2).toFixed(1)}" y="${H-8}" text-anchor="middle" font-size="10" style="fill:${TXT_MUDO}">${fmtDia(d)}</text>`;
     });
     cA.innerHTML = `<svg viewBox="0 0 ${W} ${H}" class="w-full" role="img" aria-label="Alertas por dia, furto e incêndio">${g}${barras}${rot}${hits}</svg>`;
     ligarHover(cA, (ev, i) => { if(ev) tipMostrar(ev, fmtDia(dias[i]) + (dias[i] === filtroDia ? ' · clique para remover' : ' · clique para filtrar'), [[COR.furto,'Furto',f[i]],[COR.incendio,'Incêndio',inc[i]]]); });
@@ -1431,28 +1522,28 @@ async function carregarTempDia(){
     let g = '';
     for(let v=mn; v<=mx+1e-9; v+=step){
       const y = Y(v).toFixed(1);
-      g += `<line x1="${ML}" x2="${W-MR}" y1="${y}" y2="${y}" stroke="${GRADE}" stroke-width="1"/>`;
-      g += `<text x="${ML-8}" y="${(+y+3).toFixed(1)}" text-anchor="end" font-size="10" fill="${TXT_MUDO}">${Math.round(v*10)/10}°</text>`;
+      g += `<line x1="${ML}" x2="${W-MR}" y1="${y}" y2="${y}" style="stroke:${GRADE}" stroke-width="1"/>`;
+      g += `<text x="${ML-8}" y="${(+y+3).toFixed(1)}" text-anchor="end" font-size="10" style="fill:${TXT_MUDO}">${Math.round(v*10)/10}°</text>`;
     }
     let linhas = '', pontos = '';
     series.forEach(([k,,fn]) => {
       const pts = rows.map((r,i) => [X(i), fn(r)]).filter(p => typeof p[1] === 'number').map(([x,v]) => [x, Y(v)]);
       if(!pts.length) return;
-      linhas += `<path d="${pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')}" fill="none" stroke="${COR[k]}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+      linhas += `<path d="${pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')}" fill="none" stroke="${COR[k]}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"${k === 'media' ? ' stroke-dasharray="5 4"' : ''}/>`;
       // Poucos dias: marca cada ponto (deixa claro onde ha dado); muitos: so o ultimo.
       (pts.length <= 15 ? pts : [pts[pts.length-1]]).forEach(u =>
-        pontos += `<circle cx="${u[0].toFixed(1)}" cy="${u[1].toFixed(1)}" r="4" fill="${COR[k]}" stroke="#fff" stroke-width="2"/>`);
+        pontos += `<circle cx="${u[0].toFixed(1)}" cy="${u[1].toFixed(1)}" r="4" fill="${COR[k]}" style="stroke:var(--v-card)" stroke-width="2"/>`);
     });
     const cada = Math.max(1, Math.ceil(rows.length/8));
     let rot = '', hits = '';
     const faixa = rows.length === 1 ? iw : iw/(rows.length-1);
     rows.forEach((r,i) => {
       if(i % cada === 0 || i === rows.length-1)
-        rot += `<text x="${X(i).toFixed(1)}" y="${H-8}" text-anchor="${rows.length===1?'middle':(i===0?'start':(i===rows.length-1?'end':'middle'))}" font-size="10" fill="${TXT_MUDO}">${fmtDia(r.dia)}</text>`;
+        rot += `<text x="${X(i).toFixed(1)}" y="${H-8}" text-anchor="${rows.length===1?'middle':(i===0?'start':(i===rows.length-1?'end':'middle'))}" font-size="10" style="fill:${TXT_MUDO}">${fmtDia(r.dia)}</text>`;
       const x0 = Math.max(ML, X(i) - faixa/2), x1 = Math.min(W-MR, X(i) + faixa/2);
       hits += `<rect class="viz-hit" data-i="${i}" x="${x0.toFixed(1)}" y="${MT}" width="${(x1-x0).toFixed(1)}" height="${ih}"/>`;
     });
-    const mira = `<line id="miraTemp" x1="0" x2="0" y1="${MT}" y2="${MT+ih}" stroke="#a1a1aa" stroke-width="1" visibility="hidden"/>`;
+    const mira = `<line id="miraTemp" x1="0" x2="0" y1="${MT}" y2="${MT+ih}" style="stroke:var(--v-texto3)" stroke-width="1" visibility="hidden"/>`;
     c.innerHTML = `<svg viewBox="0 0 ${W} ${H}" class="w-full" role="img" aria-label="Temperatura diária: escape máxima, escape média e ambiente">${g}${mira}${linhas}${pontos}${rot}${hits}</svg>`;
     const fmtT = v => typeof v === 'number' ? v.toFixed(1).replace('.', ',') + ' °C' : '–';
     ligarHover(c, (ev, i) => {
@@ -1524,28 +1615,28 @@ function renderizarGraficoLeituras(forcar){
   let grid = '';
   for(let v=mn; v<=mx+step/1e6; v+=step){
     const y = Y(v).toFixed(1);
-    grid += `<line x1="${ML}" x2="${W-MR}" y1="${y}" y2="${y}" stroke="${GRADE}" stroke-width="1"/>`;
-    grid += `<text x="${ML-8}" y="${(+y+3).toFixed(1)}" text-anchor="end" font-size="10" fill="${TXT_MUDO}">${fmtNum(v, decEixo)}${m.un.trim() === '°C' ? '°' : ''}</text>`;
+    grid += `<line x1="${ML}" x2="${W-MR}" y1="${y}" y2="${y}" style="stroke:${GRADE}" stroke-width="1"/>`;
+    grid += `<text x="${ML-8}" y="${(+y+3).toFixed(1)}" text-anchor="end" font-size="10" style="fill:${TXT_MUDO}">${fmtNum(v, decEixo)}${m.un.trim() === '°C' ? '°' : ''}</text>`;
   }
   let xlab = '';
   const marcas = [...new Set([0, Math.round((pts.length-1)/3), Math.round(2*(pts.length-1)/3), pts.length-1])];
   marcas.forEach(i => {
     const anc = i === 0 ? 'start' : (i === pts.length-1 ? 'end' : 'middle');
-    xlab += `<text x="${X(i).toFixed(1)}" y="${H-8}" text-anchor="${anc}" font-size="10" fill="${TXT_MUDO}">${fmtHoraCurta(pts[i].r.criado_em)}</text>`;
+    xlab += `<text x="${X(i).toFixed(1)}" y="${H-8}" text-anchor="${anc}" font-size="10" style="fill:${TXT_MUDO}">${fmtHoraCurta(pts[i].r.criado_em)}</text>`;
   });
   const u = P[P.length-1];
   c.innerHTML = `<svg viewBox="0 0 ${W} ${H}" class="w-full outline-none focus-visible:ring-2 focus-visible:ring-primary/20 rounded-lg" tabindex="0" role="img"
       aria-label="${m.rot} nas últimas ${pts.length} leituras. Use as setas para percorrer.">
     <defs><linearGradient id="gLeit" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#b70100" stop-opacity="0.16"/><stop offset="100%" stop-color="#b70100" stop-opacity="0"/>
+      <stop offset="0%" stop-color="${COR.marca}" stop-opacity="0.16"/><stop offset="100%" stop-color="${COR.marca}" stop-opacity="0"/>
     </linearGradient></defs>
     ${grid}
     <path d="${darea}" fill="url(#gLeit)"/>
-    <path d="${dline}" fill="none" stroke="#b70100" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-    <circle cx="${u.x.toFixed(1)}" cy="${u.y.toFixed(1)}" r="4" fill="#b70100" stroke="#fff" stroke-width="2"/>
+    <path d="${dline}" fill="none" stroke="${COR.marca}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    <circle cx="${u.x.toFixed(1)}" cy="${u.y.toFixed(1)}" r="4" fill="${COR.marca}" style="stroke:var(--v-card)" stroke-width="2"/>
     <g id="leitMira" visibility="hidden">
-      <line x1="0" x2="0" y1="${MT}" y2="${MT+ih}" stroke="#a1a1aa" stroke-width="1"/>
-      <circle cx="0" cy="0" r="5" fill="#b70100" stroke="#fff" stroke-width="2"/>
+      <line x1="0" x2="0" y1="${MT}" y2="${MT+ih}" style="stroke:var(--v-texto3)" stroke-width="1"/>
+      <circle cx="0" cy="0" r="5" fill="${COR.marca}" style="stroke:var(--v-card)" stroke-width="2"/>
     </g>
     ${xlab}
     <rect id="leitHit" x="${ML}" y="${MT}" width="${iw}" height="${ih}" fill="transparent" style="cursor:crosshair"/>
@@ -1563,7 +1654,7 @@ function renderizarGraficoLeituras(forcar){
     const pos = ev || {clientX: b.left + p.x/W*b.width, clientY: b.top + p.y/H*b.height};
     const hora = r.criado_em ? new Date(r.criado_em).toLocaleString('pt-BR') : '';
     tipMostrar(pos, hora, [
-      ['#b70100', m.rot, fmt(pts[i].v)],
+      [COR.marca, m.rot, fmt(pts[i].v)],
       ['#a1a1aa', 'Nível de risco', r.nivel_risco ?? '–'],
       ['#a1a1aa', 'Motor', r.motor_ligado ? 'Ligado' : 'Desligado'],
     ]);
@@ -2155,6 +2246,24 @@ function redesenharGraficos(){
 }
 window.addEventListener('resize', redesenharGraficos);
 $('btnSidebar')?.addEventListener('click', () => setTimeout(redesenharGraficos, 220));   // apos a transicao da largura
+
+// Modo escuro: variaveis CSS trocam sozinhas; graficos sao redesenhados com a paleta do tema.
+function aplicarTema(tema){
+  document.documentElement.dataset.tema = tema;
+  Object.assign(COR, COR_TEMAS[tema]);
+  const b = $('btnTema');
+  b.firstElementChild.textContent = tema === 'escuro' ? 'light_mode' : 'dark_mode';
+  b.title = tema === 'escuro' ? 'Modo claro' : 'Modo escuro';
+}
+aplicarTema(document.documentElement.dataset.tema === 'escuro' ? 'escuro' : 'claro');
+function alternarTema(){
+  const novo = document.documentElement.dataset.tema === 'escuro' ? 'claro' : 'escuro';
+  aplicarTema(novo);
+  try{ localStorage.setItem('sompo.tema', novo); }catch(e){}
+  redesenharGraficos();
+  if(equipamentoSelecionado){ assinaturas.delete('risco'); carregarRisco(); }
+}
+$('btnTema').addEventListener('click', alternarTema);
 setView('maquinas');
 
 // Atualizar manual com feedback visual (icone girando + "Atualizando...").
@@ -2371,6 +2480,7 @@ function itensPaleta(){
   itens.push({grupo:'Ações', icone:'add_circle', texto:'Nova máquina', fazer:() => $('atalhoNovaMaquina').click()});
   if(equipamentoSelecionado) itens.push({grupo:'Ações', icone:'download', texto:'Exportar relatório Word', fazer:() => $('btnBaixar').click()});
   itens.push({grupo:'Ações', icone:'refresh', texto:'Atualizar dados', fazer:() => $('btnAtualizar').click()});
+  itens.push({grupo:'Ações', icone:'contrast', texto:'Alternar modo escuro', sub:'tema claro / escuro', fazer:alternarTema});
   return itens;
 }
 function renderPaleta(){

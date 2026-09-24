@@ -139,3 +139,28 @@ def test_nome_legivel_nao_duplica_quando_a_ia_ja_usou_o_nome():
     assert legivel('partida sem crachá (leitor de crachá (RC522))') == 'partida sem crachá (leitor de crachá (RC522))'
     assert legivel('pelo leitor de crachá (rc522)') == 'pelo leitor de crachá (RC522)'
     assert legivel("origem 'rc522'") == 'origem leitor de crachá (RC522)'
+
+
+def test_relatorio_compara_com_o_periodo_anterior():
+    # Busca 2x a janela e separa pela data: os scores atuais usam so os ultimos N dias;
+    # "anterior" (N dias antes deles) alimenta a variacao dos cards na tela.
+    from datetime import datetime, timedelta, timezone
+    agora = datetime.now(timezone.utc)
+    eventos = [
+        {'id': 1, 'tipo': 'chama_detectada', 'severidade': 5, 'criado_em': (agora - timedelta(days=1)).isoformat()},
+        {'id': 2, 'tipo': 'furto_capo', 'severidade': 2, 'criado_em': (agora - timedelta(days=10)).isoformat()},
+        {'id': 3, 'tipo': 'furto_capo', 'severidade': 2, 'criado_em': (agora - timedelta(days=9)).isoformat()},
+    ]
+    janelas = []
+    def do_banco(_disp, dias=7):
+        janelas.append(dias)
+        return eventos
+    with patch('app.consultar_resumo', return_value=[]), \
+         patch('app.consultar_eventos', side_effect=do_banco), \
+         patch('llm.LLM_API_KEY', ''):
+        data = app.test_client().get('/relatorio/risco?dispositivo=SOMPO-ESP32&dias=7').get_json()
+    assert janelas == [14]
+    assert (data['score_furto'], data['score_incendio']) == (0, 70)
+    assert [e['id'] for e in data['eventos']] == [1]
+    assert data['anterior'] == {'score_furto': 20, 'score_incendio': 0,
+                                'eventos': {'furto': 2, 'incendio': 0, 'total': 2}}

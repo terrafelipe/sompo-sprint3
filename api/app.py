@@ -341,6 +341,21 @@ def relatorio_bruto():
         return _erro('falha_na_geracao_do_relatorio', exc, 502)
 
 
+def _separar_periodo(eventos, dias):
+    """(ultimos `dias` dias, os `dias` dias anteriores). Sem data -> conta como atual."""
+    corte = datetime.now(timezone.utc) - timedelta(days=dias)
+    atuais, anteriores = [], []
+    for evento in eventos:
+        try:
+            quando = datetime.fromisoformat(str(evento.get('criado_em')).replace('Z', '+00:00'))
+            if quando.tzinfo is None:
+                quando = quando.replace(tzinfo=timezone.utc)
+        except (TypeError, ValueError):
+            quando = None
+        (anteriores if quando is not None and quando < corte else atuais).append(evento)
+    return atuais, anteriores
+
+
 @app.get('/relatorio/risco')
 def relatorio_risco():
     dispositivo = _dispositivo_para(request.args.get('dispositivo', 'SOMPO-ESP32'))
@@ -348,11 +363,17 @@ def relatorio_risco():
 
     try:
         resumo_por_dia = consultar_resumo(dispositivo, dias=dias) if dispositivo else []
-        eventos = frota.identificar_registros(consultar_eventos(dispositivo, dias=dias) if dispositivo else [])
+        # Busca 2x a janela: os ultimos N dias viram o relatorio; os N dias antes deles
+        # so geram os scores de comparacao ("anterior", variacao nos cards da tela).
+        todos = frota.identificar_registros(consultar_eventos(dispositivo, dias=dias * 2) if dispositivo else [])
+        eventos, anteriores = _separar_periodo(todos, dias)
         # novo=1: botao "Gerar de novo" da tela -> ignora o cache da IA.
         novo = request.args.get('novo', '').lower() in {'1', 'true'}
         resultado = montar_relatorio_risco(dispositivo, dias, resumo_por_dia, eventos,
                                            contexto=frota.contexto(), forcar=novo)
+        ant = calcular_scores(dispositivo, dias, anteriores)
+        resultado['anterior'] = {'score_furto': ant['score_furto'], 'score_incendio': ant['score_incendio'],
+                                 'eventos': ant['eventos_considerados']}
         return jsonify(resultado), 200
     except Exception as exc:
         return _erro('falha_na_geracao_do_relatorio', exc, 502)
