@@ -132,11 +132,9 @@ try {
     Remove-Item $envJson -Force -ErrorAction SilentlyContinue
 }
 
-# Teto de execucoes simultaneas contra abuso. Nao e fatal: a AWS exige 10 execucoes
-# sem reserva, entao contas com limite 10 (comum no Learner Lab) recusam a reserva.
-if (-not (Test-Aws lambda put-function-concurrency --function-name $Funcao --reserved-concurrent-executions 5)) {
-    Write-Warning 'Nao foi possivel reservar concorrencia (limite da conta); seguindo sem teto.'
-}
+# O painel faz varias requisicoes em paralelo; um teto baixo gera 429.
+# A pausa automatica do painel contem o custo quando nao esta em uso.
+Test-Aws lambda delete-function-concurrency --function-name $Funcao | Out-Null
 
 # --- 5. Function URL publica (o login do Flask protege o site) ---------------------
 if (-not (Test-Existe lambda get-function-url-config --function-name $Funcao)) {

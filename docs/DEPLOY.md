@@ -82,15 +82,17 @@ credenciais do lab — não precisa de nada instalado no PC.
    ```
 3. Próximos deploys (o `.env.aws` continua lá):
    ```bash
-   cd sompo-sprint3 && git pull && pwsh infra/deploy-aws.ps1
+   cd sompo-sprint3 && git checkout main && git pull && pwsh infra/deploy-aws.ps1
    ```
+
+Confira se a linha `Deploy ok` termina com o hash do commit esperado.
 
 O script é **idempotente**: na 1ª vez cria o repositório ECR, a função (`sompo-painel`, 512 MB,
 timeout 60 s, `LabRole`), a Function URL pública com as duas permissões e a retenção de logs de
 7 dias; nas seguintes só publica a imagem nova e atualiza as variáveis. No fim imprime a
-**Function URL**. Também tenta limitar a 5 execuções simultâneas, mas a AWS exige que sobrem 10
-execuções sem reserva — em contas com limite 10 (comum no Learner Lab) a reserva é recusada e o
-script só avisa.
+**Function URL**. O painel faz várias requisições em paralelo, então um teto baixo de concorrência
+gera respostas 429. O script remove a reserva de concorrência, e a pausa automática do painel
+contém o custo quando ele não está em uso.
 
 ### Alternativa: pelo Windows
 
