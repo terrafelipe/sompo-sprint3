@@ -3,6 +3,7 @@
 Install requirements-test.txt and Chromium (or set SOMPO_TEST_BROWSER=msedge).
 """
 import os
+from datetime import date, timedelta
 import re
 from pathlib import Path
 from urllib.parse import urlparse
@@ -21,7 +22,7 @@ def painel(request):
         browser = p.chromium.launch(channel=os.getenv('SOMPO_TEST_BROWSER') or None)
         page = browser.new_page(viewport={'width': request.param, 'height': 900})
         state = dict(role='sompo', fail=set(), posts=[], held=[], hold=None, errors=[],
-                     sem_esp32=False, sem_maquinas=False, deleted=set(), deletes=[], delete_error=None)
+                     sem_esp32=False, sem_maquinas=False, deleted=set(), deletes=[], delete_error=None, manut={})
         page.on('pageerror', lambda e: state['errors'].append(str(e)))
 
         def route(r):
@@ -78,7 +79,7 @@ def painel(request):
                 data = dict(fazenda=FARMS[i-1], equipamentos=[] if state['sem_maquinas'] or f'/equipamentos/{i}' in state['deleted'] else [dict(
                     id_equipamento=i, nome=f'Trator {i}', fk_fazenda_id_fazenda=i, fk_cliente_id_cliente=i,
                     dispositivo_id=None if state['sem_esp32'] else f'ESP-{i}', fabricacao='2020-01-02',
-                    ultima_manutencao='2026-09-01', valor_segurado='150000.50')])
+                    ultima_manutencao=state['manut'].get(i, '2026-09-01'), valor_segurado='150000.50')])
                 data['alertas_recentes'] = [] if not data['equipamentos'] else [dict(
                     id=10 + k, tipo=t, severidade=sev, equipamento_id=i, equipamento_nome=f'Trator {i}',
                     horario_ocorrencia='2026-09-18T12:00:00Z', criado_em='2026-09-18T12:00:00Z')
@@ -110,7 +111,8 @@ def nav(page, view):
     page.locator(f'[data-nav="{view}"]:visible').click()
     pw.expect(page.locator('#tituloView')).to_have_text({
         'inicio': 'Início', 'visao': 'Painel da máquina', 'maquinas': 'Máquinas', 'operadores': 'Operadores',
-        'historico': 'Histórico', 'fazendas': 'Fazendas', 'clientes': 'Clientes', 'usuarios': 'Usuários'}[view])
+        'historico': 'Histórico', 'manutencao': 'Manutenção', 'fazendas': 'Fazendas', 'clientes': 'Clientes',
+        'usuarios': 'Usuários'}[view])
 
 
 def acao(page, seletor):
@@ -498,3 +500,36 @@ def test_gestor_abre_no_inicio_da_propria_fazenda(painel):
     page.locator('#gMaquinasLista [data-g-maquina="1"]').click()
     pw.expect(page.locator('#tituloView')).to_have_text('Painel da máquina')
     assert not state['errors']
+
+
+def test_manutencao_ordena_por_urgencia_e_edita_maquina_de_outra_fazenda(painel):
+    page, state = painel
+    hoje = date.today()
+    # Regra: proxima = ultima + 180 dias. Trator 1 vence em 10 dias; Trator 2 venceu ha 20.
+    state['manut'] = {1: (hoje - timedelta(days=170)).isoformat(), 2: (hoje - timedelta(days=200)).isoformat()}
+    nav(page, 'manutencao')
+    linhas = page.locator('#listaManutencao [data-manut]')
+    pw.expect(linhas).to_have_count(2)
+    pw.expect(linhas.nth(0)).to_contain_text('Trator 2')
+    pw.expect(linhas.nth(0)).to_contain_text('Vencida')
+    pw.expect(linhas.nth(1)).to_contain_text('Trator 1')
+    pw.expect(linhas.nth(1)).to_contain_text('Vence em até 30 dias')
+    pw.expect(page.locator('[data-section="manutencao"]')).to_contain_text('180 dias')
+    # Detalhe -> Editar: a maquina e da Fazenda 2, entao o painel troca de fazenda antes do formulario.
+    linhas.nth(0).click()
+    pw.expect(page.locator('#detTitulo')).to_have_text('Trator 2')
+    page.locator('#detCorpo [data-editar-maquina]').click()
+    pw.expect(page.locator('#maqNome')).to_have_value('Trator 2')
+    assert page.evaluate('[viewAtual, String(fazendaSelecionada)]') == ['maquinas', '2']
+    assert not state['errors']
+
+
+def test_manutencao_do_gestor_so_tem_a_fazenda_dele(painel):
+    page, state = painel
+    state['role'] = 'gestor_fazenda'
+    state['manut'] = {1: None}
+    page.reload()
+    nav(page, 'manutencao')
+    pw.expect(page.locator('#listaManutencao [data-manut]')).to_have_count(1)
+    pw.expect(page.locator('#listaManutencao')).to_contain_text('Sem registro')
+    assert page.locator('#listaManutencao th', has_text='Fazenda').count() == 0

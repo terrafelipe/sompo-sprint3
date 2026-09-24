@@ -277,6 +277,7 @@
     <div class="sb-txt px-2.5 pt-4 pb-1.5 text-xs font-medium text-on-surface-variant">Operação</div>
       <a href="#" data-nav="operadores" title="Operadores" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">badge</span><span class="sb-txt">Operadores</span></a>
       <a href="#" data-nav="historico" title="Histórico" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">history</span><span class="sb-txt">Histórico</span></a>
+      <a href="#" data-nav="manutencao" title="Manutenção" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">build</span><span class="sb-txt">Manutenção</span></a>
     <div data-rotulo-cadastros class="sb-txt px-2.5 pt-4 pb-1.5 text-xs font-medium text-on-surface-variant">Cadastros</div>
       <a href="#" data-nav="fazendas" title="Fazendas" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">landscape</span><span class="sb-txt">Fazendas</span></a>
       <a href="#" data-nav="clientes" title="Clientes" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">group</span><span class="sb-txt">Clientes</span></a>
@@ -349,6 +350,7 @@
     <a href="#" data-nav="visao"      class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Painel</a>
     <a href="#" data-nav="operadores" class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Operadores</a>
     <a href="#" data-nav="historico"  class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Histórico</a>
+    <a href="#" data-nav="manutencao" class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Manutenção</a>
     <a href="#" data-nav="fazendas"   class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Fazendas</a>
     <a href="#" data-nav="clientes"   class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Clientes</a>
     <a href="#" data-nav="usuarios"   class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Usuários</a>
@@ -733,6 +735,16 @@
         <div id="listaOperadores"></div>
       </section>
 
+      <!-- MANUTENCAO -->
+      <section data-section="manutencao" class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)] p-6">
+        <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+          <div><h2 class="text-base font-semibold text-on-surface">Manutenção das máquinas</h2><p id="manutResumo" class="text-xs text-on-surface-variant mt-1"></p></div>
+          <div class="relative"><span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant pointer-events-none">search</span><input type="search" data-busca="listaManutencao" placeholder="Buscar máquina ou fazenda…" aria-label="Buscar máquina ou fazenda" class="busca"/></div>
+        </div>
+        <p class="text-xs text-on-surface-variant mb-4 flex items-start gap-1.5"><span class="material-symbols-outlined text-[16px]" aria-hidden="true">info</span><span id="manutRegra"></span></p>
+        <div id="listaManutencao"></div>
+      </section>
+
       <!-- HISTORICO DE SESSOES -->
       <section data-section="historico" class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)] p-6">
         <div class="flex items-center justify-between mb-5 flex-wrap gap-3">
@@ -967,11 +979,12 @@ const DESCRICOES = {
   visao:'Tudo da máquina selecionada: status, risco, alertas e telemetria.',
   operadores:'Crachás RFID autorizados a operar as máquinas.',
   historico:'Sessões de operação registradas pelo crachá.',
+  manutencao:'Próxima manutenção de cada máquina, da mais urgente para a mais tranquila.',
   fazendas:'Propriedades monitoradas e o cliente dono de cada uma.',
   clientes:'Empresas donas das fazendas monitoradas.',
   usuarios:'Quem acessa o painel e com qual perfil.',
 };
-const TITULOS = {inicio:'Início', maquinas:'Máquinas', visao:'Painel da máquina', operadores:'Operadores', historico:'Histórico', fazendas:'Fazendas', clientes:'Clientes', usuarios:'Usuários'};
+const TITULOS = {inicio:'Início', maquinas:'Máquinas', visao:'Painel da máquina', operadores:'Operadores', historico:'Histórico', manutencao:'Manutenção', fazendas:'Fazendas', clientes:'Clientes', usuarios:'Usuários'};
 // Para cada view, quais seções aparecem e com qual largura (colunas de 12).
 const VIEWS = {
   inicio:     {inicio:12},
@@ -979,6 +992,7 @@ const VIEWS = {
   maquinas:   {maquinas:12},
   operadores: {operadores:12},
   historico:  {historico:12},
+  manutencao: {manutencao:12},
   fazendas:   {fazendas:12},
   clientes:   {clientes:12},
   usuarios:   {usuarios:12},
@@ -1023,7 +1037,7 @@ function setView(view){
   $('inicioCarteira').hidden = perfilRole === 'gestor_fazenda';
   $('inicioGestor').hidden = perfilRole !== 'gestor_fazenda';
   // Cadastros nao dependem de fazenda/maquina: a barra de contexto some.
-  $('barraContexto').hidden = ['inicio','fazendas','clientes','usuarios'].includes(view);
+  $('barraContexto').hidden = ['inicio','manutencao','fazendas','clientes','usuarios'].includes(view);
   document.querySelectorAll('[data-rotulo-cadastros]').forEach(el => { el.hidden = perfilRole !== 'sompo'; });
   document.querySelectorAll('[data-nav]').forEach(a => { a.hidden = restrita(a.dataset.nav); });
   $('semMaquina').hidden = !dependeMaquina(view) || !!equipamentoSelecionado;
@@ -1464,21 +1478,90 @@ $('gAlertasLista').addEventListener('click', async e => {
   irPara('secAlertas');
 });
 
+/* ---------- Carteira: fazendas + resumo de cada uma ---------- */
+// Sompo: todas as fazendas, um resumo por fazenda em paralelo (uma com erro vira null e nao
+// derruba as outras). Gestor: so a propria fazenda, pelo resumo que a tela Maquinas ja usa.
+async function carregarCarteira(){
+  if(perfilRole === 'gestor_fazenda'){
+    await carregarResumoFazenda();
+    return {fazendas: fazendasCache, resumos: [resumoFazenda]};
+  }
+  const d = await getJSON('/fazendas');
+  const fs = d.dados || [];
+  fazendasCache = fs;
+  const resumos = await Promise.all(fs.map(f => getJSON(`/fazendas/${f.id_fazenda}/resumo?dias=7`).catch(() => null)));
+  return {fazendas: fs, resumos};
+}
+
+/* ---------- Manutencao ---------- */
+// Suposicao (nao ha plano por maquina no cadastro): a proxima manutencao vem 180 dias depois
+// da ultima. Fica visivel na tela para ninguem tomar a data como oficial.
+const INTERVALO_MANUTENCAO_DIAS = 180, AVISO_MANUTENCAO_DIAS = 30;
+const SITUACAO_MANUT = {vencida:['Vencida','#ba1a1a',0], vencendo:[`Vence em até ${AVISO_MANUTENCAO_DIAS} dias`,'#d97706',1],
+                        sem_registro:['Sem registro','#71717a',2], em_dia:['Em dia','#10b981',3]};
+let manutencaoCache = [];
+function situacaoManutencao(ultima){
+  if(!ultima) return {chave:'sem_registro', dias:null, proxima:null};
+  const [a, m, d] = String(ultima).slice(0,10).split('-').map(Number);
+  const proxima = Date.UTC(a, m-1, d) + INTERVALO_MANUTENCAO_DIAS * 864e5;
+  const agora = new Date(), hoje = Date.UTC(agora.getFullYear(), agora.getMonth(), agora.getDate());
+  const dias = Math.round((proxima - hoje) / 864e5);
+  return {chave: dias < 0 ? 'vencida' : dias <= AVISO_MANUTENCAO_DIAS ? 'vencendo' : 'em_dia', dias, proxima};
+}
+const dataBR = ms => new Date(ms).toISOString().slice(0,10).split('-').reverse().join('/');
+function prazoTexto(s){
+  if(s.dias == null) return 'Cadastre a última manutenção';
+  if(s.dias === 0) return 'Vence hoje';
+  const n = Math.abs(s.dias), un = n === 1 ? 'dia' : 'dias';
+  return s.dias < 0 ? `Venceu há ${n} ${un}` : `Em ${n} ${un}`;
+}
+async function carregarManutencao(){
+  $('manutRegra').textContent = `Próxima manutenção = última + ${INTERVALO_MANUTENCAO_DIAS} dias. É uma estimativa: o cadastro ainda não tem o plano de manutenção de cada máquina.`;
+  if(!$('listaManutencao').firstChild) $('listaManutencao').innerHTML = vazioHTML('Carregando máquinas…');
+  try{
+    const {fazendas, resumos} = await carregarCarteira();
+    const nomeFaz = new Map(fazendas.map(f => [String(f.id_fazenda), f.nome]));
+    const maqs = resumos.flatMap(r => (r?.equipamentos || []).map(m => ({...m,
+      fazenda_nome: r.fazenda?.nome || nomeFaz.get(String(m.fk_fazenda_id_fazenda)) || '', situacao: situacaoManutencao(m.ultima_manutencao)})));
+    // Mais urgente primeiro: vencidas (a mais atrasada antes), vencendo, sem registro, em dia.
+    maqs.sort((a, b) => SITUACAO_MANUT[a.situacao.chave][2] - SITUACAO_MANUT[b.situacao.chave][2]
+      || (a.situacao.dias ?? 0) - (b.situacao.dias ?? 0) || String(a.nome).localeCompare(String(b.nome)));
+    manutencaoCache = maqs;
+    const falhas = resumos.filter(r => !r).length;
+    const conta = k => maqs.filter(m => m.situacao.chave === k).length;
+    $('manutResumo').textContent = maqs.length
+      ? `${maqs.length} ${maqs.length === 1 ? 'máquina' : 'máquinas'} · ${conta('vencida')} ${conta('vencida') === 1 ? 'vencida' : 'vencidas'}`
+        + ` · ${conta('vencendo')} ${conta('vencendo') === 1 ? 'vence' : 'vencem'} em até ${AVISO_MANUTENCAO_DIAS} dias · ${conta('sem_registro')} sem registro`
+        + (falhas ? ` · ${falhas} ${falhas === 1 ? 'fazenda indisponível' : 'fazendas indisponíveis'}` : '')
+      : '';
+    if(!maqs.length){ renderLista('listaManutencao', vazioHTML(falhas ? 'Resumo das fazendas indisponível agora.' : 'Nenhuma máquina cadastrada.')); return; }
+    const comFazenda = perfilRole !== 'gestor_fazenda';
+    renderLista('listaManutencao', tabelaHTML(['Máquina', ...(comFazenda ? ['Fazenda'] : []), 'Última', 'Próxima', 'Situação'],
+      maqs.map((m, i) => {
+        const [rotulo, cor] = SITUACAO_MANUT[m.situacao.chave];
+        return `<tr data-linha data-manut="${i}" title="Ver detalhes" class="cursor-pointer">
+          <td><div class="font-medium text-on-surface">${escapar(m.nome)}</div><div class="text-xs text-on-surface-variant">${escapar([m.tipo, m.modelo].filter(Boolean).join(' · ') || 'Máquina agrícola')}</div></td>
+          ${comFazenda ? `<td>${escapar(m.fazenda_nome)}</td>` : ''}
+          <td class="tabular whitespace-nowrap">${m.ultima_manutencao ? escapar(String(m.ultima_manutencao).slice(0,10).split('-').reverse().join('/')) : '<span class="text-on-surface-variant">Não informada</span>'}</td>
+          <td class="tabular whitespace-nowrap">${m.situacao.proxima ? dataBR(m.situacao.proxima) : '<span class="text-on-surface-variant">–</span>'}</td>
+          <td><div class="flex flex-col items-start gap-1">${selo(rotulo, cor)}<span class="text-xs text-on-surface-variant">${prazoTexto(m.situacao)}</span></div></td>
+        </tr>`;
+      }).join(''), comFazenda ? 5 : 4));
+  }catch(e){ if(e.obsoleto) return; $('listaManutencao').innerHTML = erroLista('Máquinas indisponíveis.'); }
+}
+$('listaManutencao').addEventListener('click', e => { const tr = e.target.closest('[data-manut]'); if(tr) detalheMaquina(manutencaoCache[+tr.dataset.manut]); });
+
 /* ---------- Inicio: carteira de fazendas ---------- */
 async function carregarInicio(){
   if(perfilRole === 'gestor_fazenda') return carregarInicioGestor();
   if(!$('listaInicio').firstChild) $('listaInicio').innerHTML = '<div class="col-span-full text-sm text-on-surface-variant py-6">Carregando fazendas…</div>';
   try{
-    const d = await getJSON('/fazendas');
-    const fs = d.dados || [];
-    fazendasCache = fs;
+    const {fazendas: fs, resumos} = await carregarCarteira();
     if(!fs.length){
       $('inicioResumo').textContent = '';
       renderLista('listaInicio', '<div class="col-span-full text-sm text-on-surface-variant py-6" data-render>Nenhuma fazenda cadastrada ainda. Cadastre a primeira em <b>Fazendas</b>.</div>');
       return;
     }
-    // Um resumo por fazenda, em paralelo; uma fazenda com erro nao derruba as outras.
-    const resumos = await Promise.all(fs.map(f => getJSON(`/fazendas/${f.id_fazenda}/resumo?dias=7`).catch(() => null)));
     let totMaq = 0, emAlto = 0;
     const cards = fs.map((f, i) => {
       const r = resumos[i];
@@ -2876,6 +2959,7 @@ async function atualizarView(){
   if(viewAtual === 'maquinas'){ await Promise.all([carregarSaude(), carregarResumoFazenda()]); $('ultima').textContent = new Date().toLocaleTimeString('pt-BR'); return; }
   if(viewAtual === 'operadores'){ await Promise.all([carregarSaude(), carregarOperadores()]); $('ultima').textContent = new Date().toLocaleTimeString('pt-BR'); return; }
   if(viewAtual === 'historico'){ await Promise.all([carregarSaude(), carregarHistorico()]); $('ultima').textContent = new Date().toLocaleTimeString('pt-BR'); return; }
+  if(viewAtual === 'manutencao'){ await Promise.all([carregarSaude(), carregarManutencao()]); $('ultima').textContent = new Date().toLocaleTimeString('pt-BR'); return; }
   if(viewAtual === 'fazendas'){ await carregarFazendas(); return; }
   if(viewAtual === 'clientes'){ await carregarListaClientes(); return; }
   if(viewAtual === 'usuarios'){ await carregarUsuarios(); return; }
@@ -2960,7 +3044,16 @@ $('modalDetalhe').addEventListener('click', e=>{ if(e.target === $('modalDetalhe
 $('detCorpo').addEventListener('click', async e=>{
   const salvar=e.target.closest('[data-salvar-autorizacoes]'); if(salvar){ salvarAutorizacoes(salvar.dataset.salvarAutorizacoes); return; }
   const cred=e.target.closest('[data-gerar-credencial]'); if(cred){ gerarCredencial(cred.dataset.gerarCredencial); return; }
-  const editar=e.target.closest('[data-editar-maquina]'); if(editar){ const m=maquinasCache.find(x=>String(x.id_equipamento)===editar.dataset.editarMaquina); fecharDetalhe(); if(m){ setView('maquinas'); abrirFormMaquina(m); } return; }
+  const editar=e.target.closest('[data-editar-maquina]');
+  if(editar){
+    const id = editar.dataset.editarMaquina, acha = () => maquinasCache.find(x=>String(x.id_equipamento)===id);
+    fecharDetalhe();
+    // Aberta pela Manutencao, a maquina pode ser de outra fazenda: troca a fazenda antes de editar.
+    const outra = !acha() && manutencaoCache.find(x=>String(x.id_equipamento)===id);
+    if(outra && perfilRole === 'sompo'){ setView('maquinas'); await trocarFazenda(outra.fk_fazenda_id_fazenda); }
+    const m = acha(); if(m){ setView('maquinas'); abrirFormMaquina(m); }
+    return;
+  }
   const b = e.target.closest('[data-vertelemetria]'); if(!b) return;
   setView('visao');
   const fazenda = b.dataset.vertelemetria;
@@ -3107,7 +3200,7 @@ $('formUsuario').addEventListener('submit', criarUsuario);
 // Busca rapida (Ctrl+K): maquinas da fazenda, fazendas, telas e acoes.
 const semAcento = t => String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 const ICONE_TELA = {inicio:'home', maquinas:'agriculture', visao:'dashboard',
-                    operadores:'badge', historico:'history', fazendas:'landscape', clientes:'group', usuarios:'manage_accounts'};
+                    operadores:'badge', historico:'history', manutencao:'build', fazendas:'landscape', clientes:'group', usuarios:'manage_accounts'};
 let paletaItens = [], paletaSel = 0;
 function itensPaleta(){
   const itens = [];
