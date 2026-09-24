@@ -22,14 +22,17 @@
   histórico completo offline e se perde no reinício. Não existe garantia de retenção infinita.
 - Sessões registram presença associada ao crachá, não prova de condução contínua ou culpa.
   Dados legados sem operador continuam consultáveis como não identificados.
-- Migrações existentes: `firmware/sql/frota.sql`, `exclusoes.sql` e `mapa_ocorrencias.sql`
-  (coordenadas das fazendas + tabela `ocorrencias`), todas aditivas e idempotentes. Não executar `preparar_supabase.sql` em banco existente. A finalização
+- Migrações existentes, nesta ordem: `firmware/sql/frota.sql`, `exclusoes.sql`, `mapa_ocorrencias.sql`
+  (coordenadas das fazendas + tabela `ocorrencias`), `esp32_por_maquina.sql` (ID do ESP32 editável,
+  histórico por máquina; rodar ANTES da API nova e reaplicar se `frota.sql` rodar de novo) e
+  `clientes_logo.sql`, todas aditivas e idempotentes. Não executar `preparar_supabase.sql` em banco existente. A finalização
   `concluir_migracao_dispositivos()` só ocorre após provisionar e sincronizar todas as placas;
   ver [Ativar frota](docs/ATIVAR_FROTA.md). A compatibilidade legada não equivale a token universal.
 - Máquinas cadastradas são editáveis pelo botão "Editar" do card (ou pelo modal de
   detalhes), reaproveitando o mesmo formulário do cadastro em modo edição via
-  `PATCH /equipamentos/<id>`. Fazenda e ESP32 já vinculado ficam travados na UI, espelhando
-  as recusas 409 do backend (`transferencia_nao_permitida`, `remanejamento_nao_permitido`).
+  `PATCH /equipamentos/<id>`. A fazenda fica travada (recusa 409 `transferencia_nao_permitida`);
+  o ID do ESP32 é editável e reaproveitável, e o histórico segue a máquina (`esp32_por_maquina.sql`).
+  Ao trocar o ID, apague o LittleFS da placa ao regravar (a fila antiga, com o ID velho, seria recusada).
 - Os `<select>` do painel usam `appearance: base-select` (Chrome/Edge 135+): a lista de
   opções segue o design do painel; navegadores sem suporte mostram a lista nativa.
 - Máquinas, Operadores, Histórico, Fazendas, Clientes e Usuários carregam sem máquina.

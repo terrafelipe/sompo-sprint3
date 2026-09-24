@@ -8,6 +8,17 @@ No SQL Editor do Supabase, execute [`firmware/sql/frota.sql`](../firmware/sql/fr
 
 Antes de publicar a API atualizada, aplique também `firmware/sql/exclusoes.sql`, após `usuarios.sql` e `frota.sql`. Veja [exclusões e detalhes dos usuários](EXCLUSOES.md). As telas **Máquinas**, **Operadores** e **Histórico** devem aparecer no painel.
 
+**Ordem completa num banco existente** (todos idempotentes; rode **antes** de publicar a API nova):
+
+1. `frota.sql`
+2. `exclusoes.sql`
+3. `mapa_ocorrencias.sql`
+4. `esp32_por_maquina.sql` (ID do ESP32 editável; o histórico passa a seguir a máquina)
+5. `clientes_logo.sql` (logo opcional do cliente)
+
+> Publicar a API antes do `esp32_por_maquina.sql` quebra o Início, o resumo da fazenda e `/resumo` (502): a API já lê as views `*_maquina`.
+> Se `frota.sql` for executado de novo depois, ele reinstala a trava "O dispositivo não pode ser remanejado": **reaplique `esp32_por_maquina.sql` em seguida** (é repetível).
+
 ## 2. Cadastrar e provisionar cada máquina
 
 1. Abra **Máquinas**, selecione a fazenda e cadastre a máquina com um `dispositivo_id` exclusivo.
