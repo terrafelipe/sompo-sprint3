@@ -94,6 +94,9 @@ def painel(request):
         # O perfil Sompo abre no Inicio (carteira); a fazenda e escolhida pelo cartao.
         page.locator('[data-abrir-fazenda="1"]').click()
         pw.expect(page.locator('#listaMaquinas')).to_contain_text('Trator 1')
+        # Abrir a fazenda dispara cargas em paralelo; o teste so comeca com a rede quieta
+        # (senao uma resposta tardia sobrescreve o que o teste alterou na pagina).
+        page.wait_for_load_state('networkidle')
         yield page, state
         assert not state['errors']
         browser.close()
