@@ -170,6 +170,10 @@
   .mf-maquina + .mf-maquina{margin-top:.5rem}
   .campo-coord{width:100%;height:2.25rem;margin-top:.25rem;padding:0 .6rem;border:1px solid var(--v-borda);border-radius:.5rem;background:var(--v-card);color:var(--v-texto);outline:none}
   .campo-coord:focus{border-color:var(--v-borda-forte);box-shadow:0 0 0 3px rgba(183,1,0,.15)}
+  /* Logo do cliente: circulo com a imagem ou, sem ela, as iniciais do nome */
+  .logo-cliente{width:28px;height:28px;flex-shrink:0;display:inline-grid;place-items:center;overflow:hidden;border-radius:9999px;border:1px solid var(--v-borda);background:rgb(var(--c-surface-container-high));color:var(--v-texto2);font-size:11px;font-weight:600;line-height:1;vertical-align:middle}
+  .logo-cliente img{width:100%;height:100%;object-fit:cover;display:block}
+  .logo-cliente.logo-grande{width:48px;height:48px;font-size:16px}
   .oc-coluna{background:var(--v-suave);border:1px solid var(--v-borda);border-radius:.75rem;padding:.75rem;min-height:8rem}
   .oc-card{background:var(--v-card);border:1px solid var(--v-borda);border-radius:.6rem;padding:.75rem}
   .oc-card + .oc-card{margin-top:.5rem}
@@ -1046,6 +1050,10 @@
           <div class="md:col-span-2">
             <label class="block text-xs font-semibold text-on-surface-variant mb-1">E-mail</label>
             <input id="clEmail" type="email" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20" placeholder="contato@empresa.com.br"/>
+          </div>
+          <div class="md:col-span-2">
+            <label for="clLogo" class="block text-xs font-semibold text-on-surface-variant mb-1">Logo (link da imagem)</label>
+            <input id="clLogo" type="url" maxlength="500" autocomplete="off" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20" placeholder="https://..."/>
           </div>
           <div class="md:col-span-2 flex items-center gap-3 flex-wrap">
             <button type="submit" class="inline-flex items-center gap-1.5 bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg hover:bg-on-primary-fixed-variant transition-colors">
@@ -3419,7 +3427,8 @@ async function abrirSessao(s){
 
 function abrirCliente(c){
   if(!c) return;
-  let html = linhaDet('Nome / Razão social', c.nome || '—')
+  let html = `<div class="flex justify-center pb-3">${logoCliente(c, 'logo-grande')}</div>`
+           + linhaDet('Nome / Razão social', c.nome || '—')
            + linhaDet('CNPJ', c.cnpj || '—')
            + linhaDet('Telefone', c.telefone || '—')
            + linhaDet('E-mail', c.email || '—')
@@ -3435,7 +3444,39 @@ function abrirCliente(c){
   } else {
     html += `<div class="mt-4 text-[13px] text-on-surface-variant italic">Nenhuma fazenda vinculada a este cliente.</div>`;
   }
+  html += `<div class="mt-5 pt-4 border-t border-outline-variant">
+      <label for="clLogoEditar" class="text-sm font-semibold text-on-surface">Logo (link da imagem)</label>
+      <p class="text-xs text-on-surface-variant mt-0.5">Link https de uma imagem. Deixe em branco para voltar às iniciais.</p>
+      <input id="clLogoEditar" type="url" maxlength="500" autocomplete="off" placeholder="https://..." class="campo-coord" value="${escapar(c.logo_url || '')}"/>
+      <button type="button" data-salvar-logo="${c.id_cliente}" class="mt-3 inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-primary text-on-primary font-medium hover:bg-on-primary-fixed-variant transition-colors"><span class="material-symbols-outlined text-[18px]" aria-hidden="true">save</span>Salvar logo</button>
+      <p id="clLogoMsg" role="status" class="text-xs mt-2"></p>
+    </div>`;
   abrirDetalhe(c.nome || 'Cliente', 'person', html + botaoExcluir('clientes',c.id_cliente,c.nome));
+}
+
+// Logo trocado ou removido pelo detalhe (PATCH altera so o logo_url).
+async function salvarLogo(id){
+  const msg = $('clLogoMsg');
+  const logo = $('clLogoEditar').value.trim() || null;
+  msg.style.color = 'var(--v-texto2)'; msg.textContent = 'Salvando…';
+  try{
+    const r = await fetch(`/clientes/${encodeURIComponent(id)}`, {method: 'PATCH', headers: {'Content-Type': 'application/json', Accept: 'application/json'},
+                                                                body: JSON.stringify({logo_url: logo})});
+    const d = await r.json().catch(() => ({}));
+    if(!r.ok){
+      msg.style.color = 'rgb(var(--c-error))';
+      msg.textContent = d.erro === 'migracao_pendente' ? 'O banco ainda não tem a coluna do logo: rode firmware/sql/clientes_logo.sql no Supabase.' : erroFrota(d);
+      return;
+    }
+    const c = clientesCache.find(x => String(x.id_cliente) === String(id));
+    if(c) c.logo_url = logo;
+    const t = document.createElement('template');
+    t.innerHTML = logoCliente(c || {logo_url: logo}, 'logo-grande');
+    $('detCorpo').querySelector('.logo-cliente')?.replaceWith(t.content.firstElementChild);
+    msg.style.color = 'rgb(var(--c-ok))';
+    msg.textContent = logo ? 'Logo salvo.' : 'Logo removido: o cliente volta a aparecer com as iniciais.';
+    carregarListaClientes();
+  }catch(err){ msg.style.color = 'rgb(var(--c-error))'; msg.textContent = 'Sem conexão com a API.'; }
 }
 
 function abrirFazenda(f){
@@ -3569,6 +3610,19 @@ async function criarFazenda(ev){
 }
 
 /* ---------- Clientes (cadastro) ---------- */
+// Ate 2 iniciais do nome (primeiras letras das duas primeiras palavras).
+const iniciais = nome => (String(nome || '').match(/[\p{L}\p{N}]+/gu) || []).slice(0, 2).map(p => p[0].toUpperCase()).join('') || '?';
+// Circulo do logo; sem logo (ou se a imagem falhar, ver o listener de 'error') mostra as iniciais.
+function logoCliente(c, classe = ''){
+  const ini = escapar(iniciais(c.nome));
+  const img = c.logo_url ? `<img src="${escapar(c.logo_url)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ini;
+  return `<span class="logo-cliente ${classe}" data-iniciais="${ini}" aria-hidden="true">${img}</span>`;
+}
+// 'error' de imagem nao borbulha: captura no document e troca pelas iniciais (sem onerror inline).
+document.addEventListener('error', e => {
+  const circulo = e.target.tagName === 'IMG' && e.target.parentElement;
+  if(circulo && circulo.classList.contains('logo-cliente')) circulo.textContent = circulo.dataset.iniciais;
+}, true);
 async function carregarListaClientes(){
   iniciando('listaClientes');
   try{
@@ -3578,7 +3632,7 @@ async function carregarListaClientes(){
     $('contaClientes').textContent = cs.length || '';
     if(!cs.length){ renderLista('listaClientes', vazioHTML('Nenhum cliente cadastrado ainda.')); return; }
     renderLista('listaClientes', tabelaHTML(['Cliente','CNPJ','Contato','>'], cs.map((c,i) => `<tr data-linha data-cli="${i}" title="Ver detalhes">
-      <td><span class="font-medium">${escapar(c.nome||'(sem nome)')}</span></td>
+      <td><span class="inline-flex items-center gap-2.5 min-w-0 align-middle">${logoCliente(c)}<span class="font-medium">${escapar(c.nome||'(sem nome)')}</span></span></td>
       <td class="tabular whitespace-nowrap">${c.cnpj ? escapar(c.cnpj) : '—'}</td>
       <td>${[c.telefone, c.email].filter(Boolean).map(escapar).join('<span class="text-on-surface-variant"> · </span>') || '<span class="text-on-surface-variant">—</span>'}</td>
       <td class="text-right text-on-surface-variant">${ic('chevron_right')}</td></tr>`).join(''), 4));
@@ -3595,12 +3649,17 @@ async function criarCliente(ev){
     cnpj: $('clCnpj').value.trim(),
     telefone: $('clTel').value.trim(),
     endereco: $('clEnd').value.trim(),
-    email: $('clEmail').value.trim()
+    email: $('clEmail').value.trim(),
+    logo_url: $('clLogo').value.trim()
   };
   msg.textContent='Salvando…'; msg.style.color='#545f73';
   try{
     const r = await fetch('/clientes', {method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json'}, body: JSON.stringify(payload)});
-    if(!r.ok) throw new Error('HTTP '+r.status);
+    if(!r.ok){
+      const d = await r.json().catch(() => ({}));
+      if(ERRO_FROTA[d.erro]){ msg.textContent = ERRO_FROTA[d.erro]; msg.style.color='#ba1a1a'; return; }
+      throw new Error('HTTP '+r.status);
+    }
     msg.textContent='Cliente cadastrado! ✓'; msg.style.color='#10b981';
     $('formCliente').reset();
     await Promise.all([carregarListaClientes(), carregarClientes()]);  // atualiza a lista E o dropdown de fazenda
@@ -3692,7 +3751,8 @@ const ERRO_FROTA = {
   cadastro_duplicado:'Já existe um cadastro com esses dados.', dados_invalidos:'Confira os dados e tente de novo.',
   operacao_em_conflito:'Outra alteração estava em andamento. Tente de novo.', nao_encontrado:'Cadastro não encontrado. Atualize a página.',
   operador_ids_invalidos:'Seleção de operadores inválida. Atualize a página e tente de novo.',
-  frota_indisponivel:'O banco de dados não respondeu agora. Tente de novo em instantes.'
+  frota_indisponivel:'O banco de dados não respondeu agora. Tente de novo em instantes.',
+  logo_invalido:'O link do logo precisa começar com https:// (até 500 caracteres, sem espaços).'
 };
 const erroFrota = d => ERRO_FROTA[d && d.erro] || 'Não foi possível salvar agora. Tente de novo em instantes.';
 const COMUNICACAO = {recente:['Online','#10b981'], atrasada:['Atrasada','#f59e0b'], sem_dados:['Sem dados','#545f73'], sem_dispositivo:['Sem ESP32','#545f73']};
@@ -4105,6 +4165,7 @@ $('detCorpo').addEventListener('click', async e=>{
   const verOc = e.target.closest('[data-ver-maquina-oc]'); if(verOc){ verMaquinaDaOcorrencia(verOc.dataset.verMaquinaOc); return; }
   const buscar = e.target.closest('[data-buscar-cidade]'); if(buscar){ buscarCidadeDaFazenda(buscar.dataset.buscarCidade); return; }
   const salvarCoord = e.target.closest('[data-salvar-coord]'); if(salvarCoord){ salvarLocalizacao(salvarCoord.dataset.salvarCoord); return; }
+  const salvarLogoBtn = e.target.closest('[data-salvar-logo]'); if(salvarLogoBtn){ salvarLogo(salvarLogoBtn.dataset.salvarLogo); return; }
   const salvar=e.target.closest('[data-salvar-autorizacoes]'); if(salvar){ salvarAutorizacoes(salvar.dataset.salvarAutorizacoes); return; }
   const cred=e.target.closest('[data-gerar-credencial]'); if(cred){ gerarCredencial(cred.dataset.gerarCredencial); return; }
   const editar=e.target.closest('[data-editar-maquina]');

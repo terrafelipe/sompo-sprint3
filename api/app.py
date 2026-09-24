@@ -4,6 +4,7 @@ import functools
 import hmac
 import math
 import os
+import re
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Tuple
@@ -489,12 +490,60 @@ def clientes_criar():
     email = str(corpo.get('email', '')).strip()
     if email:
         payload['email'] = email
+    try:
+        logo = _logo_url(corpo.get('logo_url'))
+    except ValueError:
+        return jsonify({'erro': 'logo_invalido'}), 400
+    if logo:
+        payload['logo_url'] = logo
 
     try:
         criado = inserir_tabela('cliente', payload)
         return jsonify({'ok': True, 'cliente': criado}), 201
     except Exception as exc:
         return _erro('falha_ao_criar_cliente', exc, 502)
+
+
+def _logo_url(valor):
+    # Link do logo vira <img src> no painel: so https, ate 500 caracteres (o mesmo check
+    # de firmware/sql/clientes_logo.sql) e sem espaco, aspas ou < >. Vazio -> None.
+    if valor is None:
+        return None
+    if not isinstance(valor, str):
+        raise ValueError
+    valor = valor.strip()
+    if not valor:
+        return None
+    if not valor.startswith('https://') or len(valor) > 500 or re.search(r'''[\s"'<>]''', valor):
+        raise ValueError
+    return valor
+
+
+@app.patch('/clientes/<int:value>')
+@somente_sompo
+def clientes_trocar_logo(value):
+    # Nao ha edicao de cliente: esta rota altera SO o logo (os outros campos sao ignorados).
+    corpo = request.get_json(silent=True) or {}
+    if 'logo_url' not in corpo:
+        return jsonify({'erro': 'nada_para_atualizar'}), 400
+    try:
+        logo = _logo_url(corpo['logo_url'])
+    except ValueError:
+        return jsonify({'erro': 'logo_invalido'}), 400
+
+    try:
+        atualizado = atualizar_tabela('cliente', {'id_cliente': f'eq.{value}', 'excluido_em': 'is.null'},
+                                      {'logo_url': logo})
+    except SupabaseError as exc:
+        if exc.codigo == 'PGRST204':
+            # Coluna desconhecida: firmware/sql/clientes_logo.sql ainda nao rodou no Supabase.
+            return _erro('migracao_pendente', exc, 409)
+        return _erro('falha_ao_editar_cliente', exc, 502)
+    except Exception as exc:
+        return _erro('falha_ao_editar_cliente', exc, 502)
+    if not atualizado:
+        return jsonify({'erro': 'nao_encontrado'}), 404
+    return jsonify({'ok': True, 'cliente': atualizado}), 200
 
 
 @app.get('/fazendas')

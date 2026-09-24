@@ -134,7 +134,7 @@ def consultar_resumo(dispositivo, dias: int = 7, equipamento=None) -> List[Dict[
 def consultar_clientes() -> List[Dict[str, Any]]:
     # Traz tambem os dados de contato, para o modal de detalhe do cliente no painel.
     # O dropdown de "dono da fazenda" usa so id+nome; os campos extras nao atrapalham.
-    return consultar_tabela('cliente', filtros={'excluido_em': 'is.null'}, select='id_cliente,nome,cnpj,telefone,endereco,email', order='nome.asc', limite=200)
+    return consultar_tabela('cliente', filtros={'excluido_em': 'is.null'}, select='id_cliente,nome,cnpj,telefone,endereco,email,logo_url', order='nome.asc', limite=200)
 
 
 def consultar_fazendas() -> List[Dict[str, Any]]:
