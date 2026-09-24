@@ -63,6 +63,11 @@ O script injeta sozinho as fixas do ambiente Lambda: `PORT=8080` (porta do waitr
 
 ## 3. Deploy pelo AWS CloudShell (recomendado)
 
+> **Banco primeiro.** Mapa da carteira e Ocorrências precisam de `firmware/sql/mapa_ocorrencias.sql`
+> (aditivo e repetível: só acrescenta `latitude`/`longitude` em `fazenda` e a tabela `ocorrencias`).
+> Rode uma vez no **SQL Editor** do Supabase antes de publicar. Sem ele o painel continua no ar: as
+> duas telas mostram um aviso e as rotas respondem 409 `migracao_pendente`.
+
 O CloudShell (ícone `>_` no console) já tem Docker, AWS CLI, git e PowerShell (`pwsh`) com as
 credenciais do lab — não precisa de nada instalado no PC.
 

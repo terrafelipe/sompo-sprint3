@@ -22,8 +22,8 @@
   histórico completo offline e se perde no reinício. Não existe garantia de retenção infinita.
 - Sessões registram presença associada ao crachá, não prova de condução contínua ou culpa.
   Dados legados sem operador continuam consultáveis como não identificados.
-- Migração existente: `firmware/sql/frota.sql`, aditiva e idempotente. Não há migração nova
-  nesta correção. Não executar `preparar_supabase.sql` em banco existente. A finalização
+- Migrações existentes: `firmware/sql/frota.sql`, `exclusoes.sql` e `mapa_ocorrencias.sql`
+  (coordenadas das fazendas + tabela `ocorrencias`), todas aditivas e idempotentes. Não executar `preparar_supabase.sql` em banco existente. A finalização
   `concluir_migracao_dispositivos()` só ocorre após provisionar e sincronizar todas as placas;
   ver [Ativar frota](docs/ATIVAR_FROTA.md). A compatibilidade legada não equivale a token universal.
 - Máquinas cadastradas são editáveis pelo botão "Editar" do card (ou pelo modal de
@@ -271,8 +271,9 @@ TinyGPSPlus 1.0.3 (Mikal Hart), MFRC522 1.4.12, **MAX6675 0.3.4 do RobTillaart**
 ## 5. Banco de dados (Supabase / PostgreSQL + PostgREST)
 
 Scripts em `firmware/sql/`, rodados no **SQL Editor** do Supabase. Ordem:
-`preparar_supabase.sql` → `dados_exemplo.sql` → `fazenda.sql` → `usuarios.sql`. Todos
-**idempotentes**.
+`preparar_supabase.sql` → `dados_exemplo.sql` → `fazenda.sql` → `usuarios.sql` → `frota.sql` →
+`exclusoes.sql` → `mapa_ocorrencias.sql`. Todos **idempotentes** (os testes em
+`firmware/sql/tests/run.mjs` aplicam cada migração duas vezes no PGlite).
 
 ### 5.1 Tabelas do sensor (escritas pelo ESP32, lidas pela API)
 
@@ -297,6 +298,11 @@ relatório bruto.
 
 `cliente` ← `fazenda` ← `equipamentos` ← `riscos` (↔ `telemetria`) ↔ `sinistros`; e `usuario`
 (logins do painel: `usuario`, `senha` em texto plano, `role`, `fk_fazenda_id_fazenda`).
+
+- `fazenda.latitude`/`longitude` (opcionais, par obrigatório, faixas válidas): pinos do mapa.
+- **`ocorrencias`**: alerta (ou relato manual) que alguém verifica até resolver. `status` ∈
+  {aberta, em_verificacao, resolvida}, `responsavel_id` → `usuario`, `nota`; no máximo uma por
+  `evento_id`; `atualizado_em`/`resolvido_em` mantidos por trigger; RLS ligado, só `service_role`.
 
 `dados_exemplo.sql` contém dados de demonstração. O painel atual mostra a frota por fazenda,
 operadores, histórico, telemetria, eventos, scores e cadastros conforme o perfil.
@@ -333,6 +339,10 @@ Arquivo central: `api/app.py`. Servida por **waitress** em produção; `python a
 | `GET /relatorio/risco.pdf` | O mesmo relatório em PDF para download |
 | `GET/POST /clientes` | Lista/cadastra clientes — **só perfil Sompo** (403 p/ gestor) |
 | `GET/POST /fazendas` | Lista/cadastra fazendas — **só perfil Sompo** |
+| `PATCH /fazendas/<id>` | Edita dados e coordenadas — **só Sompo**; 409 sem a migração |
+| `GET /fazendas/<id>/resumo` | Máquinas, comunicação, scores e os 10 alertas mais recentes |
+| `GET/POST /ocorrencias`, `PATCH /ocorrencias/<id>` | Fila de ocorrências (escopo por perfil) |
+| `GET /ocorrencias/responsaveis?fazenda=` | Quem pode assumir (Sompo + gestores da fazenda) |
 | `GET/POST /usuarios` | Lista/cadastra logins do painel — **só perfil Sompo** |
 
 Padrão de dispositivo: `SOMPO-ESP32` (tem de bater com o `DISPOSITIVO_ID` do firmware).
@@ -378,15 +388,20 @@ aberto.
 
 ## 7. Painel / Frontend
 
-**Arquivo:** `api/static/index.html` (SPA de arquivo único, ~1090 linhas).
+**Arquivo:** `api/static/index.html` (SPA de arquivo único, ~3900 linhas).
 
 - **TailwindCSS via CDN** (`cdn.tailwindcss.com`) + ícones **Material Symbols**. JS
   **vanilla** (sem framework/build).
-- Busca dados com `getJSON()` em caminhos **relativos**; **auto-refresh a cada 5 s**
-  (`setInterval(carregarTudo, 5000)`).
-- **Abas:** Visão Geral (scores, telemetria atual, feed de alertas, últimas leituras, gráfico
-  de temperatura em SVG estilo *line chart*), Fazendas, Clientes, Usuários (as três últimas
-  só para o perfil Sompo).
+- Busca dados com `getJSON()` em caminhos **relativos**; **auto-refresh a cada 5 s**, que
+  **pausa** com a aba escondida ou após 15 min sem interação (faixa "Atualização pausada" +
+  Retomar). Poupa o crédito do Learner Lab e o limite diário do Cloudflare Pages.
+- **Telas:** Início (Sompo: carteira em cartões ou **mapa** Leaflet/OSM; gestor: painel da
+  própria fazenda), Máquinas, **Painel da máquina** (tudo num lugar só, com atalhos Resumo ·
+  Risco · Alertas · Telemetria), **Exposição financeira**, Operadores, Histórico,
+  **Ocorrências** (quadro aberta / em verificação / resolvida), **Manutenção** (última + 180
+  dias, estimativa), e os cadastros Fazendas, Clientes, Usuários (só Sompo).
+- Gráficos em SVG próprio; animação só quando o gráfico entra na tela; tema claro/escuro
+  (`sompo.tema`). No celular, menu em gaveta e tabelas em cartões.
 - **Alerta clicável** (modal de detalhe) e efeito *border beam* no card de risco (CSS puro,
   inspirado no 21st.dev).
 - Botão **Exportar PDF** → baixa `/relatorio/risco.pdf` do período escolhido.
@@ -441,8 +456,9 @@ uma flag/env desligada por padrão.
 
 ## 10. Testes
 
-`api/tests/` — **pytest**, **56 funções de teste**, todas mockadas (sem rede, sem `.env`,
-sem hardware). Cobrem:
+`api/tests/` — **pytest**, **154 funções de teste** (217 casos, contando desktop e celular nos
+testes de navegador com Playwright), todas mockadas (sem rede real, sem `.env`, sem hardware).
+Mais os asserts de SQL no PGlite (`node firmware/sql/tests/run.mjs`). Cobrem:
 
 - `test_scores.py` — cálculo determinístico de risco.
 - `test_auth.py`, `test_perfis.py` — login, API key, escopo por perfil (gestor não vê outra
@@ -450,6 +466,10 @@ sem hardware). Cobrem:
 - `test_relatorios.py`, `test_relatorio_risco_origens.py` — os 3 cenários de origem
   (llm/prompt_apenas/fallback).
 - `test_documento.py` — geração do PDF (texto lido sem compressão).
+- `test_ocorrencias.py` — escopo por perfil, uma ocorrência por alerta, responsável válido, 409
+  sem migração; `test_fazendas.py` inclui o PATCH com coordenadas.
+- `test_painel.py` — Playwright com HTTP simulado (desktop e 390 px): navegação, gaveta,
+  Início do gestor, mapa, exposição, manutenção, ocorrências, PDF.
 - `test_telemetria.py`, `test_eventos.py`, `test_fazendas.py`, `test_usuarios.py`,
   `test_health.py` — rotas.
 - **`test_contrato_firmware.py`** — lê o `.ino` e o `.sql` **como texto** e garante o
@@ -457,7 +477,7 @@ sem hardware). Cobrem:
   `scores.py`, **quebra o pytest**.
 
 > Nota: `README.md` cita "46 testes" e `COMO_TESTAR.md` cita "32 passed" — números
-> **históricos**. A contagem atual de funções `def test_` é **56**.
+> **históricos**. A contagem atual de funções `def test_` é **154**.
 
 ---
 
