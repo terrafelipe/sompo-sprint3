@@ -67,6 +67,11 @@ def painel(request):
                 data = {'usuario': dict(id_usuario=7, usuario='gestor.teste', role='gestor_fazenda', criado_em='2026-09-01T12:00:00Z', fazenda=FARMS[0])}
             elif path == '/operadores':
                 data = {'dados': [] if '/operadores/7' in state['deleted'] else [dict(id_operador=7, nome='Ana', uid='01020304', ativo=True)]}
+            elif path == '/resumo':
+                # Resumo diario do dispositivo (grafico "Temperatura por dia").
+                data = {'dados': [
+                    dict(dia='2026-09-17', amostras=40, temp_escape_max=80.5, temp_escape_media=42.0, temp_ambiente_media=24.8),
+                    dict(dia='2026-09-18', amostras=35, temp_escape_max=61.0, temp_escape_media=38.2, temp_ambiente_media=25.1)]}
             elif path.endswith('/resumo'):
                 i = int(path.split('/')[2])
                 data = dict(fazenda=FARMS[i-1], equipamentos=[] if state['sem_maquinas'] or f'/equipamentos/{i}' in state['deleted'] else [dict(
