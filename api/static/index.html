@@ -1221,24 +1221,43 @@ function setView(view){
 // Tempo limite: uma requisicao travada nao pode segurar o painel (o carregarTudo reaproveita
 // a carga pendente; sem limite, uma trava congelava todas as atualizacoes seguintes).
 const TEMPO_LIMITE_MS = 20000;
-async function getJSON(path){
+// Fila: no maximo 4 requisicoes em voo. O painel dispara 7 a 8 juntas a cada 5 s (e N resumos
+// de fazenda no Inicio); o pico estourava a concorrencia da Lambda (HTTP 429). As demais esperam em ordem.
+const MAX_EM_VOO = 4, ESPERAS_REPETIR_MS = [400, 1200];
+let emVoo = 0;
+const filaEspera = [];
+const pegarVaga = () => emVoo < MAX_EM_VOO ? (emVoo++, Promise.resolve()) : new Promise(ok => filaEspera.push(ok));
+// A vaga passa direto para o proximo da fila (emVoo so cai quando ninguem espera).
+function soltarVaga(){ const proximo = filaEspera.shift(); if(proximo) proximo(); else emVoo--; }
+async function getJSON(path, {tempoLimite = TEMPO_LIMITE_MS} = {}){
   const versao = contextoVersao;
   const obsoleto = () => versao !== contextoVersao;
-  const ctrl = new AbortController();
-  const limite = setTimeout(() => ctrl.abort(), TEMPO_LIMITE_MS);
-  try {
-    const r = await fetch(path, {headers:{'Accept':'application/json'}, signal: ctrl.signal});
-    conexao(true);
-    if(!r.ok) throw new Error('HTTP '+r.status);
-    const dados = await r.json();
-    if(obsoleto()) throw new Error('Resposta antiga');
-    return dados;
-  } catch(e) {
-    // Rede fora ou tempo esgotado = API inalcancavel (HTTP 4xx/5xx nao: a API respondeu).
-    if(e.name === 'AbortError' || e instanceof TypeError) conexao(false);
-    if(obsoleto()) e.obsoleto = true;
-    throw e;
-  } finally { clearTimeout(limite); }
+  for(let tentativa = 0; ; tentativa++){
+    await pegarVaga();
+    // O tempo limite conta so a requisicao, nao a espera na fila.
+    const ctrl = new AbortController();
+    const limite = setTimeout(() => ctrl.abort(), tempoLimite);
+    try {
+      // Ficou obsoleto esperando a vez: sai da fila sem gastar requisicao.
+      if(obsoleto()) throw new Error('Resposta antiga');
+      const r = await fetch(path, {headers:{'Accept':'application/json'}, signal: ctrl.signal});
+      conexao(true);
+      // 429/503 = API ocupada (ela respondeu): tenta de novo mais tarde, sem a faixa "Sem conexao".
+      if(!((r.status === 429 || r.status === 503) && tentativa < ESPERAS_REPETIR_MS.length)){
+        if(!r.ok) throw new Error('HTTP '+r.status);
+        const dados = await r.json();
+        if(obsoleto()) throw new Error('Resposta antiga');
+        return dados;
+      }
+    } catch(e) {
+      // Rede fora ou tempo esgotado = API inalcancavel (HTTP 4xx/5xx nao: a API respondeu).
+      if(e.name === 'AbortError' || e instanceof TypeError) conexao(false);
+      if(obsoleto()) e.obsoleto = true;
+      throw e;
+    } finally { clearTimeout(limite); soltarVaga(); }
+    // Espera com a vaga liberada; +-20% para as repeticoes nao voltarem todas juntas.
+    await new Promise(ok => setTimeout(ok, ESPERAS_REPETIR_MS[tentativa] * (0.8 + Math.random() * 0.4)));
+  }
 }
 // Faixa "Sem conexao": aparece quando a API nao responde e some sozinha quando volta.
 function conexao(ok){ const a = $('avisoConexao'); if(a) a.hidden = ok; }
