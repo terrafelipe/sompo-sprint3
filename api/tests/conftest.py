@@ -33,3 +33,16 @@ def _auth_desligada_por_padrao():
     # (test_auth.py) fazem patch proprio para ligar a trava quando precisam.
     with patch('app.SOMPO_API_KEY', ''), patch('app.PAINEL_SENHA', ''):
         yield
+
+
+@pytest.fixture
+def pdf_aberto(monkeypatch):
+    """Gera o PDF sem compressão, para o teste ler o texto direto dos bytes."""
+    import documento
+
+    class SemCompressao(documento.RelatorioPDF):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.compress = False
+
+    monkeypatch.setattr(documento, 'RelatorioPDF', SemCompressao)

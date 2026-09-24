@@ -83,9 +83,9 @@ def painel(request):
                 data = {'api': 'ok', 'banco': 'ok'}
             elif path == '/relatorio/risco':
                 data = {'score_furto': 5, 'score_incendio': 10}
-            elif path.endswith('.docx'):
-                r.fulfill(body=b'PK-test-download', content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                          headers={'Content-Disposition': 'attachment; filename=relatorio.docx'})
+            elif path.endswith('.pdf'):
+                r.fulfill(body=b'%PDF-test-download', content_type='application/pdf',
+                          headers={'Content-Disposition': 'attachment; filename=relatorio.pdf'})
                 return
             r.fulfill(json=data)
 
@@ -143,7 +143,7 @@ def test_inicio_mostra_carteira_e_abre_a_fazenda(painel):
     assert page.evaluate('String(fazendaSelecionada)') == '2'
 
 
-def test_menus_sem_maquina_refresh_e_word(painel):
+def test_menus_sem_maquina_refresh_e_pdf(painel):
     page, state = painel
     # Risco, Alertas e Telemetria agora sao partes do Painel da maquina (visao).
     for view in ['visao','operadores','historico','fazendas','clientes','usuarios','maquinas']:
@@ -162,7 +162,7 @@ def test_menus_sem_maquina_refresh_e_word(painel):
     pw.expect(page.locator('#btnBaixar')).to_be_enabled()
     page.clock.fast_forward(5100)
     assert page.evaluate('[viewAtual,equipamentoSelecionado]') == ['visao', 1]
-    with page.expect_download(), page.expect_request('**/relatorio/risco.docx?equipamento=1&dias=7'):
+    with page.expect_download(), page.expect_request('**/relatorio/risco.pdf?equipamento=1&dias=7'):
         page.locator('#btnBaixar').click()
 
 

@@ -400,9 +400,9 @@ def relatorio_risco():
         return _erro('falha_na_geracao_do_relatorio', exc, 502)
 
 
-@app.get('/relatorio/risco.docx')
-def relatorio_risco_docx():
-    # Mesmo conteúdo do /relatorio/risco, mas como documento Word (.docx) para download.
+@app.get('/relatorio/risco.pdf')
+def relatorio_risco_pdf():
+    # Mesmo conteúdo do /relatorio/risco, mas como PDF para download (abre em qualquer celular).
     dispositivo = _dispositivo_para(request.args.get('dispositivo', 'SOMPO-ESP32'))
     dias = _parse_int(request.args.get('dias', '7'), 7, minimum=1)
 
@@ -410,13 +410,13 @@ def relatorio_risco_docx():
         resumo_por_dia = consultar_resumo(dispositivo, dias=dias) if dispositivo else []
         eventos = frota.identificar_registros(consultar_eventos(dispositivo, dias=dias) if dispositivo else [])
         relatorio = montar_relatorio_risco(dispositivo, dias, resumo_por_dia, eventos, contexto=frota.contexto())
-        conteudo = documento.montar_docx(relatorio, eventos)
+        conteudo = documento.montar_pdf(relatorio, eventos)
 
         carimbo = datetime.now(documento.FUSO_BRASILIA).strftime('%Y%m%d_%H%M')
-        nome = f'relatorio_risco_{dispositivo}_{carimbo}.docx'
+        nome = f'relatorio_risco_{dispositivo}_{carimbo}.pdf'
         return Response(
             conteudo,
-            mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            mimetype='application/pdf',
             headers={'Content-Disposition': f'attachment; filename="{nome}"'},
         )
     except Exception as exc:

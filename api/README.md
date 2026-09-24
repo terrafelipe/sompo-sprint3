@@ -22,7 +22,7 @@ api/
 ├── scores.py            # scores de risco deterministicos
 ├── relatorios.py        # monta os relatorios (bruto/risco)
 ├── llm.py               # analise redigida pelo Google Gemini
-├── documento.py         # gera o relatorio em Word (.docx)
+├── documento.py         # gera o relatorio em PDF (fpdf2)
 ├── requirements.txt
 ├── .env / .env.example  # segredos (o .env fica local, gitignorado)
 ├── .gitignore
@@ -208,9 +208,10 @@ GET /relatorio/risco?dispositivo=SOMPO-ESP32&dias=7
 
 Scores de risco determinísticos por eixo (sem IA). Parâmetros: `dispositivo`, `dias`.
 
-### GET /relatorio/risco.docx
+### GET /relatorio/risco.pdf
 
-Mesmo conteúdo do `/relatorio/risco`, porém como documento Word (.docx) para download.
+Mesmo conteúdo do `/relatorio/risco`, porém em PDF (A4) para download. Parâmetros: `equipamento` (ou
+`dispositivo`) e `dias`.
 
 ## Integração com Supabase
 

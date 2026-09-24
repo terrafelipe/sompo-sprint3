@@ -71,7 +71,7 @@ def test_gestor_lista_apenas_maquinas_da_fazenda(banco):
 
 @pytest.mark.parametrize('path', ['/equipamentos/3', '/fazendas/2/resumo',
                                  '/operadores/2', '/telemetria?equipamento=3',
-                                 '/eventos?dispositivo=ESP-C', '/relatorio/risco.docx?equipamento=3'])
+                                 '/eventos?dispositivo=ESP-C', '/relatorio/risco.pdf?equipamento=3'])
 def test_ids_de_outra_fazenda_sao_negados(banco, path):
     assert gestor().get(path).status_code == 403
 
@@ -115,21 +115,15 @@ def test_cadastro_maquina_completo(banco):
     assert eq['fk_cliente_id_cliente'] == 10
 
 
-def test_word_contem_apenas_maquina_selecionada(banco):
-    from io import BytesIO
-    from docx import Document
-
-    with patch('app.consultar_resumo', return_value=[]) as resumo, \
-         patch('app.consultar_eventos', return_value=[]) as eventos, \
-         patch('llm.LLM_API_KEY', ''):
-        r = gestor().get('/relatorio/risco.docx?equipamento=2&dias=7')
+def test_pdf_contem_apenas_maquina_selecionada(banco, pdf_aberto):
+    with patch('app.consultar_resumo', return_value=[]) as resumo,          patch('app.consultar_eventos', return_value=[]) as eventos,          patch('llm.LLM_API_KEY', ''):
+        r = gestor().get('/relatorio/risco.pdf?equipamento=2&dias=7')
     assert r.status_code == 200
-    assert 'wordprocessingml' in r.content_type
+    assert r.content_type == 'application/pdf'
     assert 'ESP-B' in r.headers['Content-Disposition']
     resumo.assert_called_once_with('ESP-B', dias=7)
     eventos.assert_called_once_with('ESP-B', dias=7)
-    doc = Document(BytesIO(r.data))
-    text = '\n'.join(p.text for p in doc.paragraphs)
+    text = r.data.decode('latin-1')
     assert 'Trator B' in text and 'Santa Rita' in text and 'ESP-B' in text
     assert 'Trator A' not in text and 'ESP-A' not in text
 

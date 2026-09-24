@@ -277,7 +277,7 @@ def montar_relatorio_risco(dispositivo: str, dias: int, resumo_por_dia: List[Dic
             'limitacoes': legivel(str(analise.get('limitacoes', '') or '')),
         })
         # A IA as vezes deixa campos vazios: o texto deterministico completa (a tela
-        # e o Word nunca ficam em branco) e a tela avisa o que veio do sistema.
+        # e o PDF nunca ficam em branco) e a tela avisa o que veio do sistema.
         padrao = montar_fallback(scores)
         for campo in ('resumo', 'justificativa_furto', 'justificativa_incendio', 'recomendacoes'):
             if not base[campo] or (isinstance(base[campo], str) and not base[campo].strip()):

@@ -308,9 +308,9 @@
     <button id="btnAtualizar" title="Atualizar" class="inline-flex items-center gap-1.5 h-9 border border-outline-variant bg-surface-container-lowest text-on-surface font-medium px-3 rounded-lg hover:bg-surface-container transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
       <span id="iconAtualizar" class="material-symbols-outlined text-[18px]">refresh</span> <span id="txtAtualizar" class="hidden sm:inline">Atualizar</span>
     </button>
-    <button id="btnBaixar" title="Baixar o relatório de risco em Word (.docx)"
+    <button id="btnBaixar" title="Baixar o relatório de risco em PDF"
             class="inline-flex items-center gap-1.5 h-9 bg-primary text-on-primary font-medium px-3 rounded-lg hover:bg-on-primary-fixed-variant transition-colors">
-      <span class="material-symbols-outlined text-[18px]">download</span><span>Exportar Word</span>
+      <span class="material-symbols-outlined text-[18px]">download</span><span>Exportar PDF</span>
     </button>
     <button id="btnTema" type="button" title="Modo escuro" aria-label="Alternar modo escuro"
             class="w-9 h-9 grid place-items-center rounded-lg border border-outline-variant bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors">
@@ -396,7 +396,7 @@
       </div>
     </nav>
     <div id="semMaquina" hidden class="bg-surface-container-lowest rounded-xl p-6 mb-6" role="status"><span id="semMaquinaTxt">Selecione uma máquina no seletor acima para ver o painel.</span></div>
-    <p id="wordAjuda" class="text-xs text-on-surface-variant mb-4">Selecione uma máquina para exportar o relatório Word.</p>
+    <p id="relatorioAjuda" class="text-xs text-on-surface-variant mb-4">Selecione uma máquina para exportar o relatório em PDF.</p>
     <div id="frotaEstado" role="status"></div>
     <!-- STATUS AGORA (faixa no topo do Painel da maquina) -->
     <div id="secResumo" data-ancora data-section="statusAgora" class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)] mb-4">
@@ -982,8 +982,8 @@ function setView(view){
   $('btnBaixar').classList.remove('hidden');
   $('btnBaixar').disabled = !equipamentoSelecionado;
   $('btnBaixar').title = equipamentoSelecionado ? 'Baixar relatório da máquina selecionada' : 'Selecione uma máquina para exportar';
-  $('btnBaixar').setAttribute('aria-describedby', 'wordAjuda');
-  $('wordAjuda').hidden = !!equipamentoSelecionado || !dependeMaquina(view);
+  $('btnBaixar').setAttribute('aria-describedby', 'relatorioAjuda');
+  $('relatorioAjuda').hidden = !!equipamentoSelecionado || !dependeMaquina(view);
   if(mudou) window.scrollTo({top:0, behavior:'smooth'});
 }
 
@@ -2815,7 +2815,7 @@ async function atualizarManual(){
 $('btnAtualizar').addEventListener('click', atualizarManual);
 $('btnBaixar').addEventListener('click', () => {
   if(!equipamentoSelecionado) return;
-  window.location = `/relatorio/risco.docx?equipamento=${encodeURIComponent(equipamentoSelecionado)}&dias=${periodo}`;
+  window.location = `/relatorio/risco.pdf?equipamento=${encodeURIComponent(equipamentoSelecionado)}&dias=${periodo}`;
 });
 $('dispositivo').addEventListener('change', carregarTudo);
 $('fazendaSel').addEventListener('change', ()=>trocarFazenda($('fazendaSel').value));

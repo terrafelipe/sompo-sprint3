@@ -1,28 +1,44 @@
 from __future__ import annotations
 
-import io
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List
 
-from docx import Document
-from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.shared import Pt, RGBColor
+from fpdf import FPDF
+from fpdf.enums import XPos, YPos
+from fpdf.fonts import FontFace
+
+from relatorios import TIPOS_LEGIVEIS, legivel
 
 # Brasília é UTC-3 fixo (o Brasil não tem horário de verão desde 2019), então um
 # offset fixo é exato e evita depender do banco de fusos (tzdata) no Windows.
 FUSO_BRASILIA = timezone(timedelta(hours=-3))
 
-_COR_CLASSIF = {
-    'ALTO': RGBColor(0xC0, 0x39, 0x2B),
-    'MEDIO': RGBColor(0xE6, 0x7E, 0x22),
-    'BAIXO': RGBColor(0x27, 0xAE, 0x60),
+VERMELHO = (183, 1, 0)
+TINTA = (24, 24, 27)
+SUAVE = (113, 113, 122)
+LINHA = (228, 228, 231)
+FUNDO = (244, 244, 245)
+
+_CLASSIF = {
+    'ALTO': ('Alto', (186, 26, 26)),
+    'MEDIO': ('Médio', (180, 83, 9)),
+    'BAIXO': ('Baixo', (21, 128, 61)),
 }
 
+# Mesma escala do painel: severidade 1..5 vale 5/10/20/40/70 pontos.
+_GRAVIDADE = {1: 'Baixa', 2: 'Moderada', 3: 'Média', 4: 'Alta', 5: 'Crítica'}
+_PONTOS_MINIMOS = [(70, 5), (40, 4), (20, 3), (10, 2), (0, 1)]
+
 _ORIGEM_TEXTO = {
-    'llm': 'Análise escrita por IA (Google Gemini) sobre scores determinísticos.',
+    'llm': 'Análise escrita por IA (Google Gemini) sobre scores calculados pelo sistema.',
     'prompt_apenas': 'Análise por template (sem chave de IA configurada).',
     'fallback': 'Análise por template (provedor de IA indisponível no momento).',
 }
+
+# A Helvetica embutida no PDF só cobre latin-1: pontuação tipográfica vira o
+# equivalente simples e o que sobrar (emoji, por exemplo) é descartado.
+_TROCAS = str.maketrans({'—': '-', '–': '-', '“': '"', '”': '"', '‘': "'", '’': "'",
+                         '…': '...', '•': '-', '≥': '>=', '≤': '<=', '→': '->'})
 
 
 def para_brasilia(iso_utc: str | None) -> str:
@@ -38,105 +54,193 @@ def para_brasilia(iso_utc: str | None) -> str:
         return str(iso_utc)
 
 
-def _add_par(doc, texto: str, negrito: bool = False, tamanho: int | None = None):
-    p = doc.add_paragraph()
-    run = p.add_run(texto)
-    run.bold = negrito
-    if tamanho:
-        run.font.size = Pt(tamanho)
-    return p
+def _latin1(texto: Any) -> str:
+    return str(texto).translate(_TROCAS).encode('latin-1', 'ignore').decode('latin-1')
 
 
-def _add_eixo(doc, titulo: str, score: Any, classif: str, justificativa: str) -> None:
-    doc.add_heading(titulo, level=2)
-
-    p = doc.add_paragraph()
-    p.add_run('Score: ').bold = True
-    p.add_run(f'{score}  ')
-    tag = p.add_run(f'({classif})')
-    tag.bold = True
-    tag.font.color.rgb = _COR_CLASSIF.get(str(classif).upper(), RGBColor(0x33, 0x33, 0x33))
-
-    if justificativa:
-        doc.add_paragraph(justificativa)
+def _nome_tipo(tipo: Any) -> str:
+    nome = TIPOS_LEGIVEIS.get(str(tipo)) or legivel(str(tipo))
+    return nome[:1].upper() + nome[1:]
 
 
-def montar_docx(relatorio: Dict[str, Any], eventos: List[Dict[str, Any]]) -> bytes:
-    """Monta o relatório de risco como um documento Word (.docx) e devolve os bytes."""
-    doc = Document()
+def _gravidade_media(pontos: int, quantidade: int) -> str:
+    media = pontos / quantidade if quantidade else 0
+    return next(_GRAVIDADE[g] for minimo, g in _PONTOS_MINIMOS if media >= minimo)
 
-    doc.add_heading('Relatório de Risco', level=0)
 
-    # Cabeçalho de identificação
-    gerado = datetime.now(FUSO_BRASILIA).strftime('%d/%m/%Y %H:%M')
-    sub = doc.add_paragraph()
-    sub.add_run(f"Dispositivo: {relatorio.get('dispositivo', '—')}").bold = True
-    sub.add_run(
-        f"   ·   Período: {relatorio.get('periodo_dias', '—')} dia(s)"
-        f"   ·   Gerado em: {gerado} (Brasília)"
-    )
+def _severidade(valor: Any) -> str:
+    try:
+        return f'{int(valor)} · {_GRAVIDADE[int(valor)]}'
+    except (KeyError, TypeError, ValueError):
+        return str(valor if valor is not None else '-')
+
+
+class RelatorioPDF(FPDF):
+    def __init__(self):
+        super().__init__(format='A4')
+        self.set_margins(18, 18, 18)
+        self.set_auto_page_break(True, margin=18)
+        self.rodape = ''
+
+    def footer(self):
+        self.set_y(-12)
+        self.set_font('Helvetica', size=8)
+        self.set_text_color(*SUAVE)
+        self.cell(0, 5, self.rodape)
+        self.set_x(self.l_margin)
+        self.cell(0, 5, f'Página {self.page_no()} de {{nb}}', align='R')
+
+
+def _secao(pdf: FPDF, titulo: str) -> None:
+    pdf.ln(5)
+    if pdf.will_page_break(24):
+        pdf.add_page()
+    pdf.set_font('Helvetica', 'B', 12)
+    pdf.set_text_color(*TINTA)
+    pdf.cell(0, 7, _latin1(titulo), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.set_draw_color(*LINHA)
+    pdf.set_line_width(0.3)
+    pdf.line(pdf.l_margin, pdf.get_y(), pdf.w - pdf.r_margin, pdf.get_y())
+    pdf.ln(3)
+
+
+def _paragrafo(pdf: FPDF, texto: str, tamanho: float = 10, cor=TINTA, estilo: str = '') -> None:
+    pdf.set_font('Helvetica', estilo, tamanho)
+    pdf.set_text_color(*cor)
+    pdf.multi_cell(0, tamanho * 0.5, _latin1(texto), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+
+def _tabela(pdf: FPDF, cabecalho: List[str], linhas: List[List[str]], larguras, alinhamento) -> None:
+    pdf.set_font('Helvetica', size=9)
+    pdf.set_text_color(*TINTA)
+    pdf.set_draw_color(*LINHA)
+    pdf.set_fill_color(255, 255, 255)
+    estilo = FontFace(emphasis='BOLD', color=SUAVE, fill_color=FUNDO)
+    with pdf.table(col_widths=larguras, text_align=alinhamento, line_height=5,
+                   borders_layout='HORIZONTAL_LINES', headings_style=estilo, padding=(1.5, 2)) as tabela:
+        for valores in [cabecalho, *linhas]:
+            linha = tabela.row()
+            for valor in valores:
+                linha.cell(_latin1(valor))
+
+
+def _identificacao(pdf: FPDF, relatorio: Dict[str, Any]) -> None:
     equipamento = relatorio.get('equipamento') or {}
     fazenda = relatorio.get('fazenda') or {}
-    if equipamento:
-        _add_par(doc, f"Equipamento: {equipamento.get('nome', '—')} (ID {equipamento.get('id_equipamento', '—')})")
-        _add_par(doc, f"Fazenda: {fazenda.get('nome', 'Cadastro pendente')}")
+    dias = relatorio.get('periodo_dias')
+    campos = [
+        ('Máquina', f"{equipamento.get('nome', '-')} (ID {equipamento.get('id_equipamento', '-')})" if equipamento else '-'),
+        ('Fazenda', fazenda.get('nome') or 'Cadastro pendente'),
+        ('Dispositivo', relatorio.get('dispositivo') or '-'),
+        ('Período', 'Último dia' if dias == 1 else f'Últimos {dias} dias'),
+        ('Análise gerada em', f"{para_brasilia(relatorio['gerado_em'])} (Brasília)" if relatorio.get('gerado_em') else '-'),
+        ('Documento emitido em', f"{datetime.now(FUSO_BRASILIA).strftime('%d/%m/%Y %H:%M')} (Brasília)"),
+    ]
+    for rotulo, valor in campos:
+        pdf.set_font('Helvetica', size=9)
+        pdf.set_text_color(*SUAVE)
+        pdf.cell(42, 5.5, _latin1(rotulo))
+        pdf.set_font('Helvetica', 'B', 10)
+        pdf.set_text_color(*TINTA)
+        pdf.multi_cell(0, 5.5, _latin1(valor), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+
+def _eixo(pdf: FPDF, titulo: str, eixo: str, relatorio: Dict[str, Any]) -> None:
+    _secao(pdf, titulo)
+    classif = str(relatorio.get(f'classificacao_{eixo}') or '').upper()
+    nome_classif, cor_classif = _CLASSIF.get(classif, (classif.title() or '-', TINTA))
+    score = str(relatorio.get(f'score_{eixo}', '-'))
+
+    pdf.set_font('Helvetica', 'B', 22)
+    pdf.set_text_color(*TINTA)
+    pdf.cell(pdf.get_string_width(score) + 1, 10, score)
+    pdf.set_font('Helvetica', size=10)
+    pdf.set_text_color(*SUAVE)
+    pdf.cell(pdf.get_string_width('/100') + 5, 10, '/100')
+    pdf.set_font('Helvetica', 'B', 11)
+    pdf.set_text_color(*cor_classif)
+    pdf.cell(pdf.get_string_width(nome_classif) + 6, 10, _latin1(nome_classif))
+    acumulado = (relatorio.get('pontos_acumulados') or {}).get(eixo)
+    if acumulado is not None:
+        pdf.set_font('Helvetica', size=9)
+        pdf.set_text_color(*SUAVE)
+        pdf.cell(0, 10, f'{acumulado} pontos somados no período (o score vai até 100)')
+    pdf.ln(12)
+
+    justificativa = relatorio.get(f'justificativa_{eixo}')
+    if justificativa:
+        _paragrafo(pdf, legivel(str(justificativa)))
+
+    itens = sorted(((t, v) for t, v in (relatorio.get('detalhamento') or {}).items() if v.get('eixo') == eixo),
+                   key=lambda item: -item[1].get('pontos', 0))
+    pdf.ln(2)
+    if not itens:
+        _paragrafo(pdf, 'Nenhum evento deste tipo no período.', 9, SUAVE, 'I')
+        return
+    _tabela(pdf, ['De onde vem o score', 'Ocorrências', 'Gravidade', 'Pontos'],
+            [[_nome_tipo(t), v.get('quantidade', 0), _gravidade_media(v.get('pontos', 0), v.get('quantidade', 0)),
+              v.get('pontos', 0)] for t, v in itens],
+            (70, 25, 30, 25), ('LEFT', 'RIGHT', 'LEFT', 'RIGHT'))
+
+
+def montar_pdf(relatorio: Dict[str, Any], eventos: List[Dict[str, Any]]) -> bytes:
+    """Monta o relatório de risco em PDF (A4) e devolve os bytes."""
+    equipamento = relatorio.get('equipamento') or {}
+    maquina = equipamento.get('nome') or relatorio.get('dispositivo') or '-'
+
+    pdf = RelatorioPDF()
+    pdf.set_title(_latin1(f'Relatório de risco - {maquina}'))
+    pdf.set_author('SOMPO')
+    pdf.rodape = _latin1(f'Relatório de risco · {maquina}')
+    pdf.add_page()
+
+    pdf.set_font('Helvetica', 'B', 9)
+    pdf.set_text_color(*VERMELHO)
+    pdf.cell(0, 5, 'SOMPO · Monitoramento de máquinas agrícolas', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.ln(1)
+    pdf.set_font('Helvetica', 'B', 20)
+    pdf.set_text_color(*TINTA)
+    pdf.cell(0, 10, 'Relatório de risco', new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+    pdf.ln(3)
+    _identificacao(pdf, relatorio)
 
     origem = relatorio.get('origem_da_analise', '')
-    nota = doc.add_paragraph()
-    r = nota.add_run(_ORIGEM_TEXTO.get(origem, f'Origem da análise: {origem}'))
-    r.italic = True
-    r.font.size = Pt(9)
-    r.font.color.rgb = RGBColor(0x77, 0x77, 0x77)
+    pdf.ln(2)
+    _paragrafo(pdf, _ORIGEM_TEXTO.get(origem, f'Origem da análise: {origem}'), 8.5, SUAVE, 'I')
 
-    # Scores
-    _add_eixo(
-        doc, '🔓 Furto',
-        relatorio.get('score_furto', '—'),
-        relatorio.get('classificacao_furto', '—'),
-        relatorio.get('justificativa_furto', ''),
-    )
-    _add_eixo(
-        doc, '🔥 Incêndio',
-        relatorio.get('score_incendio', '—'),
-        relatorio.get('classificacao_incendio', '—'),
-        relatorio.get('justificativa_incendio', ''),
-    )
+    _eixo(pdf, 'Furto', 'furto', relatorio)
+    _eixo(pdf, 'Incêndio', 'incendio', relatorio)
 
-    # Recomendações
     recomendacoes = relatorio.get('recomendacoes') or []
     if recomendacoes:
-        doc.add_heading('Recomendações', level=2)
+        _secao(pdf, 'Recomendações')
         for item in recomendacoes:
-            doc.add_paragraph(str(item), style='List Bullet')
+            pdf.set_fill_color(*VERMELHO)
+            pdf.rect(pdf.l_margin + 1, pdf.get_y() + 2, 1.3, 1.3, style='F')
+            pdf.set_x(pdf.l_margin + 5)
+            pdf.set_font('Helvetica', size=10)
+            pdf.set_text_color(*TINTA)
+            pdf.multi_cell(0, 5, _latin1(legivel(str(item))), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+            pdf.ln(1)
 
-    # Limitações
     limitacoes = relatorio.get('limitacoes')
     if limitacoes:
-        doc.add_heading('Limitações', level=2)
-        doc.add_paragraph(str(limitacoes))
+        _secao(pdf, 'Limitações')
+        _paragrafo(pdf, legivel(str(limitacoes)))
 
-    # Eventos do período (horários já em Brasília)
-    doc.add_heading('Eventos no período', level=2)
-    if eventos:
-        tabela = doc.add_table(rows=1, cols=5)
-        tabela.style = 'Light Grid Accent 1'
-        cab = tabela.rows[0].cells
-        cab[0].paragraphs[0].add_run('Data/hora (Brasília)').bold = True
-        cab[1].paragraphs[0].add_run('Tipo').bold = True
-        cab[2].paragraphs[0].add_run('Severidade').bold = True
-        cab[3].paragraphs[0].add_run('Operador identificado').bold = True
-        cab[4].paragraphs[0].add_run('Sessão / recebimento').bold = True
-        for ev in eventos:
-            linha = tabela.add_row().cells
-            ocorrido = ev.get('ocorrido_em') if ev.get('registro_id') else ev.get('criado_em')
-            linha[0].text = para_brasilia(ocorrido) if ocorrido else 'Horário desconhecido'
-            linha[1].text = str(ev.get('tipo', '—'))
-            linha[2].text = str(ev.get('severidade', '—'))
-            linha[3].text = ev.get('operador_nome') or 'Operador não identificado'
-            linha[4].text = str(ev.get('sessao_id') or '—') + '\n' + para_brasilia(ev.get('recebido_em'))
+    _secao(pdf, f'Eventos no período ({len(eventos)})')
+    if not eventos:
+        _paragrafo(pdf, 'Nenhum evento registrado no período.', 9, SUAVE, 'I')
     else:
-        doc.add_paragraph('Nenhum evento registrado no período.')
+        _paragrafo(pdf, 'Horários de Brasília.', 8.5, SUAVE)
+        pdf.ln(1)
+        linhas = []
+        for ev in eventos:
+            ocorrido = ev.get('ocorrido_em') if ev.get('registro_id') else ev.get('criado_em')
+            linhas.append([para_brasilia(ocorrido) if ocorrido else 'Horário desconhecido',
+                           _nome_tipo(ev.get('tipo', '-')), _severidade(ev.get('severidade')),
+                           ev.get('operador_nome') or 'Não identificado', ev.get('sessao_id') or '-'])
+        _tabela(pdf, ['Data e hora', 'Tipo', 'Gravidade', 'Operador', 'Sessão'], linhas,
+                (33, 44, 25, 40, 28), ('LEFT', 'LEFT', 'LEFT', 'LEFT', 'LEFT'))
 
-    buffer = io.BytesIO()
-    doc.save(buffer)
-    return buffer.getvalue()
+    return bytes(pdf.output())

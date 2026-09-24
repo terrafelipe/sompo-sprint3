@@ -109,7 +109,7 @@ login na **AWS Lambda** (URL limpa via Cloudflare Pages: https://sompo-painel.pa
 | `GET /scores` | Scores de risco determinísticos por eixo |
 | `GET /relatorio/bruto` | Relatório factual |
 | `GET /relatorio/risco` | Relatório interpretado pela IA (com fallback gracioso) |
-| `GET /relatorio/risco.docx` | O mesmo relatório como documento Word para download |
+| `GET /relatorio/risco.pdf` | O mesmo relatório em PDF para download |
 | `GET /me` | Perfil do usuário logado (role + fazenda vinculada) |
 | `GET/POST /clientes` | Lista/cadastra clientes — **só perfil Sompo** (403 para gestor) |
 | `GET/POST /fazendas` | Lista/cadastra fazendas — **só perfil Sompo** (403 para gestor) |
