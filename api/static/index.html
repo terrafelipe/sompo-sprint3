@@ -43,6 +43,31 @@
   #vizTip .tip-l span{color:#71717a}
   #vizTip .tip-l b{font-weight:600;font-variant-numeric:tabular-nums}
   .viz-carregando{opacity:.55;transition:opacity .2s}
+  /* Tabelas no padrao do modelo */
+  .moldura{border:1px solid #e4e4e7;border-radius:.5rem;overflow-x:auto}
+  .tabela{width:100%;font-size:13px;border-collapse:collapse}
+  .tabela th{font-weight:500;color:#71717a;font-size:12px;text-align:left;padding:.625rem 1rem;background:#fafafa;border-bottom:1px solid #e4e4e7;white-space:nowrap}
+  .tabela td{padding:.7rem 1rem;border-bottom:1px solid #e4e4e7;vertical-align:middle;color:#09090b}
+  .tabela tbody tr:last-child td{border-bottom:0}
+  .tabela tbody tr:hover{background:#fafafa}
+  .tabela tbody tr[data-faz],.tabela tbody tr[data-cli]{cursor:pointer}
+  .tabela .sub{display:block;font-size:12px;color:#71717a;margin-top:1px}
+  .selo{display:inline-flex;align-items:center;gap:.35rem;font-size:11px;font-weight:500;line-height:1;padding:.3rem .5rem;border-radius:.375rem;border:1px solid #e4e4e7;color:#52525b;background:#fff;white-space:nowrap}
+  .selo:empty{display:none}
+  .selo i{width:6px;height:6px;border-radius:9999px;display:inline-block;flex:none}
+  .busca{height:2.25rem;width:15rem;max-width:100%;border:1px solid #e4e4e7;border-radius:.5rem;padding:0 .75rem 0 2.1rem;font-size:13px;background:#fff;outline:none}
+  .busca:focus{box-shadow:0 0 0 3px rgba(183,1,0,.12)}
+  .pag-btn{height:2rem;min-width:2rem;padding:0 .5rem;border:1px solid #e4e4e7;border-radius:.5rem;display:inline-grid;place-items:center;background:#fff;color:#09090b}
+  .pag-btn:disabled{opacity:.4}
+  /* Menu de acoes (⋯) em popover nativo */
+  .btn-mais{width:2rem;height:2rem;display:inline-grid;place-items:center;border-radius:.5rem;color:#71717a;flex:none}
+  .btn-mais:hover{background:#f4f4f5;color:#09090b}
+  .menu-acoes{position:fixed;inset:auto;margin:0;padding:4px;min-width:11.5rem;border:1px solid #e4e4e7;border-radius:.625rem;background:#fff;box-shadow:0 10px 30px rgba(0,0,0,.08);color:#09090b}
+  .menu-acoes button{display:flex!important;width:100%;align-items:center;gap:.55rem;padding:.45rem .6rem!important;border-radius:.375rem!important;font-size:13px!important;font-weight:400!important;color:#09090b!important;text-align:left;background:none!important;text-decoration:none!important}
+  .menu-acoes button:hover{background:#f4f4f5!important}
+  .menu-acoes button .material-symbols-outlined{font-size:18px;color:#71717a}
+  .menu-acoes hr{border:0;border-top:1px solid #e4e4e7;margin:4px 0}
+  .menu-acoes [data-excluir-tipo]{color:#ba1a1a!important}
   .viz-hit{fill:transparent;cursor:crosshair}
   .viz-hit:hover{fill:rgba(9,9,11,.04)}
   .viz-hit[data-i]{cursor:pointer}
@@ -228,9 +253,9 @@
     <div class="flex items-end justify-between mb-6 flex-wrap gap-3">
       <div>
         <h1 id="tituloView" class="text-2xl font-semibold tracking-tight text-on-background mb-1">Máquinas</h1>
-        <p class="text-on-surface-variant">Monitoramento de furto e incêndio em máquinas agrícolas.</p>
+        <p id="descView" class="text-on-surface-variant">Frota da fazenda selecionada, com risco e comunicação de cada máquina.</p>
       </div>
-      <div class="inline-flex items-center gap-1.5 text-xs text-on-surface-variant"><span class="w-1.5 h-1.5 rounded-full bg-ok"></span>Atualizado às <span id="ultima" class="font-medium text-on-surface tabular">–</span> · auto-refresh 5s</div>
+      <div class="inline-flex items-center gap-1.5 text-xs text-on-surface-variant"><span class="relative flex w-2 h-2"><span class="absolute inline-flex h-full w-full rounded-full bg-ok opacity-60 animate-ping"></span><span class="relative inline-flex w-2 h-2 rounded-full bg-ok"></span></span><span class="font-medium text-on-surface">Ao vivo</span> · atualizado às <span id="ultima" class="font-medium text-on-surface tabular">–</span></div>
     </div>
 
     <!-- Contexto: fazenda e maquina (filtros junto do conteudo, como no modelo) -->
@@ -461,8 +486,8 @@
       <!-- OPERADORES RFID -->
       <section data-section="operadores" class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)] p-6">
         <div class="flex items-center justify-between mb-5 flex-wrap gap-2">
-          <div><h2 class="text-base font-semibold text-on-surface">Operadores RFID</h2><p class="text-xs text-on-surface-variant mt-1">Operadores não possuem login; o crachá registra a presença na máquina.</p></div>
-          <button id="btnNovoOperador" class="inline-flex items-center gap-1.5 bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg"><span class="material-symbols-outlined text-[18px]">add</span>Novo operador</button>
+          <div><h2 class="text-base font-semibold text-on-surface inline-flex items-center gap-2">Crachás cadastrados <span id="contaOperadores" class="selo"></span></h2><p class="text-xs text-on-surface-variant mt-1">Operadores não possuem login; o crachá registra a presença na máquina.</p></div>
+          <div class="flex items-center gap-2 flex-wrap"><div class="relative"><span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant pointer-events-none">search</span><input type="search" data-busca="listaOperadores" placeholder="Buscar operador ou crachá…" aria-label="Buscar operador ou crachá…" class="busca"/></div><button id="btnNovoOperador" class="inline-flex items-center gap-1.5 bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg"><span class="material-symbols-outlined text-[18px]">add</span>Novo operador</button></div>
         </div>
         <form id="formOperador" class="hidden bg-surface-container-low rounded-xl p-5 mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
           <div><label class="block text-xs font-semibold text-on-surface-variant mb-1">Nome *</label><input id="opNome" required class="w-full bg-surface-container-lowest rounded-lg px-3 py-2"/></div>
@@ -471,25 +496,25 @@
           <div id="opFazendaWrap"><label class="block text-xs font-semibold text-on-surface-variant mb-1">Fazenda *</label><select id="opFazenda" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"></select></div>
           <div class="md:col-span-2 flex items-center gap-3"><button type="submit" class="bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg">Salvar operador</button><button type="button" id="btnCancelarOperador" class="font-semibold text-on-surface-variant px-3 py-2">Cancelar</button><span id="opMsg" class="text-[13px] font-semibold"></span></div>
         </form>
-        <div id="listaOperadores" class="space-y-2"></div>
+        <div id="listaOperadores"></div>
       </section>
 
       <!-- HISTORICO DE SESSOES -->
       <section data-section="historico" class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)] p-6">
         <div class="flex items-center justify-between mb-5 flex-wrap gap-3">
-          <div><h2 class="text-base font-semibold text-on-surface">Histórico de operação</h2><p class="text-xs text-on-surface-variant mt-1">Sessões identificadas pelo crachá, sem atribuição automática de responsabilidade.</p></div>
-          <select id="historicoDias" class="bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer shadow-sm"><option value="7">7 dias</option><option value="30">30 dias</option><option value="90">90 dias</option></select>
+          <div><h2 class="text-base font-semibold text-on-surface inline-flex items-center gap-2">Sessões de operação <span id="contaHistorico" class="selo"></span></h2><p class="text-xs text-on-surface-variant mt-1">Sessões identificadas pelo crachá, sem atribuição automática de responsabilidade.</p></div>
+          <div class="flex items-center gap-2 flex-wrap"><div class="relative"><span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant pointer-events-none">search</span><input type="search" id="buscaHistorico" placeholder="Buscar máquina ou operador…" aria-label="Buscar máquina ou operador…" class="busca"/></div><select id="historicoDias" class="h-9 bg-surface-container-lowest border border-outline-variant rounded-lg px-3 outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"><option value="7">7 dias</option><option value="30">30 dias</option><option value="90">90 dias</option></select></div>
         </div>
-        <div id="listaHistorico" class="space-y-2"></div>
+        <div id="listaHistorico"></div>
       </section>
 
       <!-- FAZENDAS -->
       <section data-section="fazendas" class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)] p-6">
         <div class="flex items-center justify-between mb-5 flex-wrap gap-2">
-          <h2 class="text-base font-semibold text-on-surface">Fazendas cadastradas</h2>
-          <button id="btnNovaFazenda" class="inline-flex items-center gap-1.5 bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg hover:bg-on-primary-fixed-variant transition-colors">
+          <h2 class="text-base font-semibold text-on-surface inline-flex items-center gap-2">Todas as fazendas <span id="contaFazendas" class="selo"></span></h2>
+          <div class="flex items-center gap-2 flex-wrap"><div class="relative"><span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant pointer-events-none">search</span><input type="search" data-busca="listaFazendas" placeholder="Buscar fazenda, cidade ou cliente…" aria-label="Buscar fazenda, cidade ou cliente…" class="busca"/></div><button id="btnNovaFazenda" class="inline-flex items-center gap-1.5 bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg hover:bg-on-primary-fixed-variant transition-colors">
             <span class="material-symbols-outlined text-[18px]">add</span> Nova fazenda
-          </button>
+          </button></div>
         </div>
 
         <!-- Formulario (escondido ate clicar em "Nova fazenda") -->
@@ -520,16 +545,16 @@
           </div>
         </form>
 
-        <div id="listaFazendas" class="space-y-2"></div>
+        <div id="listaFazendas"></div>
       </section>
 
       <!-- CLIENTES -->
       <section data-section="clientes" class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)] p-6">
         <div class="flex items-center justify-between mb-5 flex-wrap gap-2">
-          <h2 class="text-base font-semibold text-on-surface">Clientes cadastrados</h2>
-          <button id="btnNovoCliente" class="inline-flex items-center gap-1.5 bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg hover:bg-on-primary-fixed-variant transition-colors">
+          <h2 class="text-base font-semibold text-on-surface inline-flex items-center gap-2">Todos os clientes <span id="contaClientes" class="selo"></span></h2>
+          <div class="flex items-center gap-2 flex-wrap"><div class="relative"><span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant pointer-events-none">search</span><input type="search" data-busca="listaClientes" placeholder="Buscar cliente ou CNPJ…" aria-label="Buscar cliente ou CNPJ…" class="busca"/></div><button id="btnNovoCliente" class="inline-flex items-center gap-1.5 bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg hover:bg-on-primary-fixed-variant transition-colors">
             <span class="material-symbols-outlined text-[18px]">add</span> Novo cliente
-          </button>
+          </button></div>
         </div>
 
         <form id="formCliente" class="hidden bg-surface-container-low rounded-xl p-5 mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -562,16 +587,16 @@
           </div>
         </form>
 
-        <div id="listaClientes" class="space-y-2"></div>
+        <div id="listaClientes"></div>
       </section>
 
       <!-- USUARIOS (logins do painel) -->
       <section data-section="usuarios" class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)] p-6">
         <div class="flex items-center justify-between mb-5 flex-wrap gap-2">
-          <h2 class="text-base font-semibold text-on-surface">Usuários do painel</h2>
-          <button id="btnNovoUsuario" class="inline-flex items-center gap-1.5 bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg hover:bg-on-primary-fixed-variant transition-colors">
+          <h2 class="text-base font-semibold text-on-surface inline-flex items-center gap-2">Usuários do painel <span id="contaUsuarios" class="selo"></span></h2>
+          <div class="flex items-center gap-2 flex-wrap"><div class="relative"><span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant pointer-events-none">search</span><input type="search" data-busca="listaUsuarios" placeholder="Buscar usuário ou fazenda…" aria-label="Buscar usuário ou fazenda…" class="busca"/></div><button id="btnNovoUsuario" class="inline-flex items-center gap-1.5 bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg hover:bg-on-primary-fixed-variant transition-colors">
             <span class="material-symbols-outlined text-[18px]">add</span> Novo usuário
-          </button>
+          </button></div>
         </div>
 
         <form id="formUsuario" class="hidden bg-surface-container-low rounded-xl p-5 mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -603,7 +628,7 @@
           </div>
         </form>
 
-        <div id="listaUsuarios" class="space-y-2"></div>
+        <div id="listaUsuarios"></div>
       </section>
     </div>
 
@@ -691,6 +716,18 @@ const NAV_ON = ' bg-primary/[0.07] text-primary font-medium';
 const NAV_OFF = ' text-on-surface-variant hover:bg-surface-container hover:text-on-surface';
 const CHIP_ON = ' bg-primary text-on-primary';
 const CHIP_OFF = ' bg-surface-container text-on-surface-variant';
+const DESCRICOES = {
+  maquinas:'Frota da fazenda selecionada, com risco e comunicação de cada máquina.',
+  visao:'Resumo da máquina selecionada: risco, alertas, telemetria e leituras.',
+  risco:'Por que o risco está nesse nível e o que fazer a respeito.',
+  telemetria:'Sensores da máquina em tempo real e o histórico recente.',
+  alertas:'Eventos de furto e incêndio, por dia e por tipo.',
+  operadores:'Crachás RFID autorizados a operar as máquinas.',
+  historico:'Sessões de operação registradas pelo crachá.',
+  fazendas:'Propriedades monitoradas e o cliente dono de cada uma.',
+  clientes:'Empresas donas das fazendas monitoradas.',
+  usuarios:'Quem acessa o painel e com qual perfil.',
+};
 const TITULOS = {maquinas:'Máquinas', visao:'Painel da máquina', risco:'Análise de Risco', telemetria:'Telemetria', alertas:'Alertas', operadores:'Operadores', historico:'Histórico', fazendas:'Fazendas', clientes:'Clientes', usuarios:'Usuários'};
 // Para cada view, quais seções aparecem e com qual largura (colunas de 12).
 const VIEWS = {
@@ -736,6 +773,9 @@ function setView(view){
   });
   $('tituloView').textContent = TITULOS[view] || 'Visão Geral';
   $('migalha').textContent = TITULOS[view] || 'Visão Geral';
+  $('descView').textContent = DESCRICOES[view] || '';
+  // Cadastros nao dependem de fazenda/maquina: a barra de contexto some.
+  $('barraContexto').hidden = ['fazendas','clientes','usuarios'].includes(view);
   document.querySelectorAll('[data-rotulo-cadastros]').forEach(el => { el.hidden = perfilRole !== 'sompo'; });
   document.querySelectorAll('[data-nav]').forEach(a => { a.hidden = restrita(a.dataset.nav); });
   $('semMaquina').hidden = !dependeMaquina(view) || !!equipamentoSelecionado;
@@ -745,7 +785,7 @@ function setView(view){
   $('btnBaixar').disabled = !equipamentoSelecionado;
   $('btnBaixar').title = equipamentoSelecionado ? 'Baixar relatório da máquina selecionada' : 'Selecione uma máquina para exportar';
   $('btnBaixar').setAttribute('aria-describedby', 'wordAjuda');
-  $('wordAjuda').hidden = !!equipamentoSelecionado;
+  $('wordAjuda').hidden = !!equipamentoSelecionado || !dependeMaquina(view);
   if(mudou) window.scrollTo({top:0, behavior:'smooth'});
 }
 
@@ -1064,6 +1104,46 @@ async function carregarEventos(){
     ['graficoAtividade','graficoTipos'].forEach(id => { $(id).classList.remove('viz-carregando'); $(id).innerHTML = erroLista('Gráfico indisponível.'); });
   }
 }
+
+/* ---------- Listas: tabela, busca, menu de acoes ---------- */
+// Redesenha so quando o HTML muda (o auto-refresh de 5s nao fecha menu nem perde a busca).
+function renderLista(id, html){
+  const el = $(id);
+  if(el.dataset.assin === html && el.querySelector('[data-render]')) return;
+  el.dataset.assin = html; el.innerHTML = html;
+  aplicarBusca(id);
+}
+function aplicarBusca(id){
+  const inp = document.querySelector(`[data-busca="${id}"]`);
+  const q = (inp?.value || '').trim().toLowerCase();
+  const linhas = $(id).querySelectorAll('[data-linha]');
+  let vis = 0;
+  linhas.forEach(tr => { const ok = !q || tr.textContent.toLowerCase().includes(q); tr.hidden = !ok; if(ok) vis++; });
+  const vazio = $(id).querySelector('[data-sem-resultado]');
+  if(vazio) vazio.hidden = vis > 0 || !linhas.length;
+}
+document.addEventListener('input', e => { const i = e.target.closest('[data-busca]'); if(i) aplicarBusca(i.dataset.busca); });
+const semResultado = cols => `<tr data-sem-resultado hidden><td colspan="${cols}" class="text-on-surface-variant italic text-center">Nada encontrado para essa busca.</td></tr>`;
+const tabelaHTML = (cabecalho, linhas, cols) =>
+  `<div class="moldura" data-render><table class="tabela"><thead><tr>${cabecalho.map(c => `<th${c.startsWith('>') ? ' class="text-right"' : ''}>${c.replace(/^>/, '')}</th>`).join('')}</tr></thead><tbody>${linhas}${semResultado(cols)}</tbody></table></div>`;
+const vazioHTML = txt => `<div class="text-on-surface-variant italic text-sm py-4" data-render>${txt}</div>`;
+const selo = (txt, cor) => `<span class="selo"${cor ? ` style="border-color:${cor}40;color:${cor}"` : ''}>${cor ? `<i style="background:${cor}"></i>` : ''}${txt}</span>`;
+const ic = nome => `<span class="material-symbols-outlined" aria-hidden="true">${nome}</span>`;
+// Menu ⋯ (popover nativo): itens sao os mesmos botoes de antes (mesmos data-*).
+function menuAcoes(id, rotulo, itens){
+  return `<button type="button" class="btn-mais" popovertarget="${id}" aria-label="Ações de ${escapar(rotulo)}" title="Ações">${ic('more_horiz')}</button>
+    <div id="${id}" popover class="menu-acoes">${itens}</div>`;
+}
+document.addEventListener('toggle', e => {
+  const m = e.target;
+  if(!m.classList || !m.classList.contains('menu-acoes') || e.newState !== 'open') return;
+  const t = document.querySelector(`[popovertarget="${m.id}"]`); if(!t) return;
+  const r = t.getBoundingClientRect();
+  m.style.top = Math.min(r.bottom + 4, innerHeight - m.offsetHeight - 8) + 'px';
+  m.style.left = Math.max(8, r.right - m.offsetWidth) + 'px';
+}, true);
+document.addEventListener('click', e => { const b = e.target.closest('.menu-acoes button'); if(b) b.closest('[popover]')?.hidePopover(); });
+window.addEventListener('scroll', () => document.querySelectorAll('.menu-acoes:popover-open').forEach(m => m.hidePopover()), {passive:true});
 
 /* ---------- Feed de alertas (respeita o filtro cruzado dia x tipo) ---------- */
 let eventosPeriodo = [];            // todos os eventos do periodo (graficos e feed partem daqui)
@@ -1579,24 +1659,14 @@ async function carregarFazendas(){
     const d = await getJSON('/fazendas');
     const fs = d.dados||[];
     fazendasCache = fs;
-    if(!fs.length){ $('listaFazendas').innerHTML = '<div class="text-on-surface-variant italic text-sm py-4">Nenhuma fazenda cadastrada ainda.</div>'; return; }
-    $('listaFazendas').innerHTML = fs.map((f,i)=>{
-      const dono = f.cliente ? f.cliente.nome : '—';
-      const area = fmtArea(f.area_ha);
-      return `<div data-faz="${i}" title="Ver detalhes" class="flex items-start gap-3 p-4 rounded-xl bg-surface-container-low hover:bg-surface-container transition-colors cursor-pointer">
-        <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-          <span class="material-symbols-outlined text-primary">landscape</span>
-        </div>
-        <div class="flex-1 min-w-0">
-          <div class="font-semibold text-on-surface">${f.nome||'(sem nome)'}</div>
-          <div class="text-[13px] text-on-surface-variant flex flex-wrap gap-x-4 gap-y-0.5 mt-0.5">
-            ${f.localizacao?`<span class="inline-flex items-center gap-1"><span class="material-symbols-outlined text-[15px]">location_on</span>${f.localizacao}</span>`:''}
-            ${area?`<span class="inline-flex items-center gap-1"><span class="material-symbols-outlined text-[15px]">crop_landscape</span>${area}</span>`:''}
-            <span class="inline-flex items-center gap-1"><span class="material-symbols-outlined text-[15px]">person</span>${dono}</span>
-          </div>
-        </div>
-      </div>`;
-    }).join('');
+    $('contaFazendas').textContent = fs.length || '';
+    if(!fs.length){ renderLista('listaFazendas', vazioHTML('Nenhuma fazenda cadastrada ainda.')); return; }
+    renderLista('listaFazendas', tabelaHTML(['Fazenda','Localização','Área','Cliente','>'], fs.map((f,i) => `<tr data-linha data-faz="${i}" title="Ver detalhes">
+      <td><span class="font-medium">${escapar(f.nome||'(sem nome)')}</span></td>
+      <td>${f.localizacao ? escapar(f.localizacao) : '<span class="text-on-surface-variant">—</span>'}</td>
+      <td class="tabular whitespace-nowrap">${fmtArea(f.area_ha) || '—'}</td>
+      <td>${f.cliente ? escapar(f.cliente.nome) : '<span class="text-on-surface-variant">—</span>'}</td>
+      <td class="text-right text-on-surface-variant">${ic('chevron_right')}</td></tr>`).join(''), 5));
   }catch(e){ if(e.obsoleto) return; $('listaFazendas').innerHTML =erroLista('Lista de fazendas indisponível.'); }
 }
 
@@ -1629,16 +1699,13 @@ async function carregarListaClientes(){
     const d = await getJSON('/clientes');
     const cs = d.dados||[];
     clientesCache = cs;
-    if(!cs.length){ $('listaClientes').innerHTML = '<div class="text-on-surface-variant italic text-sm py-4">Nenhum cliente cadastrado ainda.</div>'; return; }
-    $('listaClientes').innerHTML = cs.map((c,i)=>`<div data-cli="${i}" title="Ver detalhes" class="flex items-start gap-3 p-4 rounded-xl bg-surface-container-low hover:bg-surface-container transition-colors cursor-pointer">
-      <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-        <span class="material-symbols-outlined text-primary">person</span>
-      </div>
-      <div class="flex-1 min-w-0">
-        <div class="font-semibold text-on-surface">${c.nome||'(sem nome)'}</div>
-        ${c.cnpj?`<div class="text-[13px] text-on-surface-variant mt-0.5 inline-flex items-center gap-1"><span class="material-symbols-outlined text-[15px]">badge</span>${c.cnpj}</div>`:''}
-      </div>
-    </div>`).join('');
+    $('contaClientes').textContent = cs.length || '';
+    if(!cs.length){ renderLista('listaClientes', vazioHTML('Nenhum cliente cadastrado ainda.')); return; }
+    renderLista('listaClientes', tabelaHTML(['Cliente','CNPJ','Contato','>'], cs.map((c,i) => `<tr data-linha data-cli="${i}" title="Ver detalhes">
+      <td><span class="font-medium">${escapar(c.nome||'(sem nome)')}</span></td>
+      <td class="tabular whitespace-nowrap">${c.cnpj ? escapar(c.cnpj) : '—'}</td>
+      <td>${[c.telefone, c.email].filter(Boolean).map(escapar).join('<span class="text-on-surface-variant"> · </span>') || '<span class="text-on-surface-variant">—</span>'}</td>
+      <td class="text-right text-on-surface-variant">${ic('chevron_right')}</td></tr>`).join(''), 4));
   }catch(e){ if(e.obsoleto) return; $('listaClientes').innerHTML =erroLista('Lista de clientes indisponível.'); }
 }
 
@@ -1687,24 +1754,18 @@ async function carregarUsuarios(){
   try{
     const d = await getJSON('/usuarios');
     const us = d.dados||[];
-    if(!us.length){ $('listaUsuarios').innerHTML = '<div class="text-on-surface-variant italic text-sm py-4">Nenhum usuário cadastrado ainda.</div>'; return; }
-    $('listaUsuarios').innerHTML = us.map(u=>{
+    $('contaUsuarios').textContent = us.length || '';
+    if(!us.length){ renderLista('listaUsuarios', vazioHTML('Nenhum usuário cadastrado ainda.')); return; }
+    renderLista('listaUsuarios', tabelaHTML(['Usuário','Perfil','Fazenda','>Ações'], us.map(u => {
       const faz = u.fazenda ? u.fazenda.nome : null;
       const role = ROLE_ROTULO[u.role] || u.role;
-      return `<div class="flex items-start gap-3 p-4 rounded-xl bg-surface-container-low">
-        <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-          <span class="material-symbols-outlined text-primary">${u.role==='sompo'?'shield_person':'account_circle'}</span>
-        </div>
-        <div class="flex-1 min-w-0">
-          <div class="font-semibold text-on-surface break-words">${escapar(u.usuario)}</div>
-          <div class="text-[13px] text-on-surface-variant flex flex-wrap gap-x-4 gap-y-0.5 mt-0.5">
-            <span class="inline-flex items-center gap-1"><span class="material-symbols-outlined text-[15px]">badge</span>${role}</span>
-            ${faz?`<span class="inline-flex items-center gap-1"><span class="material-symbols-outlined text-[15px]">landscape</span>${escapar(faz)}</span>`:''}
-          </div>
-          <div class="flex flex-wrap gap-3 mt-2"><button data-usuario-detalhe="${u.id_usuario}" class="text-primary underline">Detalhes</button>${botaoExcluir('usuarios',u.id_usuario,u.usuario)}</div>
-        </div>
-      </div>`;
-    }).join('');
+      return `<tr data-linha>
+        <td><span class="font-medium break-words">${escapar(u.usuario)}</span></td>
+        <td>${selo(escapar(role), u.role === 'sompo' ? '#b70100' : '#2a78d6')}</td>
+        <td>${faz ? escapar(faz) : '<span class="text-on-surface-variant">Todas (portfólio)</span>'}</td>
+        <td class="text-right">${menuAcoes(`acoes-us-${u.id_usuario}`, u.usuario,
+          `<button data-usuario-detalhe="${u.id_usuario}">${ic('info')}Detalhes</button>${botaoExcluir('usuarios',u.id_usuario,u.usuario) ? '<hr>' + botaoExcluir('usuarios',u.id_usuario,u.usuario) : ''}`)}</td></tr>`;
+    }).join(''), 4));
   }catch(e){ if(e.obsoleto) return; $('listaUsuarios').innerHTML =erroLista('Lista de usuários indisponível.'); }
 }
 
@@ -1765,17 +1826,26 @@ async function carregarResumoFazenda(){
     preencherSeletorMaquinas(maquinasCache);
     $('equipamentoSelWrap').classList.remove('hidden');
     if(!maquinasCache.length){ $('listaMaquinas').innerHTML='<div class="col-span-full text-on-surface-variant italic py-4">Nenhuma máquina cadastrada nesta fazenda.</div>'; return; }
-    $('listaMaquinas').innerHTML = maquinasCache.map(m=>{
+    renderLista('listaMaquinas', '<div class="contents" data-render></div>' + maquinasCache.map(m=>{
       const [com,cor] = COMUNICACAO[m.comunicacao] || COMUNICACAO.sem_dados;
       const risco = Math.max(m.scores?.score_furto||0,m.scores?.score_incendio||0);
-      return `<article class="rounded-xl border border-outline-variant/30 p-5 bg-surface-container-low">
-        <div class="flex items-start justify-between gap-3"><div><h3 class="font-bold text-on-surface">${m.nome}</h3><p class="text-xs text-on-surface-variant mt-1">${[m.tipo,m.modelo].filter(Boolean).join(' · ')||'Máquina agrícola'}</p></div><span class="text-[11px] font-bold px-2 py-1 rounded-full" style="background:${cor}18;color:${cor}">${com}</span></div>
-        <div class="grid grid-cols-2 gap-3 my-4 text-xs"><div><span class="text-on-surface-variant">Risco máximo</span><div class="font-bold text-lg">${risco}</div></div><div><span class="text-on-surface-variant">Operador</span><div class="font-semibold mt-1">${m.operador_nome||'Não identificado'}</div></div></div>
-        <div class="text-xs text-on-surface-variant mb-4">${m.dispositivo_id||'ESP32 ainda não vinculado'}${m.config_pendente?' · configuração pendente':''}</div>
-        <div class="flex gap-2 flex-wrap"><button data-detalhe-maquina="${m.id_equipamento}" class="text-primary underline text-xs">Detalhes</button><button data-abrir-maquina="${m.id_equipamento}" class="bg-primary text-on-primary font-semibold px-3 py-2 rounded-lg text-xs">Abrir painel</button><button data-editar-maquina="${m.id_equipamento}" class="bg-surface-container-high text-primary font-semibold px-3 py-2 rounded-lg text-xs inline-flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">edit</span>Editar</button><button data-autorizar-maquina="${m.id_equipamento}" class="bg-surface-container-high text-primary font-semibold px-3 py-2 rounded-lg text-xs">Crachás autorizados</button></div>
-        ${botaoExcluir('equipamentos',m.id_equipamento,m.nome)}
+      const classe = risco >= 67 ? 'ALTO' : risco >= 34 ? 'MEDIO' : 'BAIXO';
+      const id = m.id_equipamento;
+      const excluir = botaoExcluir('equipamentos',id,m.nome);
+      return `<article class="rounded-xl border border-outline-variant p-5 bg-surface-container-lowest flex flex-col">
+        <div class="flex items-start justify-between gap-2">
+          <div class="min-w-0"><h3 class="font-semibold text-on-surface truncate">${escapar(m.nome)}</h3><p class="text-xs text-on-surface-variant mt-0.5">${escapar([m.tipo,m.modelo].filter(Boolean).join(' · ')||'Máquina agrícola')}</p></div>
+          <div class="flex items-center gap-1 shrink-0">${selo(com, cor)}${menuAcoes(`acoes-maq-${id}`, m.nome,
+            `<button data-detalhe-maquina="${id}">${ic('info')}Detalhes</button><button data-editar-maquina="${id}">${ic('edit')}Editar</button><button data-autorizar-maquina="${id}">${ic('badge')}Crachás autorizados</button>${excluir ? '<hr>' + excluir : ''}`)}</div>
+        </div>
+        <div class="grid grid-cols-2 gap-3 my-4">
+          <div><div class="text-xs text-on-surface-variant">Risco máximo (7 dias)</div><div class="flex items-center gap-2 mt-1"><span class="text-2xl font-semibold">${risco}</span>${selo(classe, corRisco(classe))}</div></div>
+          <div><div class="text-xs text-on-surface-variant">Operador</div><div class="text-sm font-medium mt-1.5">${escapar(m.operador_nome||'Não identificado')}</div></div>
+        </div>
+        <div class="text-xs text-on-surface-variant mb-4 inline-flex items-center gap-1">${ic('memory')}${escapar(m.dispositivo_id||'ESP32 ainda não vinculado')}${m.config_pendente?' · configuração pendente':''}</div>
+        <button data-abrir-maquina="${id}" class="mt-auto w-full inline-flex items-center justify-center gap-1.5 h-9 rounded-lg bg-primary text-on-primary font-medium hover:bg-on-primary-fixed-variant transition-colors">${ic('dashboard')}Abrir painel</button>
       </article>`;
-    }).join('');
+    }).join(''));
   }catch(e){ if(e.obsoleto) return;
     $('listaMaquinas').innerHTML=erroLista('Frota indisponível.');
     $('frotaEstado').innerHTML = '<p class="text-error mb-4">Não foi possível atualizar a lista de máquinas. <button data-retry-frota class="underline">Tentar novamente</button></p>';
@@ -1846,7 +1916,14 @@ async function carregarOperadores(){
   try{
     const q = perfilRole==='sompo' && fazendaSelecionada ? `?fazenda=${fazendaSelecionada}` : '';
     const d=await getJSON('/operadores'+q); operadoresCache=d.dados||[];
-    $('listaOperadores').innerHTML = operadoresCache.length ? operadoresCache.map(o=>`<div class="flex items-center gap-3 p-4 rounded-xl bg-surface-container-low"><span class="material-symbols-outlined text-primary">badge</span><div class="flex-1"><div class="font-semibold">${o.nome}</div><div class="text-xs text-on-surface-variant">UID ${o.uid}${o.matricula?' · Matrícula '+o.matricula:''}</div></div><span class="text-xs font-semibold ${o.ativo?'text-secondary':'text-on-surface-variant'}">${o.ativo?'Ativo':'Inativo'}</span>${botaoExcluir('operadores',o.id_operador,o.nome)}</div>`).join('') : '<div class="text-on-surface-variant italic py-4">Nenhum operador cadastrado.</div>';
+    $('contaOperadores').textContent = operadoresCache.length || '';
+    if(!operadoresCache.length){ renderLista('listaOperadores', vazioHTML('Nenhum operador cadastrado.')); return; }
+    renderLista('listaOperadores', tabelaHTML(['Operador','Crachá (UID)','Matrícula','Status','>Ações'], operadoresCache.map(o => `<tr data-linha>
+      <td><span class="font-medium">${escapar(o.nome)}</span></td>
+      <td class="font-mono text-xs">${escapar(o.uid)}</td>
+      <td>${o.matricula ? escapar(o.matricula) : '<span class="text-on-surface-variant">—</span>'}</td>
+      <td>${o.ativo ? selo('Ativo', '#10b981') : selo('Inativo', '#71717a')}</td>
+      <td class="text-right">${botaoExcluir('operadores',o.id_operador,o.nome)}</td></tr>`).join(''), 5));
   }catch(e){ if(e.obsoleto) return; $('listaOperadores').innerHTML=erroLista('Operadores indisponíveis.'); }
 }
 
@@ -1879,10 +1956,50 @@ async function gerarCredencial(id){
   $('autMsg').innerHTML = r.ok ? `Token exibido uma única vez. Copie para <code>DISPOSITIVO_TOKEN_CFG</code>:<div class="mt-2 p-3 rounded bg-surface-container font-mono break-all select-all">${d.token}</div>` : (d.erro||`HTTP ${r.status}`);
 }
 
+let historicoCache = [], historicoPagina = 0;
+const POR_PAGINA = 10;
+const STATUS_SESSAO = {encerrada:['Encerrada','#71717a'], interrompida:['Interrompida','#f59e0b'], aberta:['Em andamento','#10b981'], em_andamento:['Em andamento','#10b981'], ativa:['Em andamento','#10b981']};
+const MOTIVO_SESSAO = {rfid:'pelo crachá', reinicio:'por reinício do ESP32', timeout:'por tempo esgotado', desligamento:'pelo desligamento', manual:'manualmente'};
+function fmtDuracao(ms){
+  if(!(ms >= 0)) return '—';
+  const s = Math.round(ms/1000), h = Math.floor(s/3600), m = Math.floor(s%3600/60), ss = s%60;
+  if(h) return `${h} h ${String(m).padStart(2,'0')} min`;
+  if(m) return `${m} min ${String(ss).padStart(2,'0')} s`;
+  return `${ss} s`;
+}
+function renderHistorico(){
+  if(!historicoCache.length){ $('contaHistorico').textContent = ''; renderLista('listaHistorico', vazioHTML('Nenhuma sessão no período.')); return; }
+  const q = ($('buscaHistorico').value || '').trim().toLowerCase();
+  const rows = historicoCache.filter(s => !q || `${s.equipamento_nome||''} ${s.operador_nome||''}`.toLowerCase().includes(q));
+  $('contaHistorico').textContent = historicoCache.length;
+  const paginas = Math.max(1, Math.ceil(rows.length / POR_PAGINA));
+  historicoPagina = Math.min(historicoPagina, paginas - 1);
+  const ini = historicoPagina * POR_PAGINA, pagina = rows.slice(ini, ini + POR_PAGINA);
+  const linhas = pagina.map(s => {
+    const [st, cor] = STATUS_SESSAO[s.status] || [s.status || '—', '#71717a'];
+    const motivo = s.motivo ? (MOTIVO_SESSAO[s.motivo] || s.motivo) : '';
+    const dur = s.inicio_em && s.fim_em ? fmtDuracao(new Date(s.fim_em) - new Date(s.inicio_em)) : '—';
+    return `<tr data-linha>
+      <td><span class="font-medium">${escapar(s.equipamento_nome||'Máquina')}</span></td>
+      <td>${s.operador_nome ? escapar(s.operador_nome) : '<span class="text-on-surface-variant">Não identificado</span>'}</td>
+      <td class="tabular whitespace-nowrap">${s.inicio_em ? fmtHora(s.inicio_em) : '<span class="text-on-surface-variant">Horário desconhecido</span>'}</td>
+      <td class="tabular whitespace-nowrap">${s.fim_em ? fmtHora(s.fim_em) : '<span class="text-on-surface-variant">—</span>'}</td>
+      <td class="tabular whitespace-nowrap">${dur}</td>
+      <td>${selo(escapar(st), cor)}${motivo ? `<span class="sub">${escapar(motivo)}</span>` : ''}</td></tr>`;
+  }).join('');
+  const rodape = `<div class="flex items-center justify-between gap-3 flex-wrap text-xs text-on-surface-variant mt-3">
+      <span>${rows.length ? `Mostrando ${ini+1}–${ini+pagina.length} de ${rows.length} sessões` : ''}</span>
+      <span class="inline-flex items-center gap-2">Página ${historicoPagina+1} de ${paginas}
+        <button type="button" class="pag-btn" data-pag="-1" aria-label="Página anterior" ${historicoPagina ? '' : 'disabled'}>${ic('chevron_left')}</button>
+        <button type="button" class="pag-btn" data-pag="1" aria-label="Próxima página" ${historicoPagina < paginas-1 ? '' : 'disabled'}>${ic('chevron_right')}</button>
+      </span></div>`;
+  renderLista('listaHistorico', tabelaHTML(['Máquina','Operador','Início','Fim','Duração','Status'], linhas, 6).replace('<div class="moldura" data-render>', '<div data-render><div class="moldura">').replace(/<\/div>$/, '</div>' + rodape + '</div>'));
+}
 async function carregarHistorico(){
   iniciando('listaHistorico');
   try{ const q=new URLSearchParams({dias:$('historicoDias').value}); if(perfilRole==='sompo'&&fazendaSelecionada) q.set('fazenda',fazendaSelecionada); const d=await getJSON('/operacoes?'+q);
-    $('listaHistorico').innerHTML=(d.dados||[]).map(s=>`<div class="grid grid-cols-1 md:grid-cols-4 gap-2 p-4 rounded-xl bg-surface-container-low"><div><div class="font-semibold">${s.equipamento_nome||'Máquina'}</div><div class="text-xs text-on-surface-variant">${s.operador_nome||'Operador não identificado'}</div></div><div class="text-xs"><span class="text-on-surface-variant">Início</span><div>${s.inicio_em?fmtHora(s.inicio_em):'Horário desconhecido'}</div></div><div class="text-xs"><span class="text-on-surface-variant">Fim</span><div>${s.fim_em?fmtHora(s.fim_em):'—'}</div></div><div class="md:text-right font-semibold text-xs">${s.status||'—'}${s.motivo?' · '+s.motivo:''}</div></div>`).join('')||'<div class="text-on-surface-variant italic py-4">Nenhuma sessão no período.</div>';
+    historicoCache = d.dados || [];
+    renderHistorico();
   }catch(e){ if(e.obsoleto) return; $('listaHistorico').innerHTML=erroLista('Histórico indisponível.'); }
 }
 
@@ -2128,7 +2245,9 @@ $('formMaquina').addEventListener('submit',salvarMaquina);
 $('btnNovoOperador').addEventListener('click',()=>{ $('formOperador').classList.toggle('hidden'); opcoesFazenda($('opFazenda'),fazendaSelecionada); });
 $('btnCancelarOperador').addEventListener('click',()=>$('formOperador').classList.add('hidden'));
 $('formOperador').addEventListener('submit',criarOperador);
-$('historicoDias').addEventListener('change',carregarHistorico);
+$('historicoDias').addEventListener('change',()=>{ historicoPagina = 0; carregarHistorico(); });
+$('buscaHistorico').addEventListener('input',()=>{ historicoPagina = 0; renderHistorico(); });
+$('listaHistorico').addEventListener('click',e=>{ const b=e.target.closest('[data-pag]'); if(b){ historicoPagina += +b.dataset.pag; renderHistorico(); } });
 
 document.addEventListener('keydown', e=>{ if(e.key === 'Escape'){ fecharEvento(); fecharDetalhe(); } });
 

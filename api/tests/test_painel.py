@@ -3,6 +3,7 @@
 Install requirements-test.txt and Chromium (or set SOMPO_TEST_BROWSER=msedge).
 """
 import os
+import re
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -102,6 +103,16 @@ def nav(page, view):
         'visao': 'Painel da máquina', 'risco': 'Análise de Risco', 'telemetria': 'Telemetria',
         'alertas': 'Alertas', 'maquinas': 'Máquinas', 'operadores': 'Operadores',
         'historico': 'Histórico', 'fazendas': 'Fazendas', 'clientes': 'Clientes', 'usuarios': 'Usuários'}[view])
+
+
+def acao(page, seletor):
+    """Acoes secundarias ficam no menu ⋯ (popover): abre o menu do item antes de clicar."""
+    alvo = page.locator(seletor).first
+    if not alvo.is_visible():
+        menu = alvo.evaluate("e => e.closest('[popover]')?.id")
+        if menu:
+            page.locator(f'[popovertarget="{menu}"]').click()
+    return alvo
 
 
 def captura(page, nome):
@@ -204,7 +215,7 @@ def test_erros_vazio_retry_e_frota_independente(painel):
 
 def test_formulario_detalhe_operador_e_atalho(painel):
     page, state = painel
-    page.locator('[data-detalhe-maquina="1"]').click()
+    acao(page, '[data-detalhe-maquina="1"]').click()
     for text in ['Cliente 1','02/01/2020','01/09/2026','150.000,50','ID do equipamento','ID do ESP32']:
         pw.expect(page.locator('#detCorpo')).to_contain_text(text)
     page.locator('#detFechar').click()
@@ -234,7 +245,7 @@ def test_formulario_detalhe_operador_e_atalho(painel):
 
 
 def editar_e_salvar(page, id, nome):
-    page.locator(f'#listaMaquinas [data-editar-maquina="{id}"]').click()
+    acao(page, f'#listaMaquinas [data-editar-maquina="{id}"]').click()
     pw.expect(page.locator('#formMaquina')).to_be_visible()
     page.locator('#maqNome').fill(nome)
     page.locator('#formMaquina button[type=submit]').click()
@@ -243,7 +254,7 @@ def editar_e_salvar(page, id, nome):
 
 def test_editar_maquina(painel):
     page, state = painel
-    page.locator('[data-editar-maquina="1"]').click()
+    acao(page, '#listaMaquinas [data-editar-maquina="1"]').click()
     pw.expect(page.locator('#formMaquina')).to_be_visible()
     pw.expect(page.locator('#maqFormTitulo')).to_contain_text('Editar')
     for id, value in [('maqNome','Trator 1'),('maqValor','150000.50'),('maqFabricacao','2020-01-02')]:
@@ -273,7 +284,7 @@ def test_editar_maquina_sem_esp32_e_via_detalhe(painel):
     state['sem_esp32'] = True
     page.select_option('#fazendaSel', '2')
     pw.expect(page.locator('#listaMaquinas')).to_contain_text('Trator 2')
-    page.locator('[data-detalhe-maquina="2"]').click()
+    acao(page, '[data-detalhe-maquina="2"]').click()
     page.locator('#detCorpo [data-editar-maquina="2"]').click()
     pw.expect(page.locator('#modalDetalhe')).not_to_be_visible()
     pw.expect(page.locator('#formMaquina')).to_be_visible()
@@ -377,13 +388,13 @@ def test_excluir_cadastro_confirma_cancela_e_atualiza(painel, tipo, view, id):
         page.locator('[data-cli="0"]').click()
     elif tipo == 'fazendas':
         page.locator('[data-faz="0"]').click()
-    botao = page.locator(f'[data-excluir-tipo="{tipo}"][data-excluir-id="{id}"]:visible')
-    botao.click()
+    seletor = f'[data-excluir-tipo="{tipo}"][data-excluir-id="{id}"]'
+    acao(page, seletor).click()
     pw.expect(page.locator('#confirmarExclusao')).to_be_visible()
     pw.expect(page.locator('#exclusaoDescricao')).to_contain_text('histórico será preservado')
     page.locator('#exclusaoCancelar').click()
     assert not state['deletes']
-    botao.click()
+    acao(page, seletor).click()
     page.locator('#exclusaoConfirmar').click()
     pw.expect(page.locator('#confirmarExclusao')).not_to_be_visible()
     assert state['deletes'] == [f'/{tipo}/{id}']
@@ -412,7 +423,7 @@ def test_exclusao_bloqueada_exibe_dependencias(painel):
 def test_detalhe_usuario_completo(painel):
     page, state = painel
     nav(page, 'usuarios')
-    page.locator('[data-usuario-detalhe="7"]').click()
+    acao(page, '[data-usuario-detalhe="7"]').click()
     pw.expect(page.locator('#detTitulo')).to_have_text('gestor.teste')
     for texto in ['Fazenda 1', 'Cliente 1', 'Data de cadastro', '01/09/2026', 'Não informado']:
         pw.expect(page.locator('#detCorpo')).to_contain_text(texto)
@@ -427,8 +438,10 @@ def test_excluir_ultima_fazenda_limpa_seletores(painel):
     page.locator('[data-faz="0"]').click()
     page.locator('[data-excluir-tipo="fazendas"]').click()
     page.locator('#exclusaoConfirmar').click()
-    pw.expect(page.locator('#fazendaSelWrap')).not_to_be_visible()
-    pw.expect(page.locator('#equipamentoSelWrap')).not_to_be_visible()
+    # Na tela Fazendas a barra de contexto ja fica oculta: espera o sinal da propria
+    # exclusao (classe hidden nos seletores), e nao so a invisibilidade.
+    pw.expect(page.locator('#fazendaSelWrap')).to_have_class(re.compile(r'\bhidden\b'))
+    pw.expect(page.locator('#equipamentoSelWrap')).to_have_class(re.compile(r'\bhidden\b'))
     assert page.evaluate('[fazendaSelecionada,equipamentoSelecionado]') == [None, None]
     nav(page, 'maquinas')
     pw.expect(page.locator('#listaMaquinas')).to_contain_text('Nenhuma fazenda selecionada')
