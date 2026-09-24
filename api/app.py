@@ -21,6 +21,7 @@ from flask_cors import CORS
 
 import documento
 import frota
+import linha_do_tempo
 from config import (
     COOKIE_SEGURO,
     CORS_ORIGINS,
@@ -43,6 +44,7 @@ from supabase_client import (
     consultar_fazendas,
     consultar_resumo,
     consultar_telemetria,
+    consultar_telemetria_intervalo,
     consultar_usuarios,
     inserir_tabela,
 )
@@ -286,6 +288,25 @@ def telemetria():
     try:
         dados = frota.identificar_registros(consultar_telemetria(dispositivo, limite=limite) if dispositivo else [])
         return jsonify({'total': len(dados), 'dados': dados, **frota.contexto()}), 200
+    except Exception as exc:
+        return _erro('falha_na_consulta', exc, 502)
+
+
+@app.get('/telemetria/linha-do-tempo')
+def telemetria_linha_do_tempo():
+    # Janela de N horas ate a ULTIMA leitura da maquina (mostra o ultimo dia com
+    # atividade mesmo se o ESP32 parou), agregada em faixas de 15 min.
+    dispositivo = _dispositivo_para(request.args.get('dispositivo', 'SOMPO-ESP32'))
+    horas = _parse_int(request.args.get('horas', '24'), 24, minimum=1, maximum=72)
+    try:
+        ultima = consultar_telemetria(dispositivo, limite=1) if dispositivo else []
+        fim = linha_do_tempo.quando(ultima[0].get('criado_em')) if ultima else None
+        if fim is None:
+            return jsonify({'faixas': [], 'janela': None, **frota.contexto()}), 200
+        inicio = fim - timedelta(hours=horas)
+        linhas = consultar_telemetria_intervalo(dispositivo, inicio, fim)
+        return jsonify({'janela': {'inicio': inicio.isoformat(), 'fim': fim.isoformat(), 'minutos': 15},
+                        'faixas': linha_do_tempo.agregar(linhas, fim, horas, 15), **frota.contexto()}), 200
     except Exception as exc:
         return _erro('falha_na_consulta', exc, 502)
 

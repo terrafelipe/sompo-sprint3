@@ -378,6 +378,10 @@
     <div id="semMaquina" hidden class="bg-surface-container-lowest rounded-xl p-6 mb-6" role="status">Selecione uma máquina para consultar esta aba. <button id="selecionarNoAviso" class="inline-flex items-center gap-1 text-primary font-semibold hover:text-on-primary-fixed-variant"><span class="underline underline-offset-2">Selecionar máquina</span><span class="material-symbols-outlined text-[16px]" aria-hidden="true">arrow_outward</span></button></div>
     <p id="wordAjuda" class="text-xs text-on-surface-variant mb-4">Selecione uma máquina para exportar o relatório Word.</p>
     <div id="frotaEstado" role="status"></div>
+    <!-- STATUS AGORA (faixa no topo do Painel da maquina) -->
+    <div data-section="statusAgora" class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)] mb-4">
+      <div id="statusAgora" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4"></div>
+    </div>
     <!-- KPI CARDS (só na Visão Geral) -->
     <div data-section="kpis" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
       <div id="cardRisco" class="kpi">
@@ -425,6 +429,20 @@
       <section data-section="tipos" class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
         <div class="p-5 pb-3"><h2 class="text-base font-semibold text-on-surface">Alertas por tipo</h2><p id="tiposSub" class="text-sm text-on-surface-variant">Total nos últimos 7 dias</p></div>
         <div id="graficoTipos" class="px-5 pb-5 space-y-3"></div>
+      </section>
+
+      <!-- LINHA DO TEMPO (24h ate a ultima leitura) -->
+      <section data-section="linhaTempo" class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
+        <div class="p-5 pb-2 flex items-start justify-between gap-4 flex-wrap">
+          <div><h2 class="text-base font-semibold text-on-surface">Linha do tempo</h2><p id="linhaTempoSub" class="text-sm text-on-surface-variant">24 horas até a última leitura da máquina</p></div>
+          <div class="flex items-center gap-x-4 gap-y-1 flex-wrap text-xs text-on-surface-variant pt-1">
+            <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-ok"></span>Motor ligado</span>
+            <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm" style="background:var(--v-texto3)"></span>Ligada, motor parado</span>
+            <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm" style="background:var(--v-hover);outline:1px solid var(--v-borda)"></span>Sem leituras</span>
+            <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm" style="background:var(--s-furto)"></span>Sessão de crachá</span>
+          </div>
+        </div>
+        <div id="linhaTempo" class="px-5 pb-4"></div>
       </section>
 
       <!-- ANALISE DE RISCO -->
@@ -524,6 +542,21 @@
         </div>
         <div id="feedFiltros" class="flex flex-wrap items-center gap-1.5 px-5 empty:hidden"></div>
         <div id="eventos" class="p-3 flex-1 overflow-y-auto max-h-[420px] space-y-1"></div>
+      </section>
+
+      <!-- SAUDE DO ESP32 -->
+      <section data-section="saude" class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
+        <div class="p-5 pb-3 flex items-start justify-between gap-3">
+          <div><h2 class="text-base font-semibold text-on-surface">Saúde do ESP32</h2><p id="saudeSub" class="text-sm text-on-surface-variant">Nas últimas leituras recebidas</p></div>
+          <span id="saudeSelo"></span>
+        </div>
+        <dl id="saudeEsp" class="px-5 pb-4"></dl>
+      </section>
+
+      <!-- COMPARAR COM A FROTA -->
+      <section data-section="frota" class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
+        <div class="p-5 pb-3"><h2 class="text-base font-semibold text-on-surface">Comparar com a frota</h2><p id="frotaSub" class="text-sm text-on-surface-variant">Máquinas da mesma fazenda, últimos 7 dias</p></div>
+        <div id="frotaComparacao" class="px-5 pb-5"></div>
       </section>
 
       <!-- TEMPERATURA POR DIA (linhas) -->
@@ -860,7 +893,7 @@ const TITULOS = {inicio:'Início', maquinas:'Máquinas', visao:'Painel da máqui
 // Para cada view, quais seções aparecem e com qual largura (colunas de 12).
 const VIEWS = {
   inicio:     {inicio:12},
-  visao:      {kpis:true, atividade:8, tipos:4, risco:12, telemetria:8, alertas:4, tempdia:12, tabela:12},
+  visao:      {statusAgora:true, kpis:true, atividade:8, tipos:4, linhaTempo:12, risco:12, telemetria:8, alertas:4, saude:6, frota:6, tempdia:12, tabela:12},
   maquinas:   {maquinas:12},
   risco:      {risco:12},
   telemetria: {telemetria:12, tempdia:12, tabela:12},
@@ -953,7 +986,7 @@ function limparMaquina(){
   ['gaugeFurto','gaugeIncendio','detFurto','detIncendio','pontosFurto','pontosIncendio','riscoResumo','riscoGerado'].forEach(id => $(id).innerHTML = '');
   $('riscoComplemento').hidden = true;
   ['kpiFurtoPill','kpiIncendioPill'].forEach(id => $(id).textContent = '');
-  ['graficoAtividade','graficoTipos','graficoTempDia'].forEach(id => $(id).innerHTML = '');
+  ['graficoAtividade','graficoTipos','graficoTempDia','statusAgora','linhaTempo','saudeEsp','saudeSelo','frotaComparacao'].forEach(id => $(id).innerHTML = '');
   leiturasCache = []; $('leiturasResumo').textContent = ''; assinaturas.clear();
   eventosPeriodo = []; filtroDia = null; filtroTipo = null; $('feedFiltros').replaceChildren();
   ['totFurto','totIncendio'].forEach(id => $(id).textContent = '–');
@@ -1214,6 +1247,7 @@ async function carregarTelemetria(){
 
     leiturasCache = [...linhas].reverse();   // antigas -> recentes
     renderizarGraficoLeituras();
+    renderizarStatusAgora(); renderizarSaude();
 
     $('tabelaTelemetria').innerHTML = linhas.slice(0,10).map(x=>{
       const cor = nivelCor(x.nivel_risco);
@@ -1779,6 +1813,182 @@ document.querySelectorAll('[data-metrica]').forEach(b => b.addEventListener('cli
   document.querySelectorAll('[data-metrica]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
   renderizarGraficoLeituras(true);
 }));
+
+/* ---------- Painel da maquina: status agora, saude, frota, linha do tempo ---------- */
+function fmtRelativo(iso){
+  const t = new Date(iso).getTime(); if(isNaN(t)) return '';
+  const s = Math.max(0, Math.round((Date.now() - t) / 1000));
+  if(s < 60) return `há ${s} s`;
+  if(s < 3600) return `há ${Math.round(s/60)} min`;
+  if(s < 86400) return `há ${Math.round(s/3600)} h`;
+  const d = Math.round(s/86400); return `há ${d} ${d === 1 ? 'dia' : 'dias'}`;
+}
+const PONTO = cor => `<span class="w-2 h-2 rounded-full shrink-0" style="background:${cor}"></span>`;
+const maquinaAtual = () => maquinasCache.find(m => String(m.id_equipamento) === String(equipamentoSelecionado));
+
+function renderizarStatusAgora(){
+  const el = $('statusAgora');
+  const t = leiturasCache[leiturasCache.length - 1];
+  if(!t){ el.innerHTML = '<div class="p-4 text-sm text-on-surface-variant sm:col-span-2 xl:col-span-4">Sem leituras desta máquina ainda. O status aparece quando o ESP32 enviar a primeira leitura.</div>'; return; }
+  const idade = (Date.now() - new Date(t.criado_em).getTime()) / 1000;
+  const corCom = idade <= 30 ? '#10b981' : idade <= 3600 ? '#f59e0b' : '#ba1a1a';
+  const sensores = [[t.capo_aberto, 'Capô aberto'], [t.tanque_aberto, 'Tanque aberto'], [t.chama_detectada, 'Chama detectada']].filter(([v]) => v).map(([, n]) => n);
+  const celula = (rotulo, valor, sub) => `<div class="p-4 min-w-0 border-outline-variant [&:not(:first-child)]:border-t sm:[&:nth-child(2)]:border-t-0 sm:[&:nth-child(odd)]:border-r xl:border-t-0 xl:[&:not(:last-child)]:border-r">
+      <div class="text-xs text-on-surface-variant">${rotulo}</div>
+      <div class="flex items-center gap-2 mt-1 text-[15px] font-semibold text-on-surface min-w-0">${valor}</div>
+      ${sub ? `<div class="text-xs text-on-surface-variant mt-0.5 truncate">${sub}</div>` : ''}</div>`;
+  el.innerHTML =
+    celula('Máquina', `${PONTO(t.motor_ligado ? '#10b981' : '#a1a1aa')}${t.motor_ligado ? 'Motor ligado' : 'Motor desligado'}`, `Risco na leitura: ${escapar(t.nivel_risco || '–')}`) +
+    celula('Última comunicação', `${PONTO(corCom)}<span class="truncate">${fmtRelativo(t.criado_em)}</span>`, fmtHora(t.criado_em) + (idade > 30 ? ' · sem sinal recente' : '')) +
+    celula('Operador', `<span class="truncate">${escapar(t.operador_nome || (t.operador_autorizado === false ? 'Sem crachá' : 'Não identificado'))}</span>`, t.uid ? `Crachá ${escapar(t.uid)}` : '') +
+    celula('Sensores em alerta', sensores.length ? sensores.map(n => selo(n, '#ba1a1a')).join(' ') : `${PONTO('#10b981')}Nenhum`, sensores.length ? 'na última leitura' : 'capô, tanque e chama normais');
+}
+
+function renderizarSaude(){
+  const el = $('saudeEsp'), rows = leiturasCache;
+  if(!rows.length){ el.innerHTML = '<p class="text-sm text-on-surface-variant py-2">Sem leituras para avaliar o dispositivo.</p>'; $('saudeSelo').innerHTML = ''; return; }
+  const t = rows[rows.length - 1];
+  const itens = [];   // [rotulo, valor, nivel 0 ok | 1 atencao | 2 problema | -1 neutro]
+  const idade = (Date.now() - new Date(t.criado_em).getTime()) / 1000;
+  itens.push(['Última comunicação', `${fmtRelativo(t.criado_em)} · ${fmtHora(t.criado_em)}`, idade <= 30 ? 0 : idade <= 3600 ? 1 : 2]);
+  const atrasos = rows.map(r => (new Date(r.recebido_em) - new Date(r.criado_em)) / 1000).filter(v => isFinite(v) && v >= 0).sort((a, b) => a - b);
+  if(atrasos.length){ const med = atrasos[Math.floor(atrasos.length / 2)];
+    itens.push(['Atraso de envio (mediana)', med < 60 ? `${med.toFixed(1).replace('.', ',')} s` : fmtDuracao(med * 1000), med < 5 ? 0 : med < 60 ? 1 : 2]); }
+  if(typeof t.uptime_ms === 'number') itens.push(['Tempo ligado', fmtDuracao(t.uptime_ms), -1]);
+  let reinicios = 0, perdidas = 0;
+  for(let i = 1; i < rows.length; i++){
+    if(rows[i].boot_id !== rows[i-1].boot_id){ reinicios++; continue; }
+    const a = rows[i-1].sequencia, b = rows[i].sequencia;
+    if(typeof a === 'number' && typeof b === 'number' && b - a > 1) perdidas += b - a - 1;
+  }
+  itens.push(['Reinícios do ESP32', reinicios ? `${reinicios} nas últimas ${rows.length} leituras` : 'Nenhum', reinicios ? 1 : 0]);
+  const esperado = rows.length + perdidas, pct = esperado ? perdidas / esperado * 100 : 0;
+  itens.push(['Leituras perdidas', `${perdidas} de ${esperado} (${pct.toFixed(0)}%)`, perdidas === 0 ? 0 : pct < 5 ? 1 : 2]);
+  const m = maquinaAtual();
+  if(m && m.config_versao != null){
+    itens.push(['Configuração', m.config_pendente ? `Pendente: aplicada v${m.config_versao_aplicada ?? '–'} de v${m.config_versao}` : `Sincronizada (v${m.config_versao})`, m.config_pendente ? 1 : 0]);
+  }
+  const COR_NIVEL = {0:'#10b981', 1:'#f59e0b', 2:'#ba1a1a', '-1':'#a1a1aa'};
+  el.innerHTML = itens.map(([k, v, n]) => `<div class="flex items-center justify-between gap-4 py-2.5 border-b border-outline-variant last:border-0">
+      <dt class="text-sm text-on-surface-variant inline-flex items-center gap-2">${PONTO(COR_NIVEL[n])}${k}</dt>
+      <dd class="text-sm font-medium text-on-surface text-right">${escapar(v)}</dd></div>`).join('');
+  const pior = Math.max(...itens.map(i => i[2]));
+  $('saudeSelo').innerHTML = selo(pior >= 2 ? 'Problema' : pior === 1 ? 'Atenção' : 'Saudável', COR_NIVEL[Math.max(0, pior)]);
+  $('saudeSub').textContent = `Nas últimas ${rows.length} leituras recebidas`;
+}
+
+function renderizarFrota(){
+  const el = $('frotaComparacao');
+  const maqs = maquinasCache.map(m => ({id:m.id_equipamento, nome:m.nome,
+    risco: Math.max(m.scores?.score_furto || 0, m.scores?.score_incendio || 0),
+    alertas: m.scores?.eventos_considerados?.total || 0}));
+  if(!maqs.length){ el.innerHTML = '<p class="text-sm text-on-surface-variant">Sem dados da frota.</p>'; return; }
+  if(maqs.length === 1){ el.innerHTML = '<p class="text-sm text-on-surface-variant">Esta é a única máquina da fazenda: não há com quem comparar.</p>'; return; }
+  const atual = String(equipamentoSelecionado);
+  const media = k => maqs.reduce((a, m) => a + m[k], 0) / maqs.length;
+  const bloco = (titulo, k, unidade) => {
+    const ord = [...maqs].sort((a, b) => b[k] - a[k]);
+    const mx = Math.max(1, ...ord.map(m => m[k]));
+    const pos = ord.findIndex(m => String(m.id) === atual) + 1;
+    return `<div class="mb-5 last:mb-0">
+      <div class="flex items-baseline justify-between gap-3 mb-2"><span class="text-xs font-medium text-on-surface-variant">${titulo}</span>
+        <span class="text-xs text-on-surface-variant">média ${media(k).toLocaleString('pt-BR', {maximumFractionDigits: 0})}${unidade} · esta é a ${pos}ª de ${ord.length}</span></div>
+      <div class="space-y-2">${ord.map(m => { const eu = String(m.id) === atual;
+        return `<div>
+          <div class="flex items-baseline justify-between gap-3 text-sm mb-1"><span class="truncate ${eu ? 'font-semibold text-on-surface' : 'text-on-surface-variant'}">${escapar(m.nome)}${eu ? ' <span class="text-xs font-normal">(esta)</span>' : ''}</span>
+            <span class="font-semibold tabular ${eu ? 'text-on-surface' : 'text-on-surface-variant'}">${m[k]}</span></div>
+          <div class="h-2 rounded-r bg-surface-container"><div class="h-2 frota-barra" style="width:${Math.max(2, m[k]/mx*100)}%;border-radius:0 4px 4px 0;background:${eu ? COR.marca : 'var(--v-texto3)'}"></div></div>
+        </div>`; }).join('')}</div></div>`;
+  };
+  el.innerHTML = bloco('Risco máximo (0 a 100)', 'risco', '') + bloco('Alertas', 'alertas', '');
+}
+
+let linhaTempoDados = null;
+async function carregarLinhaTempo(){
+  const c = $('linhaTempo');
+  try{
+    const per = periodo, eq = equipamentoSelecionado;
+    const d = await getJSON(`/telemetria/linha-do-tempo?${seletorEquipamento()}&horas=24`);
+    if(!d.janela || !(d.faixas || []).length){
+      linhaTempoDados = null;
+      c.innerHTML = '<div class="text-sm text-on-surface-variant italic py-8 text-center">Sem leituras desta máquina para montar a linha do tempo.</div>';
+      $('linhaTempoSub').textContent = '24 horas até a última leitura da máquina'; return;
+    }
+    const ini = new Date(d.janela.inicio), fim = new Date(d.janela.fim);
+    const dias = Math.max(1, Math.ceil((Date.now() - ini.getTime()) / 864e5) + 1);
+    const [ops, evs] = await Promise.all([
+      getJSON(`/operacoes?equipamento=${encodeURIComponent(eq)}&dias=${dias}&limite=200`).catch(() => ({dados: []})),
+      getJSON(`/eventos?equipamento=${encodeURIComponent(eq)}&dias=${dias}`).catch(() => ({dados: []})),
+    ]);
+    if(eq !== equipamentoSelecionado || per !== periodo) return;
+    const dentro = t => t >= ini.getTime() && t <= fim.getTime();
+    // Sem fim registrado: so a sessao ainda aberta vai ate o fim da janela; interrompida ou
+    // encerrada sem fim vira um marcador no inicio (nao pode pintar as 24h inteiras).
+    const ABERTA = ['aberta', 'em_andamento', 'ativa'];
+    const sessoes = (ops.dados || []).map(s => {
+      const a = new Date(s.inicio_em || s.fim_em).getTime();
+      const b = s.fim_em ? new Date(s.fim_em).getTime() : ABERTA.includes(s.status) ? new Date(d.janela.fim).getTime() : a;
+      return {s, a, b};
+    })
+      .filter(x => isFinite(x.a) && isFinite(x.b) && x.b >= ini.getTime() && x.a <= fim.getTime());
+    const alertas = (evs.dados || []).map(e => ({e, t: new Date(e.criado_em).getTime()})).filter(x => dentro(x.t));
+    linhaTempoDados = {janela: d.janela, faixas: d.faixas, sessoes, alertas};
+    if(!mudou('linhaTempo', `${d.janela.fim}|${d.faixas.reduce((a, f) => a + f.leituras, 0)}|${sessoes.length}|${alertas.length}`) && c.querySelector('svg')) return;
+    desenharLinhaTempo();
+  }catch(e){ if(e.obsoleto) return; c.innerHTML = erroLista('Linha do tempo indisponível.'); }
+}
+function desenharLinhaTempo(){
+  const c = $('linhaTempo'), D = linhaTempoDados; if(!D) return;
+  tipEsconder();
+  const ini = new Date(D.janela.inicio).getTime(), fim = new Date(D.janela.fim).getTime(), passo = D.janela.minutos * 60000;
+  const ativas = D.faixas.filter(f => f.leituras).length * D.janela.minutos;
+  const tempoAtivo = ativas >= 60 ? `${Math.floor(ativas / 60)} h${ativas % 60 ? ' ' + (ativas % 60) + ' min' : ''}` : `${ativas} min`;
+  $('linhaTempoSub').textContent = `24 horas até a última leitura (${fmtHora(D.janela.fim)}, ${fmtRelativo(D.janela.fim)}) · leituras em ${tempoAtivo} dessas 24 h`;
+  const W = larguraGrafico(c, 900), ML = 92, MR = 10, iw = W - ML - MR;
+  const TRILHAS = [['Máquina', 14], ['Risco', 34], ['Crachá', 54], ['Alertas', 74]], AT = 12, H = 112;
+  const X = t => ML + (t - ini) / (fim - ini) * iw;
+  const fw = iw / D.faixas.length;
+  const corRiscoFaixa = r => r === 'CRITICO' || r === 'ALTO' ? '#ba1a1a' : r === 'ATENCAO' || r === 'MEDIO' ? '#f59e0b' : r ? '#10b981' : null;
+  let g = TRILHAS.map(([n, y]) => `<text x="0" y="${y + 9}" font-size="11" style="fill:var(--v-texto2)">${n}</text>`).join('');
+  D.faixas.forEach((f, i) => {
+    const x = (ML + i * fw).toFixed(2), w = Math.max(0.5, fw - 1).toFixed(2);
+    const corM = !f.leituras ? 'var(--v-hover)' : f.motor_ligado ? '#10b981' : 'var(--v-texto3)';
+    g += `<rect x="${x}" y="${TRILHAS[0][1]}" width="${w}" height="${AT}" rx="2" style="fill:${corM}"/>`;
+    const cr = corRiscoFaixa(f.risco);
+    g += `<rect x="${x}" y="${TRILHAS[1][1]}" width="${w}" height="${AT}" rx="2" style="fill:${cr || 'var(--v-hover)'}"${cr ? ' fill-opacity="0.85"' : ''}/>`;
+  });
+  g += `<rect x="${ML}" y="${TRILHAS[2][1]}" width="${iw}" height="${AT}" rx="2" style="fill:var(--v-hover)"/>`;
+  D.sessoes.forEach(({a, b}) => {
+    const x0 = X(Math.max(a, ini)), x1 = X(Math.min(b, fim));
+    g += `<rect x="${x0.toFixed(1)}" y="${TRILHAS[2][1]}" width="${Math.max(2, x1 - x0).toFixed(1)}" height="${AT}" rx="2" fill="${COR.furto}"/>`;
+  });
+  g += `<line x1="${ML}" x2="${W - MR}" y1="${TRILHAS[3][1] + AT/2}" y2="${TRILHAS[3][1] + AT/2}" style="stroke:var(--v-borda)" stroke-width="1"/>`;
+  D.alertas.forEach(({e, t}) => {
+    const cor = eixoDoTipo(e.tipo) === 'incendio' ? COR.incendio : COR.furto;
+    g += `<circle cx="${X(t).toFixed(1)}" cy="${TRILHAS[3][1] + AT/2}" r="4" fill="${cor}" style="stroke:var(--v-card)" stroke-width="2"/>`;
+  });
+  for(let h = 0; h <= 24; h += 3){
+    const t = ini + h * 3600000, x = X(t);
+    const hora = new Date(t).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+    g += `<line x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${TRILHAS[0][1] - 4}" y2="${TRILHAS[3][1] + AT + 2}" style="stroke:var(--v-borda)" stroke-width="1" stroke-opacity="0.6"/>`;
+    g += `<text x="${x.toFixed(1)}" y="${H - 6}" text-anchor="${h === 0 ? 'start' : h === 24 ? 'end' : 'middle'}" font-size="10" style="fill:var(--v-texto2)">${hora}</text>`;
+  }
+  const hits = D.faixas.map((f, i) => `<rect class="viz-hit" data-i="${i}" x="${(ML + i * fw).toFixed(2)}" y="${TRILHAS[0][1] - 4}" width="${fw.toFixed(2)}" height="${TRILHAS[3][1] + AT + 8 - TRILHAS[0][1]}"/>`).join('');
+  c.innerHTML = `<svg viewBox="0 0 ${W} ${H}" class="w-full" role="img" aria-label="Linha do tempo das 24 horas até a última leitura: motor, risco, sessões de crachá e alertas">${g}${hits}</svg>`;
+  ligarHover(c, (ev, i) => {
+    if(!ev) return;
+    const f = D.faixas[i], a = ini + i * passo, b = a + passo;
+    const noIntervalo = D.alertas.filter(x => x.t >= a && x.t < b);
+    const sessao = D.sessoes.find(x => x.a < b && x.b >= a);
+    const hm = t => new Date(t).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+    tipMostrar(ev, `${hm(a)} às ${hm(b)}`, [
+      [f.leituras ? (f.motor_ligado ? '#10b981' : '#a1a1aa') : '#d4d4d8', 'Máquina', f.leituras ? (f.motor_ligado ? 'Motor ligado' : 'Motor parado') : 'Sem leituras'],
+      [corRiscoFaixa(f.risco) || '#d4d4d8', 'Risco', f.risco || '–'],
+      [COR.furto, 'Crachá', sessao ? (sessao.s.operador_nome || 'Sessão ativa') : 'Nenhuma sessão'],
+      [COR.incendio, 'Alertas', noIntervalo.length ? noIntervalo.length + ' (' + [...new Set(noIntervalo.map(x => nomeTipo(x.e.tipo)))].slice(0, 2).join(', ') + ')' : '0'],
+    ]);
+  });
+}
 
 /* ---------- Detalhe do alerta (modal) ---------- */
 const TITULO_TIPO = {
@@ -2365,7 +2575,9 @@ async function atualizarView(){
   if(viewAtual === 'clientes'){ await carregarListaClientes(); return; }
   if(viewAtual === 'usuarios'){ await carregarUsuarios(); return; }
   if(!equipamentoSelecionado){ setView(viewAtual); return; }
-  await Promise.all([carregarSaude(), carregarRisco(), carregarTelemetria(), carregarEventos(), carregarTempDia()]);
+  await Promise.all([carregarSaude(), carregarRisco(), carregarTelemetria(), carregarEventos(), carregarTempDia(),
+                     viewAtual === 'visao' ? carregarLinhaTempo() : null]);
+  if(viewAtual === 'visao') renderizarFrota();
   $('ultima').textContent = new Date().toLocaleTimeString('pt-BR');
 }
 
@@ -2383,6 +2595,7 @@ function redesenharGraficos(){
     ['leituras','eventos','tempdia'].forEach(k => assinaturas.delete(k));
     if(leiturasCache.length) renderizarGraficoLeituras(true);
     if(eventosPeriodo.length) renderizarGraficosEventos(eventosPeriodo);
+    if(linhaTempoDados) desenharLinhaTempo();
     if(equipamentoSelecionado) carregarTempDia();
   }, 250);
 }
