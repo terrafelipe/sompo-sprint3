@@ -113,6 +113,7 @@ login na **AWS Lambda** (URL limpa via Cloudflare Pages: https://sompo-painel.pa
 | `GET /me` | Perfil do usuário logado (role + fazenda vinculada) |
 | `GET/POST /clientes` | Lista/cadastra clientes — **só perfil Sompo** (403 para gestor) |
 | `GET/POST /fazendas` | Lista/cadastra fazendas — **só perfil Sompo** (403 para gestor) |
+| `PATCH /fazendas/<id>` | Edita nome, localização, área e coordenadas do mapa — **só perfil Sompo**; 409 se `mapa_ocorrencias.sql` não rodou |
 | `GET/POST /equipamentos` | Lista/cadastra máquinas dentro do escopo da fazenda |
 | `GET/POST /operadores` | Lista/cadastra operadores RFID, sem criar login |
 | `GET /operacoes` | Histórico paginado de sessões dos operadores |

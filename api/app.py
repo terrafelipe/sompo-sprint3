@@ -38,6 +38,8 @@ from config import (
 from relatorios import montar_relatorio_bruto, montar_relatorio_risco
 from scores import calcular_scores
 from supabase_client import (
+    SupabaseError,
+    atualizar_tabela,
     buscar_usuario,
     consultar_clientes,
     consultar_eventos,
@@ -512,6 +514,58 @@ def fazendas_criar():
         return jsonify({'ok': True, 'fazenda': criado}), 201
     except Exception as exc:
         return _erro('falha_ao_criar_fazenda', exc, 502)
+
+
+def _coordenada(valor, limite):
+    # None limpa a coordenada; qualquer outro valor precisa ser numero dentro do limite.
+    if valor is None:
+        return None
+    numero = float(valor)
+    if not -limite <= numero <= limite:
+        raise ValueError(valor)
+    return numero
+
+
+@app.patch('/fazendas/<int:value>')
+@somente_sompo
+def fazendas_editar(value):
+    corpo = request.get_json(silent=True) or {}
+    dados: Dict[str, Any] = {}
+    if 'latitude' in corpo or 'longitude' in corpo:
+        # O mapa precisa do par: latitude sem longitude (ou o contrario) nao posiciona nada.
+        if 'latitude' not in corpo or 'longitude' not in corpo or (corpo['latitude'] is None) != (corpo['longitude'] is None):
+            return jsonify({'erro': 'coordenadas_incompletas'}), 400
+        for campo, limite in (('latitude', 90), ('longitude', 180)):
+            try:
+                dados[campo] = _coordenada(corpo[campo], limite)
+            except (TypeError, ValueError):
+                return jsonify({'erro': f'{campo}_invalida'}), 400
+    for campo, erro in (('nome', 'nome_obrigatorio'), ('localizacao', 'localizacao_obrigatoria')):
+        if campo in corpo:
+            texto = str(corpo[campo] or '').strip()
+            if not texto:
+                return jsonify({'erro': erro}), 400
+            dados[campo] = texto
+    if 'area_ha' in corpo:
+        try:
+            dados['area_ha'] = float(corpo['area_ha'])
+        except (TypeError, ValueError):
+            return jsonify({'erro': 'area_invalida'}), 400
+    if not dados:
+        return jsonify({'erro': 'nada_para_atualizar'}), 400
+
+    try:
+        atualizada = atualizar_tabela('fazenda', {'id_fazenda': f'eq.{value}', 'excluido_em': 'is.null'}, dados)
+    except SupabaseError as exc:
+        if exc.codigo == 'PGRST204':
+            # Coluna desconhecida: firmware/sql/mapa_ocorrencias.sql ainda nao rodou no Supabase.
+            return _erro('migracao_pendente', exc, 409)
+        return _erro('falha_ao_editar_fazenda', exc, 502)
+    except Exception as exc:
+        return _erro('falha_ao_editar_fazenda', exc, 502)
+    if not atualizada:
+        return jsonify({'erro': 'nao_encontrado'}), 404
+    return jsonify({'ok': True, 'fazenda': atualizada}), 200
 
 
 # ---------------------------------------------------------------------------

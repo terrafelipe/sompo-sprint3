@@ -12,7 +12,7 @@ import pytest
 
 pw = pytest.importorskip('playwright.sync_api')
 HTML = (Path(__file__).parents[1] / 'static/index.html').read_text(encoding='utf-8')
-FARMS = [dict(id_fazenda=i, nome=f'Fazenda {i}', fk_cliente_id_cliente=i,
+FARMS = [dict(id_fazenda=i, nome=f'Fazenda {i}', fk_cliente_id_cliente=i, localizacao='Campinas - SP',
               cliente=dict(nome=f'Cliente {i}')) for i in (1, 2)]
 
 
@@ -22,7 +22,7 @@ def painel(request):
         browser = p.chromium.launch(channel=os.getenv('SOMPO_TEST_BROWSER') or None)
         page = browser.new_page(viewport={'width': request.param, 'height': 900})
         state = dict(role='sompo', fail=set(), posts=[], held=[], hold=None, errors=[],
-                     sem_esp32=False, sem_maquinas=False, deleted=set(), deletes=[], delete_error=None, manut={}, valor={}, scores={})
+                     sem_esp32=False, sem_maquinas=False, deleted=set(), deletes=[], delete_error=None, manut={}, valor={}, scores={}, coords={})
         page.on('pageerror', lambda e: state['errors'].append(str(e)))
 
         def route(r):
@@ -60,7 +60,8 @@ def painel(request):
             if path == '/me':
                 data = dict(role=state['role'], fazenda_id=1, fazenda_nome='Fazenda 1')
             elif path == '/fazendas':
-                data = {'dados': [f for f in FARMS if f'/fazendas/{f["id_fazenda"]}' not in state['deleted']]}
+                data = {'dados': [{**f, **dict(zip(('latitude', 'longitude'), state['coords'].get(f['id_fazenda'], (None, None))))}
+                                  for f in FARMS if f'/fazendas/{f["id_fazenda"]}' not in state['deleted']]}
             elif path == '/clientes':
                 data = {'dados': [dict(id_cliente=i, nome=f'Cliente {i}') for i in (1, 2) if f'/clientes/{i}' not in state['deleted']]}
             elif path == '/usuarios':
@@ -561,3 +562,46 @@ def test_exposicao_do_gestor_e_por_maquina_e_conta_sem_valor(painel):
     pw.expect(page.locator('#xSemValor')).to_have_text('1')
     pw.expect(page.locator('#listaExposicao')).to_contain_text('Trator 1')
     assert page.locator('#listaExposicao th', has_text='Fazenda').count() == 0
+
+
+def _mapa_offline(page):
+    # Tiles e geocodificacao simulados: o teste nao depende dos servidores publicos do OSM.
+    page.route('**/tile.openstreetmap.org/**', lambda r: r.fulfill(status=204))
+    page.route('**/nominatim.openstreetmap.org/**', lambda r: r.fulfill(
+        json=[dict(lat='-22.9056', lon='-47.0608', display_name='Campinas, São Paulo, Brasil')]))
+
+
+def test_mapa_da_carteira_mostra_pinos_e_abre_a_fazenda(painel):
+    page, state = painel
+    _mapa_offline(page)
+    state['coords'] = {1: (-22.7253, -47.6492)}
+    nav(page, 'inicio')
+    page.locator('[data-modo-inicio="mapa"]').click()
+    pw.expect(page.locator('#mapaCarteira path.leaflet-interactive')).to_have_count(1)
+    pw.expect(page.locator('#semLocalizacao')).to_contain_text('Fazenda 2')
+    page.locator('#mapaCarteira path.leaflet-interactive').click()
+    pw.expect(page.locator('.leaflet-popup')).to_contain_text('Fazenda 1')
+    page.locator('.leaflet-popup [data-abrir-fazenda]').click()
+    pw.expect(page.locator('#tituloView')).to_have_text('Máquinas')
+    assert page.evaluate('String(fazendaSelecionada)') == '1'
+    assert not state['errors']
+
+
+def test_localizacao_da_fazenda_busca_cidade_e_salva(painel):
+    page, state = painel
+    _mapa_offline(page)
+    nav(page, 'inicio')
+    page.locator('[data-modo-inicio="mapa"]').click()
+    page.locator('#semLocalizacao [data-localizar-fazenda="2"]').click()
+    page.locator('#detCorpo [data-buscar-cidade]').click()
+    pw.expect(page.locator('#fzLat')).to_have_value('-22.905600')
+    pw.expect(page.locator('#fzCoordAchado')).to_contain_text('Campinas')
+    page.locator('#detCorpo [data-salvar-coord]').click()
+    pw.expect(page.locator('#fzCoordMsg')).to_contain_text('salva')
+    assert ('/fazendas/2', {'latitude': -22.9056, 'longitude': -47.0608}) in state['posts']
+    # Sem a migracao no Supabase a API responde 409: a tela diz o que falta.
+    page.route('**/fazendas/2', lambda r: r.fulfill(status=409, json={'erro': 'migracao_pendente'})
+               if r.request.method == 'PATCH' else r.fallback())
+    page.locator('#detCorpo [data-salvar-coord]').click()
+    pw.expect(page.locator('#fzCoordMsg')).to_contain_text('mapa_ocorrencias.sql')
+    assert not state['errors']

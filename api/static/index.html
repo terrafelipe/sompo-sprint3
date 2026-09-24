@@ -144,6 +144,15 @@
                 box-shadow:0 1px 2px rgba(0,0,0,.03);transition:border-color .15s ease,box-shadow .15s ease,transform .12s ease-out}
   @media (hover:hover) and (pointer:fine){ .fazenda-card:hover{border-color:rgba(183,1,0,.35);box-shadow:0 4px 14px rgba(0,0,0,.06)} }
   .fazenda-card:active{transform:scale(.99)}
+  .seg{display:inline-flex;height:2.25rem;padding:2px;border-radius:.5rem;background:var(--v-hover);gap:2px}
+  .seg button{display:inline-flex;align-items:center;gap:.35rem;height:100%;padding:0 .7rem;border-radius:.375rem;font-size:13px;font-weight:500;color:var(--v-texto2);transition:background-color 150ms ease,color 150ms ease}
+  .seg button .material-symbols-outlined{font-size:17px}
+  .seg button[aria-pressed="true"]{background:var(--v-card);color:var(--v-texto);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+  #mapaCarteira{position:relative;z-index:0;isolation:isolate;background:var(--v-suave)}
+  :root[data-tema="escuro"] #mapaCarteira .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.9) contrast(.9)}
+  #mapaCarteira .leaflet-popup-content-wrapper{border-radius:.6rem}
+  .campo-coord{width:100%;height:2.25rem;margin-top:.25rem;padding:0 .6rem;border:1px solid var(--v-borda);border-radius:.5rem;background:var(--v-card);color:var(--v-texto);outline:none}
+  .campo-coord:focus{border-color:var(--v-borda-forte);box-shadow:0 0 0 3px rgba(183,1,0,.15)}
   .g-linha{display:flex;align-items:center;gap:.75rem;width:100%;text-align:left;padding:.7rem .5rem;border-radius:.5rem;transition:background-color 150ms ease}
   @media (hover:hover) and (pointer:fine){ .g-linha:hover{background:var(--v-hover)} }
   .g-linha:focus-visible{outline:2px solid rgba(183,1,0,.4);outline-offset:-2px}
@@ -650,9 +659,26 @@
         <div id="inicioCarteira">
         <div class="flex items-center justify-between gap-3 flex-wrap mb-4">
           <p id="inicioResumo" class="text-sm text-on-surface-variant"></p>
-          <div class="relative"><span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant pointer-events-none">search</span><input type="search" data-busca="listaInicio" placeholder="Buscar fazenda, cidade ou cliente…" aria-label="Buscar fazenda, cidade ou cliente" class="busca"/></div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <div id="buscaInicioWrap" class="relative"><span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant pointer-events-none">search</span><input type="search" data-busca="listaInicio" placeholder="Buscar fazenda, cidade ou cliente…" aria-label="Buscar fazenda, cidade ou cliente" class="busca"/></div>
+            <div class="seg" role="group" aria-label="Modo de exibição">
+              <button type="button" data-modo-inicio="cartoes" aria-pressed="true"><span class="material-symbols-outlined" aria-hidden="true">grid_view</span>Cartões</button>
+              <button type="button" data-modo-inicio="mapa" aria-pressed="false"><span class="material-symbols-outlined" aria-hidden="true">map</span>Mapa</button>
+            </div>
+          </div>
         </div>
         <div id="listaInicio" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
+        <div id="inicioMapa" hidden>
+          <div id="mapaCarteira" class="h-[420px] sm:h-[540px] rounded-xl border border-outline-variant overflow-hidden" aria-label="Mapa das fazendas"></div>
+          <div class="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3 text-xs text-on-surface-variant" aria-label="Legenda do mapa">
+            <span>Pino = pior risco da fazenda:</span>
+            <span class="inline-flex items-center gap-1.5"><i class="w-2.5 h-2.5 rounded-full" style="background:#ba1a1a"></i>Alto</span>
+            <span class="inline-flex items-center gap-1.5"><i class="w-2.5 h-2.5 rounded-full" style="background:#f59e0b"></i>Médio</span>
+            <span class="inline-flex items-center gap-1.5"><i class="w-2.5 h-2.5 rounded-full" style="background:#10b981"></i>Baixo</span>
+            <span class="inline-flex items-center gap-1.5"><i class="w-2.5 h-2.5 rounded-full" style="background:#71717a"></i>Sem máquinas</span>
+          </div>
+          <div id="semLocalizacao" class="mt-5"></div>
+        </div>
         </div>
         <!-- Gestor: o Inicio e o painel da propria fazenda -->
         <div id="inicioGestor" hidden>
@@ -1669,6 +1695,79 @@ async function carregarManutencao(){
 }
 $('listaManutencao').addEventListener('click', e => { const tr = e.target.closest('[data-manut]'); if(tr) detalheMaquina(manutencaoCache[+tr.dataset.manut]); });
 
+/* ---------- Mapa da carteira (Leaflet + OpenStreetMap, carregado so quando o mapa abre) ---------- */
+const LEAFLET = {
+  css: ['https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css', 'sha512-h9FcoyWjHcOcmEVkxOfTLnmZFWIH0iZhZT1H2TbOq55xssQGEJHEaIm+PgoUaZbRvQTNTluNOEfb1ZRy6D3BOw=='],
+  js:  ['https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js',  'sha512-puJW3E/qXDqYp9IfhAI54BJEaWIfloJ7JWs7OeD5i6ruC9JZL1gERT1wjtwXFlh7CjE7ZJ+/vcRZRkIYIb6p4g=='],
+};
+let modoInicio = (() => { try{ return localStorage.getItem('sompo.inicioModo') === 'mapa' ? 'mapa' : 'cartoes'; }catch(e){ return 'cartoes'; } })();
+let leafletPromessa = null, mapa = null, camadaPinos = null, pinosMapa = [];
+function carregarLeaflet(){
+  if(window.L) return Promise.resolve();
+  if(!leafletPromessa) leafletPromessa = new Promise((ok, falha) => {
+    const css = Object.assign(document.createElement('link'), {rel: 'stylesheet', href: LEAFLET.css[0], integrity: LEAFLET.css[1], crossOrigin: 'anonymous'});
+    const js = Object.assign(document.createElement('script'), {src: LEAFLET.js[0], integrity: LEAFLET.js[1], crossOrigin: 'anonymous'});
+    js.onload = () => ok();
+    js.onerror = () => { leafletPromessa = null; falha(new Error('leaflet indisponivel')); };
+    document.head.append(css, js);
+  });
+  return leafletPromessa;
+}
+async function desenharMapa(){
+  try{ await carregarLeaflet(); }
+  catch(e){ $('mapaCarteira').innerHTML = '<p role="alert" class="p-4 text-sm text-error">Mapa indisponível: sem acesso ao servidor de mapas.</p>'; return; }
+  if(!mapa){
+    mapa = L.map('mapaCarteira', {scrollWheelZoom: false}).setView([-14.2, -51.9], 4);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 18, attribution: '&copy; OpenStreetMap'}).addTo(mapa);
+    camadaPinos = L.layerGroup().addTo(mapa);
+    mapa.on('popupopen', e => {
+      const b = e.popup.getElement().querySelector('[data-abrir-fazenda]');
+      if(b) b.addEventListener('click', () => { mapa.closePopup(); abrirFazendaDoInicio(b.dataset.abrirFazenda); });
+    });
+  }
+  mapa.invalidateSize();   // o container estava escondido quando o mapa nasceu
+  // O refresh de 5 s so redesenha se algo mudou; o enquadramento so muda se as coordenadas mudarem.
+  const assin = JSON.stringify(pinosMapa);
+  if(assin === mapa._assin) return;
+  const coords = JSON.stringify(pinosMapa.map(p => [p.lat, p.lon]));
+  mapa._assin = assin;
+  camadaPinos.clearLayers();
+  const com = pinosMapa.filter(p => p.lat != null && p.lon != null);
+  com.forEach(p => {
+    L.circleMarker([p.lat, p.lon], {radius: 9, color: '#ffffff', weight: 2, fillColor: p.classe ? corRisco(p.classe) : '#71717a', fillOpacity: 1})
+      .bindPopup(`<div style="min-width:160px"><div style="font-weight:600">${escapar(p.nome)}</div>
+        <div style="font-size:12px;opacity:.7">${escapar(p.local || 'Sem localização cadastrada')}</div>
+        <div style="margin-top:6px">${p.classe ? `Pior risco ${p.pior} · ${selo(p.classe, corRisco(p.classe))}` : 'Nenhuma máquina cadastrada'}</div>
+        <button type="button" data-abrir-fazenda="${p.id}" style="margin-top:8px;font-weight:600;color:#b70100">Abrir fazenda</button></div>`)
+      .addTo(camadaPinos);
+  });
+  if(coords !== mapa._coords){
+    mapa._coords = coords;
+    if(com.length) mapa.fitBounds(L.latLngBounds(com.map(p => [p.lat, p.lon])), {padding: [40, 40], maxZoom: 11});
+  }
+  const sem = pinosMapa.filter(p => p.lat == null || p.lon == null);
+  $('semLocalizacao').innerHTML = !sem.length ? '' : `<div class="text-xs font-medium text-on-surface-variant mb-2">Sem localização no mapa (${sem.length})</div>
+    <div class="flex flex-wrap gap-2">${sem.map(p => `<button type="button" data-localizar-fazenda="${p.id}" title="Informar a localização"
+      class="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-outline-variant bg-surface-container-lowest text-[13px] hover:bg-surface-container transition-colors">
+      <span class="material-symbols-outlined text-[16px] text-on-surface-variant" aria-hidden="true">add_location_alt</span>${escapar(p.nome)}</button>`).join('')}</div>`;
+}
+function aplicarModoInicio(){
+  document.querySelectorAll('[data-modo-inicio]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.modoInicio === modoInicio)));
+  $('listaInicio').hidden = modoInicio === 'mapa';
+  $('buscaInicioWrap').hidden = modoInicio === 'mapa';
+  $('inicioMapa').hidden = modoInicio !== 'mapa';
+  if(modoInicio === 'mapa' && pinosMapa.length) desenharMapa();
+}
+document.querySelectorAll('[data-modo-inicio]').forEach(b => b.addEventListener('click', () => {
+  modoInicio = b.dataset.modoInicio;
+  try{ localStorage.setItem('sompo.inicioModo', modoInicio); }catch(e){}
+  aplicarModoInicio();
+}));
+$('semLocalizacao').addEventListener('click', e => {
+  const b = e.target.closest('[data-localizar-fazenda]');
+  if(b) abrirFazenda(fazendasCache.find(f => String(f.id_fazenda) === b.dataset.localizarFazenda));
+});
+
 /* ---------- Inicio: carteira de fazendas ---------- */
 async function carregarInicio(){
   if(perfilRole === 'gestor_fazenda') return carregarInicioGestor();
@@ -1708,6 +1807,14 @@ async function carregarInicio(){
         </div>
       </button>`;
     }).join('');
+    pinosMapa = fs.map((f, i) => {
+      const maqs = resumos[i]?.equipamentos || [];
+      const pior = maqs.reduce((a, m) => Math.max(a, m.scores?.score_furto || 0, m.scores?.score_incendio || 0), 0);
+      const lat = f.latitude == null ? null : Number(f.latitude), lon = f.longitude == null ? null : Number(f.longitude);
+      return {id: f.id_fazenda, nome: f.nome || '(sem nome)', local: f.localizacao || '', lat, lon, pior,
+              classe: maqs.length ? (pior >= 67 ? 'ALTO' : pior >= 34 ? 'MEDIO' : 'BAIXO') : null};
+    });
+    aplicarModoInicio();
     $('inicioResumo').textContent = `${fs.length} ${fs.length === 1 ? 'fazenda' : 'fazendas'} · ${totMaq} ${totMaq === 1 ? 'máquina' : 'máquinas'}`
       + (emAlto ? ` · ${emAlto} com risco alto` : '');
     renderLista('listaInicio', '<div class="contents" data-render></div>' + cards
@@ -2627,7 +2734,67 @@ function abrirFazenda(f){
            + linhaDet('Dispositivo', f.dispositivo_id || '— (sem dispositivo)');
   const botao = `<button data-vertelemetria="${f.id_fazenda}" class="mt-4 inline-flex items-center gap-1.5 bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg hover:bg-on-primary-fixed-variant transition-colors">
         <span class="material-symbols-outlined text-[18px]">sensors</span> Ver telemetria</button>`;
-  abrirDetalhe(f.nome || 'Fazenda', 'landscape', html + botao + botaoExcluir('fazendas',f.id_fazenda,f.nome));
+  const coord = v => v == null ? '' : Number(v).toFixed(6);
+  const local = `<div class="mt-5 pt-4 border-t border-outline-variant">
+      <div class="text-sm font-semibold text-on-surface">Localização no mapa</div>
+      <p class="text-xs text-on-surface-variant mt-0.5 mb-3">Graus decimais (ex.: -22.725300). Deixe os dois em branco para tirar a fazenda do mapa.</p>
+      <div class="grid grid-cols-2 gap-3">
+        <label class="text-xs font-medium text-on-surface-variant">Latitude<input id="fzLat" inputmode="decimal" autocomplete="off" class="campo-coord tabular" value="${coord(f.latitude)}"/></label>
+        <label class="text-xs font-medium text-on-surface-variant">Longitude<input id="fzLon" inputmode="decimal" autocomplete="off" class="campo-coord tabular" value="${coord(f.longitude)}"/></label>
+      </div>
+      <p id="fzCoordAchado" class="text-xs text-on-surface-variant mt-2"></p>
+      <div class="flex flex-wrap items-center gap-2 mt-3">
+        <button type="button" data-buscar-cidade="${f.id_fazenda}" class="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-outline-variant bg-surface-container-lowest font-medium hover:bg-surface-container transition-colors"><span class="material-symbols-outlined text-[18px]" aria-hidden="true">travel_explore</span>Buscar pela cidade</button>
+        <button type="button" data-salvar-coord="${f.id_fazenda}" class="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-primary text-on-primary font-medium hover:bg-on-primary-fixed-variant transition-colors"><span class="material-symbols-outlined text-[18px]" aria-hidden="true">save</span>Salvar localização</button>
+      </div>
+      <p id="fzCoordMsg" role="status" class="text-xs mt-2"></p>
+    </div>`;
+  abrirDetalhe(f.nome || 'Fazenda', 'landscape', html + botao + local + botaoExcluir('fazendas',f.id_fazenda,f.nome));
+}
+
+/* ---------- Localizacao da fazenda ---------- */
+// Nominatim (OSM) a partir da localizacao cadastrada; a pessoa confere antes de salvar.
+async function buscarCidadeDaFazenda(id){
+  const f = fazendasCache.find(x => String(x.id_fazenda) === String(id));
+  const achado = $('fzCoordAchado');
+  if(!f?.localizacao){ achado.textContent = 'A fazenda não tem cidade cadastrada. Informe as coordenadas à mão.'; return; }
+  achado.textContent = 'Buscando…';
+  try{
+    const r = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=br&accept-language=pt-BR&q=${encodeURIComponent(f.localizacao)}`,
+                          {headers: {Accept: 'application/json'}});
+    const [lugar] = r.ok ? await r.json() : [];
+    if(!lugar){ achado.textContent = `Nada encontrado para "${f.localizacao}". Informe as coordenadas à mão.`; return; }
+    $('fzLat').value = Number(lugar.lat).toFixed(6);
+    $('fzLon').value = Number(lugar.lon).toFixed(6);
+    achado.textContent = `Encontrado: ${lugar.display_name}. É o centro da cidade: ajuste se souber o ponto exato da fazenda.`;
+  }catch(err){ achado.textContent = 'Busca indisponível agora. Informe as coordenadas à mão.'; }
+}
+async function salvarLocalizacao(id){
+  const msg = $('fzCoordMsg');
+  const ler = v => v.trim() === '' ? null : Number(v.trim().replace(',', '.'));
+  const lat = ler($('fzLat').value), lon = ler($('fzLon').value);
+  msg.style.color = 'var(--v-texto2)';
+  if((lat == null) !== (lon == null) || Number.isNaN(lat) || Number.isNaN(lon)){
+    msg.style.color = 'rgb(var(--c-error))'; msg.textContent = 'Preencha latitude e longitude com números (ou deixe as duas em branco).'; return;
+  }
+  msg.textContent = 'Salvando…';
+  try{
+    const r = await fetch(`/fazendas/${id}`, {method: 'PATCH', headers: {'Content-Type': 'application/json', Accept: 'application/json'},
+                                              body: JSON.stringify({latitude: lat, longitude: lon})});
+    const d = await r.json().catch(() => ({}));
+    if(!r.ok){
+      msg.style.color = 'rgb(var(--c-error))';
+      msg.textContent = d.erro === 'migracao_pendente' ? 'O banco ainda não tem as colunas do mapa: rode firmware/sql/mapa_ocorrencias.sql no Supabase.'
+        : d.erro === 'latitude_invalida' || d.erro === 'longitude_invalida' ? 'Coordenadas fora do intervalo (latitude -90 a 90, longitude -180 a 180).'
+        : 'Não foi possível salvar agora.';
+      return;
+    }
+    const f = fazendasCache.find(x => String(x.id_fazenda) === String(id));
+    if(f){ f.latitude = lat; f.longitude = lon; }
+    msg.style.color = 'rgb(var(--c-ok))';
+    msg.textContent = lat == null ? 'Localização removida do mapa.' : 'Localização salva.';
+    if(viewAtual === 'inicio') carregarTudo();
+  }catch(err){ msg.style.color = 'rgb(var(--c-error))'; msg.textContent = 'Sem conexão com a API.'; }
 }
 
 /* ---------- Fazendas (cadastro) ---------- */
@@ -3161,6 +3328,8 @@ $('detFechar').addEventListener('click', fecharDetalhe);
 $('modalDetalhe').addEventListener('click', e=>{ if(e.target === $('modalDetalhe')) fecharDetalhe(); });
 // "Ver telemetria" no modal da fazenda -> aponta o seletor e abre a Telemetria.
 $('detCorpo').addEventListener('click', async e=>{
+  const buscar = e.target.closest('[data-buscar-cidade]'); if(buscar){ buscarCidadeDaFazenda(buscar.dataset.buscarCidade); return; }
+  const salvarCoord = e.target.closest('[data-salvar-coord]'); if(salvarCoord){ salvarLocalizacao(salvarCoord.dataset.salvarCoord); return; }
   const salvar=e.target.closest('[data-salvar-autorizacoes]'); if(salvar){ salvarAutorizacoes(salvar.dataset.salvarAutorizacoes); return; }
   const cred=e.target.closest('[data-gerar-credencial]'); if(cred){ gerarCredencial(cred.dataset.gerarCredencial); return; }
   const editar=e.target.closest('[data-editar-maquina]');
