@@ -9,6 +9,8 @@
   /* ===== Temas (claro/escuro): tokens do Tailwind e cores da camada visual ===== */
   :root{
     color-scheme:light;
+    --mov-curva:cubic-bezier(0.23,1,0.32,1);
+    --mov-busca:150ms; --mov-modal:200ms; --mov-saida:130ms;
     --c-surface-tint:183 1 0;
     --c-secondary:82 82 91;
     --c-primary:183 1 0;
@@ -259,6 +261,58 @@
   /* Busca rapida (Ctrl+K) */
   .paleta{width:min(36rem,calc(100% - 2rem));margin:12vh auto auto;padding:0;border:1px solid var(--v-borda);border-radius:.75rem;box-shadow:0 20px 50px rgba(0,0,0,.15);background:var(--v-card);color:var(--v-texto)}
   .paleta::backdrop{background:rgba(9,9,11,.25);backdrop-filter:blur(2px)}
+  /* Pop-ups: entrada suave e saida curta, sem reter cliques ao fechar. */
+  #paleta,#confirmarExclusao{
+    opacity:0;transform:scale(.96);pointer-events:none;
+    transition:opacity var(--mov-saida) var(--mov-curva),transform var(--mov-saida) var(--mov-curva),
+               overlay var(--mov-saida) allow-discrete,display var(--mov-saida) allow-discrete;
+  }
+  #paleta[open],#confirmarExclusao[open]{opacity:1;transform:none;pointer-events:auto}
+  #paleta[open],#paleta[open]::backdrop{transition-duration:var(--mov-busca)}
+  #confirmarExclusao[open],#confirmarExclusao[open]::backdrop{transition-duration:var(--mov-modal)}
+  #paleta::backdrop,#confirmarExclusao::backdrop{
+    opacity:0;pointer-events:none;
+    transition:opacity var(--mov-saida) var(--mov-curva),
+               overlay var(--mov-saida) allow-discrete,display var(--mov-saida) allow-discrete;
+  }
+  #paleta[open]::backdrop,#confirmarExclusao[open]::backdrop{opacity:1;pointer-events:auto}
+  #modalDetalhe,#modalEvento,#cadastroAviso{
+    opacity:1;pointer-events:auto;
+    transition:opacity var(--mov-modal) var(--mov-curva),display var(--mov-modal) allow-discrete;
+  }
+  #modalDetalhe > div,#modalEvento > div{
+    opacity:1;transform:none;
+    transition:opacity var(--mov-modal) var(--mov-curva),transform var(--mov-modal) var(--mov-curva);
+  }
+  #cadastroAviso{
+    transform:none;
+    transition:opacity var(--mov-modal) var(--mov-curva),transform var(--mov-modal) var(--mov-curva),
+               display var(--mov-modal) allow-discrete;
+  }
+  #modalDetalhe.hidden,#modalEvento.hidden,#cadastroAviso.hidden{
+    opacity:0;pointer-events:none;transition-duration:var(--mov-saida);
+  }
+  #modalDetalhe.hidden > div,#modalEvento.hidden > div{
+    opacity:0;transform:scale(.96);transition-duration:var(--mov-saida);
+  }
+  #cadastroAviso.hidden{transform:translateY(8px)}
+  @starting-style{
+    #paleta[open],#confirmarExclusao[open]{opacity:0;transform:scale(.96)}
+    #paleta[open]::backdrop,#confirmarExclusao[open]::backdrop{opacity:0}
+    #modalDetalhe:not(.hidden),#modalEvento:not(.hidden){opacity:0}
+    #modalDetalhe:not(.hidden) > div,#modalEvento:not(.hidden) > div{opacity:0;transform:scale(.96)}
+    #cadastroAviso:not(.hidden){opacity:0;transform:translateY(8px)}
+  }
+  @media (prefers-reduced-motion: reduce){
+    #paleta,#confirmarExclusao,#modalDetalhe,#modalEvento,#cadastroAviso,
+    #modalDetalhe > div,#modalEvento > div{
+      transform:none !important;transition-property:opacity,overlay,display;transition-behavior:allow-discrete;
+    }
+    @starting-style{
+      #paleta[open],#confirmarExclusao[open],#cadastroAviso:not(.hidden),
+      #modalDetalhe:not(.hidden) > div,#modalEvento:not(.hidden) > div{transform:none !important}
+    }
+  }
   .pal-grupo{padding:.6rem .6rem .25rem;font-size:11px;font-weight:500;color:var(--v-texto2)}
   .pal-item{display:flex;align-items:center;gap:.65rem;width:100%;padding:.5rem .6rem;border-radius:.4rem;font-size:13.5px;text-align:left;color:var(--v-texto)}
   .pal-item .material-symbols-outlined{font-size:18px;color:var(--v-texto2)}
