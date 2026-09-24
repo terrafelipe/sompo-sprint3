@@ -151,6 +151,19 @@
   #mapaCarteira{position:relative;z-index:0;isolation:isolate;background:var(--v-suave)}
   :root[data-tema="escuro"] #mapaCarteira .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.9) contrast(.9)}
   #mapaCarteira .leaflet-popup-content-wrapper{border-radius:.6rem}
+  /* Mapa da fazenda: satelite sem filtro; no tema escuro so a camada de ruas escurece */
+  .mf-grade{display:grid;gap:1rem;grid-template-columns:minmax(0,1fr)}
+  @media (min-width:1024px){ .mf-grade{grid-template-columns:minmax(0,1fr) 18rem} }
+  .mf-mapa{position:relative;z-index:0;isolation:isolate;height:360px;background:var(--v-suave)}
+  @media (min-width:640px){ .mf-mapa{height:460px} }
+  :root[data-tema="escuro"] .mf-mapa .mf-ruas{filter:invert(1) hue-rotate(180deg) brightness(.9) contrast(.9)}
+  .mf-mapa .leaflet-popup-content-wrapper{border-radius:.6rem}
+  .mf-mapa .leaflet-control-layers{color-scheme:light;accent-color:#b70100}
+  .mf-mapa .mf-rotulo{background:rgba(255,255,255,.92);border:0;border-radius:.4rem;font-weight:600;color:#18181b}
+  .mf-maquina{display:flex;flex-direction:column;gap:.4rem;width:100%;text-align:left;background:var(--v-card);border:1px solid var(--v-borda);border-radius:.6rem;padding:.7rem .8rem;transition:border-color .15s ease,transform .16s cubic-bezier(0.23,1,0.32,1)}
+  @media (hover:hover) and (pointer:fine){ .mf-maquina:hover{border-color:rgba(183,1,0,.35)} }
+  .mf-maquina:active{transform:scale(.99)}
+  .mf-maquina + .mf-maquina{margin-top:.5rem}
   .campo-coord{width:100%;height:2.25rem;margin-top:.25rem;padding:0 .6rem;border:1px solid var(--v-borda);border-radius:.5rem;background:var(--v-card);color:var(--v-texto);outline:none}
   .campo-coord:focus{border-color:var(--v-borda-forte);box-shadow:0 0 0 3px rgba(183,1,0,.15)}
   .oc-coluna{background:var(--v-suave);border:1px solid var(--v-borda);border-radius:.75rem;padding:.75rem;min-height:8rem}
@@ -711,6 +724,17 @@
         </div>
         <div id="listaInicio" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"></div>
         <div id="inicioMapa" hidden>
+          <div class="flex items-center justify-between gap-2 flex-wrap mb-3">
+            <div class="seg" role="group" aria-label="Qual mapa">
+              <button type="button" data-modo-mapa="carteira" aria-pressed="true"><span class="material-symbols-outlined" aria-hidden="true">public</span>Carteira</button>
+              <button type="button" data-modo-mapa="fazenda" aria-pressed="false"><span class="material-symbols-outlined" aria-hidden="true">satellite_alt</span>Fazenda</button>
+            </div>
+            <div id="mapaFazendaSelWrap" class="relative" hidden>
+              <select id="mapaFazendaSel" aria-label="Fazenda do mapa" class="h-9 max-w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"></select>
+            </div>
+          </div>
+          <div id="mapaFazenda" hidden></div>
+          <div id="mapaCarteiraWrap">
           <div id="mapaCarteira" class="h-[420px] sm:h-[540px] rounded-xl border border-outline-variant overflow-hidden" aria-label="Mapa das fazendas"></div>
           <div class="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3 text-xs text-on-surface-variant" aria-label="Legenda do mapa">
             <span>Pino = pior risco da fazenda:</span>
@@ -720,6 +744,7 @@
             <span class="inline-flex items-center gap-1.5"><i class="w-2.5 h-2.5 rounded-full" style="background:#71717a"></i>Sem máquinas</span>
           </div>
           <div id="semLocalizacao" class="mt-5"></div>
+          </div>
         </div>
         </div>
         <!-- Gestor: o Inicio e o painel da propria fazenda -->
@@ -2057,6 +2082,10 @@ const LEAFLET = {
 };
 let modoInicio = (() => { try{ return localStorage.getItem('sompo.inicioModo') === 'mapa' ? 'mapa' : 'cartoes'; }catch(e){ return 'cartoes'; } })();
 let leafletPromessa = null, mapa = null, camadaPinos = null, pinosMapa = [];
+// Dentro do modo Mapa: 'carteira' (Brasil) ou 'fazenda' (regiao de uma fazenda); lembrado na sessao.
+let modoMapa = (() => { try{ return sessionStorage.getItem('sompo.mapaModo') === 'fazenda' ? 'fazenda' : 'carteira'; }catch(e){ return 'carteira'; } })();
+let mapaFazendaId = (() => { try{ return sessionStorage.getItem('sompo.mapaFazenda') || ''; }catch(e){ return ''; } })();
+let maquinasPorFazenda = new Map();
 function carregarLeaflet(){
   if(window.L) return Promise.resolve();
   if(!leafletPromessa) leafletPromessa = new Promise((ok, falha) => {
@@ -2111,7 +2140,10 @@ function aplicarModoInicio(){
   $('listaInicio').hidden = modoInicio === 'mapa';
   $('buscaInicioWrap').hidden = modoInicio === 'mapa';
   $('inicioMapa').hidden = modoInicio !== 'mapa';
-  if(modoInicio === 'mapa' && pinosMapa.length) desenharMapa();
+  document.querySelectorAll('[data-modo-mapa]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.modoMapa === modoMapa)));
+  $('mapaCarteiraWrap').hidden = modoMapa !== 'carteira';
+  $('mapaFazenda').hidden = $('mapaFazendaSelWrap').hidden = modoMapa !== 'fazenda';
+  if(modoInicio === 'mapa' && pinosMapa.length){ if(modoMapa === 'fazenda') desenharMapaFazendaInicio(); else desenharMapa(); }
 }
 document.querySelectorAll('[data-modo-inicio]').forEach(b => b.addEventListener('click', () => {
   modoInicio = b.dataset.modoInicio;
@@ -2122,6 +2154,125 @@ $('semLocalizacao').addEventListener('click', e => {
   const b = e.target.closest('[data-localizar-fazenda]');
   if(b) abrirFazenda(fazendasCache.find(f => String(f.id_fazenda) === b.dataset.localizarFazenda));
 });
+document.querySelectorAll('[data-modo-mapa]').forEach(b => b.addEventListener('click', () => {
+  modoMapa = b.dataset.modoMapa;
+  try{ sessionStorage.setItem('sompo.mapaModo', modoMapa); }catch(e){}
+  aplicarModoInicio();
+}));
+$('mapaFazendaSel').addEventListener('change', e => {
+  mapaFazendaId = e.target.value;
+  try{ sessionStorage.setItem('sompo.mapaFazenda', mapaFazendaId); }catch(err){}
+  desenharMapaFazendaInicio();
+});
+// Inicio da Sompo > Mapa > Fazenda: seletor (fazendasCache) + o componente abaixo.
+function desenharMapaFazendaInicio(){
+  const fs = fazendasCache, sel = $('mapaFazendaSel');
+  if(!fs.some(f => String(f.id_fazenda) === mapaFazendaId))
+    mapaFazendaId = String((fs.find(f => f.latitude != null && f.longitude != null) || fs[0])?.id_fazenda ?? '');
+  const opcoes = fs.map(f => `<option value="${escapar(f.id_fazenda)}">${escapar(f.nome || '(sem nome)')}</option>`).join('');
+  if(sel.dataset.assin !== opcoes){ sel.dataset.assin = opcoes; sel.innerHTML = opcoes; }
+  sel.value = mapaFazendaId;
+  const f = fs.find(x => String(x.id_fazenda) === mapaFazendaId);
+  if(f) desenharMapaFazenda($('mapaFazenda'), f, maquinasPorFazenda.get(mapaFazendaId) ?? null);
+}
+
+/* ---------- Mapa da fazenda (componente reutilizavel) ----------
+   desenharMapaFazenda(container, fazenda, maquinas, opcoes): regiao da fazenda com fundo Satelite
+   (Esri, padrao) ou Ruas (OSM), pino da sede e uma cerca ILUSTRATIVA de 1 km. O ESP32 ainda nao
+   envia GPS: as maquinas nao viram pinos, ficam numa lista ao lado (abaixo no celular).
+   - container: elemento vazio; o componente monta o HTML e guarda o mapa Leaflet nele (um por
+     container, reaproveitado a cada refresh: so move/reenquadra se a fazenda ou as coordenadas mudarem).
+   - fazenda: item de /fazendas (id_fazenda, nome, latitude, longitude); maquinas: equipamentos do
+     resumo da fazenda (null = resumo indisponivel).
+   - opcoes (todas opcionais): aoAbrirMaquina(m, fazenda), aoInformarLocalizacao(fazenda), podeEditar. */
+const MF_CERCA_M = 1000;
+async function abrirMaquinaDaFazenda(m, f){
+  if(perfilRole === 'sompo' && String(fazendaSelecionada) !== String(f.id_fazenda)){ setView('maquinas'); await trocarFazenda(f.id_fazenda); }
+  else if(!maquinasCache.length) await carregarResumoFazenda();
+  await selecionarMaquina(m.id_equipamento, 'visao');
+}
+async function desenharMapaFazenda(container, fazenda, maquinas, opcoes = {}){
+  let st = container._mf;
+  if(!st){
+    container.innerHTML = `<div class="mf-grade">
+        <div class="min-w-0">
+          <div data-mf-mapa class="mf-mapa rounded-xl border border-outline-variant overflow-hidden" role="region" aria-label="Mapa da fazenda"></div>
+          <div data-mf-vazio hidden class="rounded-xl border border-dashed border-outline-variant px-6 py-12 text-center"></div>
+          <p data-mf-legenda class="mt-3 flex items-start gap-2 text-xs text-on-surface-variant"><span class="inline-block w-3 h-3 mt-px rounded-full border-2 border-primary bg-primary/10 shrink-0" aria-hidden="true"></span><span>Cerca ilustrativa: o ESP32 ainda não envia GPS, então a cerca e as posições reais ficam para a próxima etapa.</span></p>
+        </div>
+        <aside data-mf-lista aria-label="Máquinas da fazenda"></aside>
+      </div>`;
+    st = container._mf = {};
+    container.addEventListener('click', e => {
+      const b = e.target.closest('[data-mf-maquina]');
+      const m = b && (st.maquinas || []).find(x => String(x.id_equipamento) === b.dataset.mfMaquina);
+      if(m) st.op.aoAbrirMaquina(m, st.fazenda);
+      else if(e.target.closest('[data-mf-informar]')) st.op.aoInformarLocalizacao(st.fazenda);
+    });
+  }
+  st.op = {aoAbrirMaquina: abrirMaquinaDaFazenda, aoInformarLocalizacao: abrirFazenda, podeEditar: perfilRole === 'sompo', ...opcoes};
+  st.fazenda = fazenda; st.maquinas = maquinas || [];
+  const q = s => container.querySelector(s);
+
+  // Lista das maquinas (redesenha so quando muda: o refresh nao tira o foco de ninguem).
+  const itens = !maquinas ? '<p class="text-sm text-error">Máquinas indisponíveis agora.</p>'
+    : !maquinas.length ? '<p class="text-sm text-on-surface-variant">Nenhuma máquina cadastrada nesta fazenda.</p>'
+    : maquinas.map(m => {
+        const [com, cor] = COMUNICACAO[m.comunicacao] || COMUNICACAO.sem_dados;
+        const pior = Math.max(m.scores?.score_furto || 0, m.scores?.score_incendio || 0);
+        const classe = pior >= 67 ? 'ALTO' : pior >= 34 ? 'MEDIO' : 'BAIXO';
+        return `<button type="button" class="mf-maquina" data-mf-maquina="${escapar(m.id_equipamento)}" title="Abrir o Painel da máquina">
+          <span class="flex items-center justify-between gap-2 w-full"><span class="font-medium text-on-surface truncate">${escapar(m.nome)}</span><span class="material-symbols-outlined text-[18px] text-on-surface-variant" aria-hidden="true">chevron_right</span></span>
+          <span class="flex flex-wrap items-center gap-1.5">${selo(com, cor)}<span class="text-xs text-on-surface-variant ml-1">Pior risco</span>${selo(classe, corRisco(classe))}</span>
+        </button>`;
+      }).join('');
+  const lista = `<h3 class="text-sm font-semibold text-on-surface mb-1">Máquinas${maquinas ? ` (${maquinas.length})` : ''}</h3>
+    <p class="flex items-center gap-1.5 text-xs text-on-surface-variant mb-3"><span class="material-symbols-outlined text-[16px]" aria-hidden="true">location_disabled</span>Posição GPS ainda não enviada pelo ESP32</p>${itens}`;
+  const elLista = q('[data-mf-lista]');
+  if(elLista.dataset.assin !== lista){ elLista.dataset.assin = lista; elLista.innerHTML = lista; }
+
+  // Sem coordenadas: estado vazio (a Sompo informa a localizacao no editor da fazenda).
+  const lat = fazenda?.latitude == null ? NaN : Number(fazenda.latitude), lon = fazenda?.longitude == null ? NaN : Number(fazenda.longitude);
+  const temLocal = Number.isFinite(lat) && Number.isFinite(lon);
+  q('[data-mf-mapa]').hidden = q('[data-mf-legenda]').hidden = !temLocal;
+  const elVazio = q('[data-mf-vazio]');
+  elVazio.hidden = temLocal;
+  if(!temLocal){
+    const vazio = `<span class="material-symbols-outlined text-[32px] text-on-surface-variant" aria-hidden="true">location_off</span>
+      <p class="mt-2 text-sm font-medium text-on-surface">Esta fazenda ainda não tem localização.</p>
+      ${st.op.podeEditar ? `<button type="button" data-mf-informar class="mt-4 inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-primary text-on-primary font-medium hover:bg-on-primary-fixed-variant transition-colors"><span class="material-symbols-outlined text-[18px]" aria-hidden="true">add_location_alt</span>Informar localização</button>`
+        : '<p class="mt-1 text-xs text-on-surface-variant">A Sompo informa a localização no cadastro da fazenda.</p>'}`;
+    if(elVazio.dataset.assin !== vazio){ elVazio.dataset.assin = vazio; elVazio.innerHTML = vazio; }
+    return;
+  }
+  try{ await carregarLeaflet(); }
+  catch(e){ q('[data-mf-mapa]').innerHTML = '<p role="alert" class="p-4 text-sm text-error">Mapa indisponível: sem acesso ao servidor de mapas.</p>'; return; }
+  const topoCerca = [lat + MF_CERCA_M / 111320, lon];   // ~1 km ao norte: onde fica o rotulo da cerca
+  if(!st.mapa){
+    st.satelite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      {maxZoom: 19, className: 'mf-satelite', attribution: 'Tiles &copy; Esri, Maxar, Earthstar Geographics'});
+    st.ruas = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19, className: 'mf-ruas', attribution: '&copy; OpenStreetMap'});
+    st.mapa = L.map(q('[data-mf-mapa]'), {scrollWheelZoom: false, layers: [st.satelite]}).setView([lat, lon], 15);
+    L.control.layers({'Satélite': st.satelite, 'Ruas': st.ruas}, null, {collapsed: false}).addTo(st.mapa);
+    st.cerca = L.circle([lat, lon], {radius: MF_CERCA_M, weight: 2, dashArray: '6 6', fillOpacity: .1}).addTo(st.mapa);
+    st.rotulo = L.tooltip({permanent: true, direction: 'top', className: 'mf-rotulo'}).setLatLng(topoCerca).setContent('Cerca ilustrativa (1 km)');
+    st.mapa.openTooltip(st.rotulo);
+    st.sede = L.circleMarker([lat, lon], {radius: 8, color: '#ffffff', weight: 2, fillOpacity: 1}).bindPopup('').addTo(st.mapa);
+  }
+  st.mapa.invalidateSize();   // o container pode ter estado escondido
+  // Cor primaria do tema (muda com claro/escuro); setStyle nao recria nada.
+  const prim = `rgb(${getComputedStyle(document.documentElement).getPropertyValue('--c-primary').trim().split(/[\s,]+/).join(',')})`;
+  st.cerca.setStyle({color: prim, fillColor: prim});
+  st.sede.setStyle({fillColor: prim});
+  st.sede.setPopupContent(`<div style="font-weight:600">${escapar(fazenda.nome || '(sem nome)')}</div><div style="font-size:12px;opacity:.7">Sede da fazenda</div>`);
+  const assin = `${fazenda.id_fazenda}|${lat}|${lon}`;
+  if(assin !== st.assin){
+    st.assin = assin;
+    st.mapa.closePopup();
+    st.cerca.setLatLng([lat, lon]); st.sede.setLatLng([lat, lon]); st.rotulo.setLatLng(topoCerca);
+    st.mapa.fitBounds(L.latLng(lat, lon).toBounds(MF_CERCA_M * 2), {padding: [24, 24], maxZoom: 15, animate: false});
+  }
+}
 
 /* ---------- Inicio: carteira de fazendas ---------- */
 async function carregarInicio(){
@@ -2169,6 +2320,7 @@ async function carregarInicio(){
       return {id: f.id_fazenda, nome: f.nome || '(sem nome)', local: f.localizacao || '', lat, lon, pior,
               classe: maqs.length ? (pior >= 67 ? 'ALTO' : pior >= 34 ? 'MEDIO' : 'BAIXO') : null};
     });
+    maquinasPorFazenda = new Map(fs.map((f, i) => [String(f.id_fazenda), resumos[i] ? (resumos[i].equipamentos || []) : null]));
     aplicarModoInicio();
     $('inicioResumo').textContent = `${fs.length} ${fs.length === 1 ? 'fazenda' : 'fazendas'} · ${totMaq} ${totMaq === 1 ? 'máquina' : 'máquinas'}`
       + (emAlto ? ` · ${emAlto} com risco alto` : '');
