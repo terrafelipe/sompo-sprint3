@@ -3,7 +3,7 @@
 Install requirements-test.txt and Chromium (or set SOMPO_TEST_BROWSER=msedge).
 """
 import os
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 import re
 from pathlib import Path
 from urllib.parse import urlparse
@@ -22,7 +22,7 @@ def painel(request):
         browser = p.chromium.launch(channel=os.getenv('SOMPO_TEST_BROWSER') or None)
         page = browser.new_page(viewport={'width': request.param, 'height': 900})
         state = dict(role='sompo', fail=set(), posts=[], held=[], hold=None, errors=[],
-                     sem_esp32=False, sem_maquinas=False, deleted=set(), deletes=[], delete_error=None, manut={}, valor={}, scores={}, coords={})
+                     sem_esp32=False, sem_maquinas=False, deleted=set(), deletes=[], delete_error=None, manut={}, valor={}, scores={}, coords={}, ocorrencias=[], eventos=[])
         page.on('pageerror', lambda e: state['errors'].append(str(e)))
 
         def route(r):
@@ -46,6 +46,19 @@ def painel(request):
                 else:
                     state['deleted'].add(path)
                     r.fulfill(json={'ok': True})
+                return
+            if path.startswith('/ocorrencias') and r.request.method in ('POST', 'PATCH'):
+                corpo = r.request.post_data_json
+                state['posts'].append((path, corpo))
+                if r.request.method == 'POST':
+                    oc = {**dict(id_ocorrencia=len(state['ocorrencias']) + 1, status='aberta', criado_em='2026-09-18T12:00:00Z',
+                                 fazenda_id=1, fazenda_nome='Fazenda 1', equipamento_nome='Trator 1'), **corpo}
+                    state['ocorrencias'].append(oc)
+                    r.fulfill(status=201, json={'ok': True, 'ocorrencia': oc})
+                else:
+                    oc = next(o for o in state['ocorrencias'] if o['id_ocorrencia'] == int(path.rsplit('/', 1)[-1]))
+                    oc.update(corpo)
+                    r.fulfill(json={'ok': True, 'ocorrencia': oc})
                 return
             if r.request.method in ('POST', 'PATCH'):
                 state['posts'].append((path, r.request.post_data_json))
@@ -86,6 +99,12 @@ def painel(request):
                     id=10 + k, tipo=t, severidade=sev, equipamento_id=i, equipamento_nome=f'Trator {i}',
                     horario_ocorrencia='2026-09-18T12:00:00Z', criado_em='2026-09-18T12:00:00Z')
                     for k, (t, sev) in enumerate([('furto_capo', 2), ('escape_critico', 4)])]
+            elif path == '/ocorrencias':
+                data = {'dados': state['ocorrencias']}
+            elif path == '/ocorrencias/responsaveis':
+                data = {'dados': [dict(id_usuario=1, usuario='ana.sompo', role='sompo')]}
+            elif path == '/eventos':
+                data = {'dados': state['eventos']}
             elif path == '/saude':
                 data = {'api': 'ok', 'banco': 'ok'}
             elif path == '/relatorio/risco':
@@ -113,7 +132,7 @@ def nav(page, view):
     page.locator(f'[data-nav="{view}"]:visible').click()
     pw.expect(page.locator('#tituloView')).to_have_text({
         'inicio': 'Início', 'visao': 'Painel da máquina', 'maquinas': 'Máquinas', 'operadores': 'Operadores',
-        'historico': 'Histórico', 'manutencao': 'Manutenção', 'exposicao': 'Exposição financeira', 'fazendas': 'Fazendas', 'clientes': 'Clientes',
+        'historico': 'Histórico', 'ocorrencias': 'Ocorrências', 'manutencao': 'Manutenção', 'exposicao': 'Exposição financeira', 'fazendas': 'Fazendas', 'clientes': 'Clientes',
         'usuarios': 'Usuários'}[view])
 
 
@@ -604,4 +623,58 @@ def test_localizacao_da_fazenda_busca_cidade_e_salva(painel):
                if r.request.method == 'PATCH' else r.fallback())
     page.locator('#detCorpo [data-salvar-coord]').click()
     pw.expect(page.locator('#fzCoordMsg')).to_contain_text('mapa_ocorrencias.sql')
+    assert not state['errors']
+
+
+def _ocorrencia(i, titulo, status, **extra):
+    return dict(id_ocorrencia=i, titulo=titulo, status=status, fazenda_id=1, fazenda_nome='Fazenda 1',
+                equipamento_id=1, equipamento_nome='Trator 1', tipo='furto_capo', criado_em='2026-09-18T12:00:00Z', **extra)
+
+
+def test_ocorrencias_quadro_move_e_edita(painel):
+    page, state = painel
+    state['ocorrencias'] = [_ocorrencia(1, 'Capô aberto', 'aberta'), _ocorrencia(2, 'Cerca', 'em_verificacao')]
+    nav(page, 'ocorrencias')
+    pw.expect(page.locator('[data-coluna="aberta"] [data-oc]')).to_have_count(1)
+    pw.expect(page.locator('[data-coluna="em_verificacao"] [data-oc]')).to_have_count(1)
+    pw.expect(page.locator('[data-contador-ocorr]:visible')).to_have_text('2')
+    page.locator('[data-oc="1"] [data-mover="resolvida"]').click()
+    pw.expect(page.locator('[data-coluna="resolvida"] [data-oc="1"]')).to_have_count(1)
+    assert ('/ocorrencias/1', {'status': 'resolvida'}) in state['posts']
+    pw.expect(page.locator('[data-contador-ocorr]:visible')).to_have_text('1')
+    # Detalhe: responsavel e nota.
+    page.locator('[data-oc="2"] [data-abrir-oc]').click()
+    page.locator('#ocResponsavel').select_option('1')
+    page.locator('#ocNota').fill('Cerca refeita')
+    page.locator('#detCorpo [data-salvar-oc]').click()
+    pw.expect(page.locator('#ocMsg')).to_contain_text('salva')
+    assert ('/ocorrencias/2', {'status': 'em_verificacao', 'responsavel_id': 1, 'nota': 'Cerca refeita'}) in state['posts']
+    assert not state['errors']
+
+
+def test_alerta_vira_ocorrencia_e_relato_manual(painel):
+    page, state = painel
+    agora = datetime.now(timezone.utc).isoformat()
+    state['eventos'] = [dict(id=77, dispositivo_id='ESP-1', tipo='furto_capo', severidade=2, criado_em=agora)]
+    page.select_option('#equipamentoSel', '1')
+    page.locator('#eventos [data-ev]').first.click()
+    page.locator('#mevAcoes [data-abrir-ocorrencia]').click()
+    pw.expect(page.locator('#mevAcoes')).to_contain_text('Ocorrência aberta')
+    assert ('/ocorrencias', {'equipamento_id': 1, 'evento_id': 77, 'tipo': 'furto_capo', 'titulo': 'Capô aberto'}) in state['posts']
+    page.locator('#mevFechar').click()
+    nav(page, 'ocorrencias')
+    page.locator('#btnNovaOcorrencia').click()
+    page.locator('#ocFazendaForm').select_option('2')
+    page.locator('#ocTitulo').fill('Cerca quebrada')
+    page.locator('#formOcorrencia [type="submit"]').click()
+    pw.expect(page.locator('[data-coluna="aberta"] [data-oc]')).to_have_count(2)
+    assert ('/ocorrencias', {'fazenda_id': 2, 'equipamento_id': None, 'titulo': 'Cerca quebrada', 'descricao': ''}) in state['posts']
+    assert not state['errors']
+
+
+def test_ocorrencias_sem_migracao_avisa(painel):
+    page, state = painel
+    page.route('**/ocorrencias', lambda r: r.fulfill(status=409, json={'erro': 'migracao_pendente'}))
+    nav(page, 'ocorrencias')
+    pw.expect(page.locator('#ocAviso')).to_contain_text('mapa_ocorrencias.sql')
     assert not state['errors']

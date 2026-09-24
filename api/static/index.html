@@ -153,6 +153,12 @@
   #mapaCarteira .leaflet-popup-content-wrapper{border-radius:.6rem}
   .campo-coord{width:100%;height:2.25rem;margin-top:.25rem;padding:0 .6rem;border:1px solid var(--v-borda);border-radius:.5rem;background:var(--v-card);color:var(--v-texto);outline:none}
   .campo-coord:focus{border-color:var(--v-borda-forte);box-shadow:0 0 0 3px rgba(183,1,0,.15)}
+  .oc-coluna{background:var(--v-suave);border:1px solid var(--v-borda);border-radius:.75rem;padding:.75rem;min-height:8rem}
+  .oc-card{background:var(--v-card);border:1px solid var(--v-borda);border-radius:.6rem;padding:.75rem}
+  .oc-card + .oc-card{margin-top:.5rem}
+  .oc-mover{display:inline-flex;align-items:center;gap:.25rem;height:1.75rem;padding:0 .55rem;border:1px solid var(--v-borda);border-radius:.4rem;font-size:12px;font-weight:500;color:var(--v-texto-sec);background:var(--v-card);transition:background-color 150ms ease}
+  .oc-mover .material-symbols-outlined{font-size:15px}
+  @media (hover:hover) and (pointer:fine){ .oc-mover:hover{background:var(--v-hover)} }
   .g-linha{display:flex;align-items:center;gap:.75rem;width:100%;text-align:left;padding:.7rem .5rem;border-radius:.5rem;transition:background-color 150ms ease}
   @media (hover:hover) and (pointer:fine){ .g-linha:hover{background:var(--v-hover)} }
   .g-linha:focus-visible{outline:2px solid rgba(183,1,0,.4);outline-offset:-2px}
@@ -235,7 +241,7 @@
   @supports (appearance: base-select){
     select, ::picker(select){ appearance: base-select !important; }
     /* base-select torna o select um flex: sem isto o texto do header quebra em duas linhas */
-    select{ font: inherit; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    select{ font: inherit; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; align-items:center; }
     select::select-fallback-button-text, select selectedcontent{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
     select::picker-icon{ font-family:'Material Symbols Outlined'; content:'expand_more'; font-size:18px; color:var(--v-texto2); transition:rotate .2s ease; }
     select:open::picker-icon{ rotate:180deg; }
@@ -290,6 +296,7 @@
     <div class="sb-txt px-2.5 pt-4 pb-1.5 text-xs font-medium text-on-surface-variant">Operação</div>
       <a href="#" data-nav="operadores" title="Operadores" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">badge</span><span class="sb-txt">Operadores</span></a>
       <a href="#" data-nav="historico" title="Histórico" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">history</span><span class="sb-txt">Histórico</span></a>
+      <a href="#" data-nav="ocorrencias" title="Ocorrências" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">assignment_late</span><span class="sb-txt">Ocorrências</span><span data-contador-ocorr hidden class="sb-txt ml-auto min-w-[1.25rem] h-5 px-1.5 rounded-full bg-primary text-on-primary text-[11px] font-semibold grid place-items-center tabular"></span></a>
       <a href="#" data-nav="manutencao" title="Manutenção" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">build</span><span class="sb-txt">Manutenção</span></a>
     <div data-rotulo-cadastros class="sb-txt px-2.5 pt-4 pb-1.5 text-xs font-medium text-on-surface-variant">Cadastros</div>
       <a href="#" data-nav="fazendas" title="Fazendas" class="flex items-center gap-2.5 h-9 px-2.5 rounded-lg text-[13.5px] transition-colors"><span class="material-symbols-outlined text-[20px]">landscape</span><span class="sb-txt">Fazendas</span></a>
@@ -364,6 +371,7 @@
     <a href="#" data-nav="exposicao"  class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Exposição</a>
     <a href="#" data-nav="operadores" class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Operadores</a>
     <a href="#" data-nav="historico"  class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Histórico</a>
+    <a href="#" data-nav="ocorrencias" class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors inline-flex items-center gap-1.5">Ocorrências<span data-contador-ocorr hidden class="min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-primary text-on-primary text-[10px] grid place-items-center tabular"></span></a>
     <a href="#" data-nav="manutencao" class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Manutenção</a>
     <a href="#" data-nav="fazendas"   class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Fazendas</a>
     <a href="#" data-nav="clientes"   class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold transition-colors">Clientes</a>
@@ -766,6 +774,28 @@
         <div id="listaOperadores"></div>
       </section>
 
+      <!-- OCORRENCIAS -->
+      <section data-section="ocorrencias">
+        <div class="flex items-center justify-between gap-3 flex-wrap mb-4">
+          <p id="ocResumo" class="text-sm text-on-surface-variant"></p>
+          <div class="flex items-center gap-2 flex-wrap">
+            <select id="ocFazenda" aria-label="Filtrar por fazenda" class="h-9 bg-surface-container-lowest border border-outline-variant rounded-lg px-3 outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"></select>
+            <div class="relative"><span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant pointer-events-none">search</span><input type="search" data-busca="quadroOcorrencias" placeholder="Buscar ocorrência…" aria-label="Buscar ocorrência" class="busca"/></div>
+            <button id="btnNovaOcorrencia" type="button" class="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-outline-variant bg-surface-container-lowest font-medium hover:bg-surface-container transition-colors"><span class="material-symbols-outlined text-[18px]" aria-hidden="true">add</span>Nova ocorrência</button>
+          </div>
+        </div>
+        <div id="ocAviso"></div>
+        <form id="formOcorrencia" hidden class="bg-surface-container-lowest rounded-xl border border-outline-variant p-5 mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <h3 class="md:col-span-2 font-semibold text-on-surface">Nova ocorrência</h3>
+          <div id="ocFazendaFormWrap"><label class="block text-xs font-semibold text-on-surface-variant mb-1" for="ocFazendaForm">Fazenda *</label><select id="ocFazendaForm" class="w-full h-10 bg-surface-container-lowest border border-outline-variant rounded-lg px-3 outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"></select></div>
+          <div><label class="block text-xs font-semibold text-on-surface-variant mb-1" for="ocMaquina">Máquina</label><select id="ocMaquina" class="w-full h-10 bg-surface-container-lowest border border-outline-variant rounded-lg px-3 outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"><option value="">Nenhuma (relato geral)</option></select></div>
+          <div class="md:col-span-2"><label class="block text-xs font-semibold text-on-surface-variant mb-1" for="ocTitulo">Título *</label><input id="ocTitulo" required maxlength="200" class="w-full h-10 bg-surface-container-lowest border border-outline-variant rounded-lg px-3 outline-none focus:ring-2 focus:ring-primary/20" placeholder="Ex.: Cerca da divisa norte quebrada"/></div>
+          <div class="md:col-span-2"><label class="block text-xs font-semibold text-on-surface-variant mb-1" for="ocDescricao">Descrição</label><textarea id="ocDescricao" rows="3" maxlength="2000" class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20"></textarea></div>
+          <div class="md:col-span-2 flex items-center gap-3 flex-wrap"><button type="submit" class="h-9 px-4 rounded-lg bg-primary text-on-primary font-medium hover:bg-on-primary-fixed-variant transition-colors">Abrir ocorrência</button><button type="button" id="ocCancelar" class="h-9 px-3 font-medium text-on-surface-variant">Cancelar</button><span id="ocFormMsg" role="status" class="text-[13px]"></span></div>
+        </form>
+        <div id="quadroOcorrencias" class="grid grid-cols-1 lg:grid-cols-3 gap-4"></div>
+      </section>
+
       <!-- EXPOSICAO FINANCEIRA -->
       <section data-section="exposicao">
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
@@ -971,6 +1001,7 @@
       </button>
     </div>
     <dl id="mevCorpo" class="text-sm"></dl>
+    <div id="mevAcoes" class="mt-4 pt-4 border-t border-outline-variant"></div>
   </div>
 </div>
 
@@ -1051,12 +1082,13 @@ const DESCRICOES = {
   exposicao:'Quanto está segurado e quanto está em máquinas com risco alto.',
   operadores:'Crachás RFID autorizados a operar as máquinas.',
   historico:'Sessões de operação registradas pelo crachá.',
+  ocorrencias:'Alertas que viraram tarefa: quem verifica e em que pé está.',
   manutencao:'Próxima manutenção de cada máquina, da mais urgente para a mais tranquila.',
   fazendas:'Propriedades monitoradas e o cliente dono de cada uma.',
   clientes:'Empresas donas das fazendas monitoradas.',
   usuarios:'Quem acessa o painel e com qual perfil.',
 };
-const TITULOS = {inicio:'Início', maquinas:'Máquinas', visao:'Painel da máquina', exposicao:'Exposição financeira', operadores:'Operadores', historico:'Histórico', manutencao:'Manutenção', fazendas:'Fazendas', clientes:'Clientes', usuarios:'Usuários'};
+const TITULOS = {inicio:'Início', maquinas:'Máquinas', visao:'Painel da máquina', exposicao:'Exposição financeira', operadores:'Operadores', historico:'Histórico', ocorrencias:'Ocorrências', manutencao:'Manutenção', fazendas:'Fazendas', clientes:'Clientes', usuarios:'Usuários'};
 // Para cada view, quais seções aparecem e com qual largura (colunas de 12).
 const VIEWS = {
   inicio:     {inicio:12},
@@ -1064,6 +1096,7 @@ const VIEWS = {
   maquinas:   {maquinas:12},
   operadores: {operadores:12},
   historico:  {historico:12},
+  ocorrencias:{ocorrencias:12},
   manutencao: {manutencao:12},
   exposicao:  {exposicao:12},
   fazendas:   {fazendas:12},
@@ -1110,7 +1143,7 @@ function setView(view){
   $('inicioCarteira').hidden = perfilRole === 'gestor_fazenda';
   $('inicioGestor').hidden = perfilRole !== 'gestor_fazenda';
   // Cadastros nao dependem de fazenda/maquina: a barra de contexto some.
-  $('barraContexto').hidden = ['inicio','manutencao','exposicao','fazendas','clientes','usuarios'].includes(view);
+  $('barraContexto').hidden = ['inicio','ocorrencias','manutencao','exposicao','fazendas','clientes','usuarios'].includes(view);
   document.querySelectorAll('[data-rotulo-cadastros]').forEach(el => { el.hidden = perfilRole !== 'sompo'; });
   document.querySelectorAll('[data-nav]').forEach(a => { a.hidden = restrita(a.dataset.nav); });
   $('semMaquina').hidden = !dependeMaquina(view) || !!equipamentoSelecionado;
@@ -1565,6 +1598,210 @@ async function carregarCarteira(){
   const resumos = await Promise.all(fs.map(f => getJSON(`/fazendas/${f.id_fazenda}/resumo?dias=7`).catch(() => null)));
   return {fazendas: fs, resumos};
 }
+
+/* ---------- Ocorrencias ---------- */
+const STATUS_OC = {aberta: ['Aberta', '#ba1a1a'], em_verificacao: ['Em verificação', '#d97706'], resolvida: ['Resolvida', '#10b981']};
+// Botoes "mover para": cada status leva aos outros dois, na ordem natural do fluxo.
+const MOVER_OC = {aberta: [['em_verificacao', 'Verificar', 'arrow_forward'], ['resolvida', 'Resolver', 'check']],
+                  em_verificacao: [['aberta', 'Reabrir', 'undo'], ['resolvida', 'Resolver', 'check']],
+                  resolvida: [['aberta', 'Reabrir', 'undo']]};
+const RESOLVIDAS_VISIVEIS = 15;
+let ocorrenciasCache = [], contadorOcorrEm = 0;
+const MSG_MIGRACAO = 'O banco ainda não tem a tabela de ocorrências: rode firmware/sql/mapa_ocorrencias.sql no Supabase.';
+function mostrarContadorOcorrencias(lista){
+  const n = lista.filter(o => o.status !== 'resolvida').length;
+  document.querySelectorAll('[data-contador-ocorr]').forEach(el => { el.textContent = n; el.hidden = !n; });
+}
+async function atualizarContadorOcorrencias(){
+  contadorOcorrEm = Date.now();
+  try{ mostrarContadorOcorrencias((await getJSON('/ocorrencias')).dados || []); }
+  catch(e){ /* sem tabela ou sem conexao: o contador so some */ document.querySelectorAll('[data-contador-ocorr]').forEach(el => { el.hidden = true; }); }
+}
+async function enviarOcorrencia(url, metodo, corpo){
+  const r = await fetch(url, {method: metodo, headers: {'Content-Type': 'application/json', Accept: 'application/json'}, body: JSON.stringify(corpo)});
+  const d = await r.json().catch(() => ({}));
+  return {ok: r.ok, status: r.status, ...d};
+}
+function opcoesFazendaOc(){
+  if(perfilRole === 'gestor_fazenda'){ $('ocFazenda').hidden = true; $('ocFazendaFormWrap').hidden = true; return; }
+  const atual = $('ocFazenda').value;
+  $('ocFazenda').innerHTML = '<option value="">Todas as fazendas</option>' + fazendasCache.map(f => `<option value="${f.id_fazenda}">${escapar(f.nome)}</option>`).join('');
+  $('ocFazenda').value = fazendasCache.some(f => String(f.id_fazenda) === atual) ? atual : '';
+}
+async function carregarOcorrencias(){
+  opcoesFazendaOc();
+  const faz = $('ocFazenda').value;
+  try{
+    const d = await getJSON('/ocorrencias' + (faz ? `?fazenda=${encodeURIComponent(faz)}` : ''));
+    $('ocAviso').innerHTML = '';
+    ocorrenciasCache = d.dados || [];
+    contadorOcorrEm = Date.now();
+    if(!faz) mostrarContadorOcorrencias(ocorrenciasCache);
+    renderizarQuadro();
+  }catch(e){ if(e.obsoleto) return;
+    const semTabela = /409/.test(e.message);
+    $('ocAviso').innerHTML = `<p role="alert" class="mb-4 px-4 py-3 rounded-lg border border-error/30 bg-error/10 text-error text-sm">${semTabela ? MSG_MIGRACAO : 'Ocorrências indisponíveis agora. <button data-tentar class="underline font-semibold">Tentar novamente</button>'}</p>`;
+    $('quadroOcorrencias').innerHTML = '';
+  }
+}
+function renderizarQuadro(){
+  const lista = ocorrenciasCache;
+  const conta = st => lista.filter(o => o.status === st).length;
+  $('ocResumo').textContent = `${conta('aberta')} ${conta('aberta') === 1 ? 'aberta' : 'abertas'} · ${conta('em_verificacao')} em verificação · ${conta('resolvida')} ${conta('resolvida') === 1 ? 'resolvida' : 'resolvidas'}`;
+  const card = o => {
+    const [, cor] = STATUS_OC[o.status] || STATUS_OC.aberta;
+    const quando = o.status === 'resolvida' && o.resolvido_em ? `resolvida ${fmtRelativo(o.resolvido_em)}` : `aberta ${fmtRelativo(o.criado_em)}`;
+    return `<article data-linha data-oc="${o.id_ocorrencia}" class="oc-card">
+      <button type="button" data-abrir-oc="${o.id_ocorrencia}" class="w-full text-left flex items-start gap-2.5" title="Ver detalhes">
+        <span class="w-7 h-7 rounded-full grid place-items-center shrink-0" style="background:${cor}1a"><span class="material-symbols-outlined text-[16px]" style="color:${cor}">${o.tipo ? iconeEvento(o.tipo) : 'edit_note'}</span></span>
+        <span class="min-w-0 flex-1"><span class="block font-medium text-[13.5px] text-on-surface truncate">${escapar(o.titulo)}</span>
+          <span class="block text-xs text-on-surface-variant truncate">${escapar(o.equipamento_nome || 'Sem máquina')}${o.fazenda_nome && perfilRole !== 'gestor_fazenda' ? ' · ' + escapar(o.fazenda_nome) : ''}</span></span>
+      </button>
+      <div class="flex items-center justify-between gap-2 mt-2.5 text-xs text-on-surface-variant">
+        <span>${quando}</span><span class="truncate inline-flex items-center gap-1"><span class="material-symbols-outlined text-[14px]" aria-hidden="true">person</span>${escapar(o.responsavel_nome || 'Sem responsável')}</span>
+      </div>
+      <div class="flex flex-wrap gap-1.5 mt-2.5">${(MOVER_OC[o.status] || []).map(([st, rotulo, icone]) =>
+        `<button type="button" class="oc-mover" data-mover="${st}" title="Mover para ${STATUS_OC[st][0]}"><span class="material-symbols-outlined" aria-hidden="true">${icone}</span>${rotulo}</button>`).join('')}</div>
+    </article>`;
+  };
+  const html = Object.entries(STATUS_OC).map(([st, [nome, cor]]) => {
+    let itens = lista.filter(o => o.status === st);
+    const escondidas = st === 'resolvida' ? Math.max(0, itens.length - RESOLVIDAS_VISIVEIS) : 0;
+    if(escondidas) itens = itens.slice(0, RESOLVIDAS_VISIVEIS);
+    return `<div data-coluna="${st}" class="oc-coluna">
+      <div class="flex items-center gap-2 px-1 pb-2.5 text-sm font-semibold text-on-surface"><span class="w-2 h-2 rounded-full" style="background:${cor}"></span>${nome}<span class="ml-auto text-xs font-medium text-on-surface-variant tabular">${lista.filter(o => o.status === st).length}</span></div>
+      ${itens.length ? itens.map(card).join('') : `<p class="text-xs text-on-surface-variant italic px-1 py-2">${st === 'aberta' ? 'Nada aberto. Alertas viram ocorrência pelo detalhe do alerta.' : 'Nada aqui.'}</p>`}
+      ${escondidas ? `<p class="text-xs text-on-surface-variant px-1 pt-2">E mais ${escondidas} resolvidas antes destas.</p>` : ''}
+    </div>`;
+  }).join('');
+  renderLista('quadroOcorrencias', '<div class="contents" data-render></div>' + html);
+}
+$('ocFazenda').addEventListener('change', carregarOcorrencias);
+$('quadroOcorrencias').addEventListener('click', async e => {
+  const mover = e.target.closest('[data-mover]');
+  if(mover){
+    const id = mover.closest('[data-oc]').dataset.oc;
+    mover.disabled = true;
+    const r = await enviarOcorrencia(`/ocorrencias/${id}`, 'PATCH', {status: mover.dataset.mover}).catch(() => ({ok: false}));
+    if(!r.ok){
+      $('cadastroAviso').textContent = r.erro === 'migracao_pendente' ? MSG_MIGRACAO : 'Não foi possível mover a ocorrência agora.';
+      $('cadastroAviso').classList.remove('hidden');
+      setTimeout(() => $('cadastroAviso').classList.add('hidden'), 5000);
+    }
+    await carregarOcorrencias();
+    return;
+  }
+  const abrir = e.target.closest('[data-abrir-oc]');
+  if(abrir) abrirOcorrencia(ocorrenciasCache.find(o => String(o.id_ocorrencia) === abrir.dataset.abrirOc));
+});
+async function abrirOcorrencia(o){
+  if(!o) return;
+  const [nomeSt] = STATUS_OC[o.status] || STATUS_OC.aberta;
+  const html = linhaDet('Situação', nomeSt) + linhaDet('Máquina', escapar(o.equipamento_nome || 'Sem máquina'))
+    + linhaDet('Fazenda', escapar(o.fazenda_nome || '–')) + (o.tipo ? linhaDet('Tipo de alerta', escapar(nomeTipo(o.tipo))) : '')
+    + linhaDet('Aberta em', `${fmtHora(o.criado_em)}${o.criado_por ? ' · ' + escapar(o.criado_por) : ''}`)
+    + (o.resolvido_em ? linhaDet('Resolvida em', fmtHora(o.resolvido_em)) : '')
+    + (o.descricao ? `<p class="mt-3 text-sm text-on-surface whitespace-pre-line">${escapar(o.descricao)}</p>` : '')
+    + `<div class="mt-5 pt-4 border-t border-outline-variant grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <label class="text-xs font-medium text-on-surface-variant">Situação<select id="ocStatus" class="campo-coord cursor-pointer">${Object.entries(STATUS_OC).map(([st, [n]]) => `<option value="${st}"${st === o.status ? ' selected' : ''}>${n}</option>`).join('')}</select></label>
+        <label class="text-xs font-medium text-on-surface-variant">Responsável<select id="ocResponsavel" class="campo-coord cursor-pointer"><option value="">Sem responsável</option></select></label>
+        <label class="sm:col-span-2 text-xs font-medium text-on-surface-variant">Nota<textarea id="ocNota" rows="3" maxlength="2000" class="campo-coord !h-auto py-2">${escapar(o.nota || '')}</textarea></label>
+      </div>
+      <div class="flex flex-wrap items-center gap-2 mt-3">
+        <button type="button" data-salvar-oc="${o.id_ocorrencia}" class="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-primary text-on-primary font-medium hover:bg-on-primary-fixed-variant transition-colors">Salvar</button>
+        ${o.equipamento_id ? `<button type="button" data-ver-maquina-oc="${o.id_ocorrencia}" class="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-outline-variant font-medium hover:bg-surface-container transition-colors"><span class="material-symbols-outlined text-[18px]" aria-hidden="true">dashboard</span>Ver no painel</button>` : ''}
+        <span id="ocMsg" role="status" class="text-xs"></span>
+      </div>`;
+  abrirDetalhe(o.titulo, 'assignment_late', html);
+  try{
+    const d = await getJSON(`/ocorrencias/responsaveis?fazenda=${o.fazenda_id}`);
+    const sel = $('ocResponsavel'); if(!sel) return;
+    sel.insertAdjacentHTML('beforeend', (d.dados || []).map(u => `<option value="${u.id_usuario}">${escapar(u.usuario)}${u.role === 'sompo' ? ' (Sompo)' : ''}</option>`).join(''));
+    sel.value = o.responsavel_id == null ? '' : String(o.responsavel_id);
+  }catch(e){ /* sem a lista, fica so "Sem responsavel" */ }
+}
+async function salvarOcorrencia(id){
+  const msg = $('ocMsg');
+  const resp = $('ocResponsavel').value;
+  msg.style.color = 'var(--v-texto2)'; msg.textContent = 'Salvando…';
+  const r = await enviarOcorrencia(`/ocorrencias/${id}`, 'PATCH', {status: $('ocStatus').value, responsavel_id: resp ? Number(resp) : null, nota: $('ocNota').value})
+    .catch(() => ({ok: false}));
+  msg.style.color = r.ok ? 'rgb(var(--c-ok))' : 'rgb(var(--c-error))';
+  msg.textContent = r.ok ? 'Ocorrência salva.' : r.erro === 'migracao_pendente' ? MSG_MIGRACAO : r.erro === 'responsavel_invalido' ? 'Esse responsável não pode assumir esta fazenda.' : 'Não foi possível salvar agora.';
+  if(r.ok) carregarOcorrencias();
+}
+async function verMaquinaDaOcorrencia(id){
+  const o = ocorrenciasCache.find(x => String(x.id_ocorrencia) === String(id)); if(!o) return;
+  fecharDetalhe();
+  if(perfilRole === 'sompo' && String(fazendaSelecionada) !== String(o.fazenda_id)){ setView('maquinas'); await trocarFazenda(o.fazenda_id); }
+  else if(!maquinasCache.length) await carregarResumoFazenda();
+  await selecionarMaquina(o.equipamento_id, 'visao');
+  irPara('secAlertas');
+}
+// Relato manual (sem alerta): fazenda (Sompo escolhe), maquina opcional, titulo e descricao.
+async function preencherMaquinasOc(){
+  const faz = perfilRole === 'gestor_fazenda' ? fazendaSelecionada : $('ocFazendaForm').value;
+  $('ocMaquina').innerHTML = '<option value="">Nenhuma (relato geral)</option>';
+  if(!faz) return;
+  try{
+    const d = await getJSON(`/fazendas/${faz}/resumo?dias=7`);
+    $('ocMaquina').insertAdjacentHTML('beforeend', (d.equipamentos || []).map(m => `<option value="${m.id_equipamento}">${escapar(m.nome)}</option>`).join(''));
+  }catch(e){ /* sem a lista, vale o relato geral */ }
+}
+$('btnNovaOcorrencia').addEventListener('click', () => {
+  const f = $('formOcorrencia');
+  f.reset(); $('ocFormMsg').textContent = ''; f.hidden = false;
+  if(perfilRole !== 'gestor_fazenda'){
+    $('ocFazendaForm').innerHTML = fazendasCache.map(x => `<option value="${x.id_fazenda}">${escapar(x.nome)}</option>`).join('');
+    $('ocFazendaForm').value = $('ocFazenda').value || String(fazendaSelecionada || fazendasCache[0]?.id_fazenda || '');
+  }
+  preencherMaquinasOc();
+  $('ocTitulo').focus();
+});
+$('ocFazendaForm').addEventListener('change', preencherMaquinasOc);
+$('ocCancelar').addEventListener('click', () => { $('formOcorrencia').hidden = true; });
+$('formOcorrencia').addEventListener('submit', async e => {
+  e.preventDefault();
+  const faz = perfilRole === 'gestor_fazenda' ? fazendaSelecionada : $('ocFazendaForm').value;
+  const maq = $('ocMaquina').value;
+  const msg = $('ocFormMsg');
+  msg.style.color = 'var(--v-texto2)'; msg.textContent = 'Salvando…';
+  const r = await enviarOcorrencia('/ocorrencias', 'POST', {fazenda_id: Number(faz), equipamento_id: maq ? Number(maq) : null,
+                                                           titulo: $('ocTitulo').value.trim(), descricao: $('ocDescricao').value.trim()})
+    .catch(() => ({ok: false}));
+  if(!r.ok){
+    msg.style.color = 'rgb(var(--c-error))';
+    msg.textContent = r.erro === 'migracao_pendente' ? MSG_MIGRACAO : r.erro === 'titulo_obrigatorio' ? 'Dê um título à ocorrência.' : 'Não foi possível abrir agora.';
+    return;
+  }
+  $('formOcorrencia').hidden = true;
+  await carregarOcorrencias();
+});
+// No detalhe do alerta: abrir a ocorrencia daquele alerta.
+function acoesDoAlerta(e){
+  const pode = e && e.id != null && (e.equipamento_id || equipamentoSelecionado);
+  $('mevAcoes').hidden = !pode;
+  if(!pode) return;
+  $('mevAcoes').innerHTML = `<div class="flex flex-wrap items-center gap-2">
+    <button type="button" data-abrir-ocorrencia class="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-primary text-on-primary font-medium hover:bg-on-primary-fixed-variant transition-colors"><span class="material-symbols-outlined text-[18px]" aria-hidden="true">assignment_late</span>Abrir ocorrência</button>
+    <span id="mevMsg" role="status" class="text-xs"></span></div>`;
+  $('mevAcoes').querySelector('[data-abrir-ocorrencia]').addEventListener('click', async ev => {
+    const b = ev.currentTarget, msg = $('mevMsg');
+    b.disabled = true; msg.style.color = 'var(--v-texto2)'; msg.textContent = 'Abrindo…';
+    const r = await enviarOcorrencia('/ocorrencias', 'POST', {equipamento_id: Number(e.equipamento_id || equipamentoSelecionado), evento_id: e.id,
+                                                             tipo: e.tipo, titulo: nomeTipo(e.tipo)}).catch(() => ({ok: false}));
+    const irOc = '<button type="button" data-ir-ocorrencias class="font-semibold text-primary underline underline-offset-2">Ver ocorrências</button>';
+    if(r.ok || r.erro === 'ocorrencia_ja_existe'){
+      msg.style.color = r.ok ? 'rgb(var(--c-ok))' : 'var(--v-texto2)';
+      msg.innerHTML = `${r.ok ? 'Ocorrência aberta.' : 'Este alerta já tem uma ocorrência.'} ${irOc}`;
+      contadorOcorrEm = 0;
+    } else {
+      b.disabled = false; msg.style.color = 'rgb(var(--c-error))';
+      msg.textContent = r.erro === 'migracao_pendente' ? MSG_MIGRACAO : 'Não foi possível abrir agora.';
+    }
+  });
+}
+$('mevAcoes').addEventListener('click', e => { if(e.target.closest('[data-ir-ocorrencias]')){ fecharEvento(); setView('ocorrencias'); carregarTudo(); } });
 
 /* ---------- Exposicao financeira ---------- */
 const BRL = new Intl.NumberFormat('pt-BR', {style:'currency', currency:'BRL'});
@@ -2644,6 +2881,7 @@ function abrirEvento(e){
     }
   }
   $('mevCorpo').innerHTML = html;
+  acoesDoAlerta(e);
   $('modalEvento').classList.remove('hidden');
 }
 const fecharEvento = ()=> $('modalEvento').classList.add('hidden');
@@ -3240,10 +3478,12 @@ async function carregarTudo(){
   return tarefa;
 }
 async function atualizarView(){
+  if(viewAtual !== 'ocorrencias' && Date.now() - contadorOcorrEm > 30000) atualizarContadorOcorrencias();
   if(viewAtual === 'inicio'){ await Promise.all([carregarSaude(), carregarInicio()]); $('ultima').textContent = new Date().toLocaleTimeString('pt-BR'); return; }
   if(viewAtual === 'maquinas'){ await Promise.all([carregarSaude(), carregarResumoFazenda()]); $('ultima').textContent = new Date().toLocaleTimeString('pt-BR'); return; }
   if(viewAtual === 'operadores'){ await Promise.all([carregarSaude(), carregarOperadores()]); $('ultima').textContent = new Date().toLocaleTimeString('pt-BR'); return; }
   if(viewAtual === 'historico'){ await Promise.all([carregarSaude(), carregarHistorico()]); $('ultima').textContent = new Date().toLocaleTimeString('pt-BR'); return; }
+  if(viewAtual === 'ocorrencias'){ await Promise.all([carregarSaude(), carregarOcorrencias()]); $('ultima').textContent = new Date().toLocaleTimeString('pt-BR'); return; }
   if(viewAtual === 'exposicao'){ await Promise.all([carregarSaude(), carregarExposicao()]); $('ultima').textContent = new Date().toLocaleTimeString('pt-BR'); return; }
   if(viewAtual === 'manutencao'){ await Promise.all([carregarSaude(), carregarManutencao()]); $('ultima').textContent = new Date().toLocaleTimeString('pt-BR'); return; }
   if(viewAtual === 'fazendas'){ await carregarFazendas(); return; }
@@ -3328,6 +3568,8 @@ $('detFechar').addEventListener('click', fecharDetalhe);
 $('modalDetalhe').addEventListener('click', e=>{ if(e.target === $('modalDetalhe')) fecharDetalhe(); });
 // "Ver telemetria" no modal da fazenda -> aponta o seletor e abre a Telemetria.
 $('detCorpo').addEventListener('click', async e=>{
+  const salvarOc = e.target.closest('[data-salvar-oc]'); if(salvarOc){ salvarOcorrencia(salvarOc.dataset.salvarOc); return; }
+  const verOc = e.target.closest('[data-ver-maquina-oc]'); if(verOc){ verMaquinaDaOcorrencia(verOc.dataset.verMaquinaOc); return; }
   const buscar = e.target.closest('[data-buscar-cidade]'); if(buscar){ buscarCidadeDaFazenda(buscar.dataset.buscarCidade); return; }
   const salvarCoord = e.target.closest('[data-salvar-coord]'); if(salvarCoord){ salvarLocalizacao(salvarCoord.dataset.salvarCoord); return; }
   const salvar=e.target.closest('[data-salvar-autorizacoes]'); if(salvar){ salvarAutorizacoes(salvar.dataset.salvarAutorizacoes); return; }
@@ -3488,7 +3730,7 @@ $('formUsuario').addEventListener('submit', criarUsuario);
 // Busca rapida (Ctrl+K): maquinas da fazenda, fazendas, telas e acoes.
 const semAcento = t => String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 const ICONE_TELA = {inicio:'home', maquinas:'agriculture', visao:'dashboard', exposicao:'payments',
-                    operadores:'badge', historico:'history', manutencao:'build', fazendas:'landscape', clientes:'group', usuarios:'manage_accounts'};
+                    operadores:'badge', historico:'history', ocorrencias:'assignment_late', manutencao:'build', fazendas:'landscape', clientes:'group', usuarios:'manage_accounts'};
 let paletaItens = [], paletaSel = 0;
 function itensPaleta(){
   const itens = [];
