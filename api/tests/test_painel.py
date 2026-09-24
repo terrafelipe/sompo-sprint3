@@ -706,4 +706,88 @@ def test_menu_em_gaveta_no_celular(painel):
     pw.expect(menu).to_be_focused()
     # O cabecalho cabe numa linha so.
     assert page.locator('header').bounding_box()['height'] <= 60
+    # Dentro da gaveta ha um botao de fechar (o do cabecalho fica sob o fundo, inerte).
+    menu.click()
+    page.locator('#btnFecharMenu').click()
+    pw.expect(page.locator('#sidebar')).to_be_hidden()
+    # Girar para desktop com a gaveta aberta nao pode deixar o painel inerte.
+    menu.click()
+    assert page.evaluate("document.getElementById('conteudo').inert") is True
+    page.set_viewport_size({'width': 1280, 'height': 900})
+    page.wait_for_timeout(300)
+    assert page.evaluate("document.getElementById('conteudo').inert") is False
     assert not state['errors']
+
+
+def test_atualizacao_pausa_sem_ninguem_olhando(painel):
+    page, state = painel
+    pedidos = []
+    page.on('request', lambda r: pedidos.append(r.url) if 'painel.test' in r.url and not r.url.endswith('/') else None)
+    page.clock.install()
+    # Aba escondida: nenhuma requisicao enquanto ninguem ve; ao voltar, atualiza na hora.
+    page.evaluate("""() => { Object.defineProperty(document, 'hidden', {configurable: true, get: () => true});
+                             document.dispatchEvent(new Event('visibilitychange')); }""")
+    pw.expect(page.locator('#vivoTxt')).to_have_text('Pausado')
+    pedidos.clear()
+    page.clock.fast_forward(30000)
+    page.wait_for_timeout(200)
+    assert pedidos == []
+    page.evaluate("""() => { Object.defineProperty(document, 'hidden', {configurable: true, get: () => false});
+                             document.dispatchEvent(new Event('visibilitychange')); }""")
+    pw.expect(page.locator('#vivoTxt')).to_have_text('Ao vivo')
+    page.wait_for_timeout(200)
+    assert pedidos, 'voltar para a aba deve atualizar na hora'
+    # 15 minutos sem interacao: pausa e oferece Retomar; mexer no painel volta a atualizar.
+    for _ in range(4):
+        page.clock.fast_forward(5 * 60 * 1000)
+    pw.expect(page.locator('#vivoTxt')).to_have_text('Pausado por inatividade')
+    pw.expect(page.locator('#vivoRetomar')).to_be_visible()
+    # Dado congelado nao pode parecer ao vivo: faixa avisa desde quando, e a promessa de nova tentativa some.
+    pw.expect(page.locator('#avisoPausa')).to_be_visible()
+    pw.expect(page.locator('#avisoPausa')).to_contain_text('desatualizados')
+    pw.expect(page.locator('#avisoConexaoRetry')).to_be_hidden()
+    assert page.locator('#vivoTxt').get_attribute('aria-live') == 'polite'
+    pedidos.clear()
+    page.clock.fast_forward(30000)
+    page.wait_for_timeout(200)
+    assert pedidos == []
+    # Qualquer interacao retoma (aqui, uma tecla) e atualiza na hora.
+    page.keyboard.press('Shift')
+    pw.expect(page.locator('#vivoTxt')).to_have_text('Ao vivo')
+    pw.expect(page.locator('#avisoPausa')).to_be_hidden()
+    page.wait_for_timeout(200)
+    assert pedidos
+    # O botao Retomar tambem. (Um clique real rolaria a pagina, e rolar ja retoma sozinho.)
+    for _ in range(4):
+        page.clock.fast_forward(5 * 60 * 1000)
+    pw.expect(page.locator('#vivoRetomar')).to_be_visible()
+    page.locator('#vivoRetomar').dispatch_event('click')
+    pw.expect(page.locator('#vivoTxt')).to_have_text('Ao vivo')
+    pw.expect(page.locator('#vivoRetomar')).to_be_hidden()
+    assert not state['errors']
+
+
+def test_detalhe_do_alerta_nao_executa_html_vindo_do_banco(painel):
+    page, state = painel
+    agora = datetime.now(timezone.utc).isoformat()
+    ataque = '<img src=x onerror="window.__xss=1">'
+    state['eventos'] = [dict(id=5, dispositivo_id=ataque, tipo='furto_capo', severidade=2, criado_em=agora,
+                             detalhes={ataque: ataque})]
+    page.select_option('#equipamentoSel', '1')
+    page.locator('#eventos [data-ev]').first.click()
+    pw.expect(page.locator('#mevCorpo')).to_contain_text('onerror')   # aparece como texto
+    page.wait_for_timeout(300)
+    assert page.evaluate('window.__xss') is None
+    assert page.locator('#mevCorpo img').count() == 0
+
+
+def test_salvar_ocorrencia_sem_mexer_no_responsavel_nao_o_apaga(painel):
+    page, state = painel
+    state['ocorrencias'] = [_ocorrencia(1, 'Capô aberto', 'aberta', responsavel_id=9, responsavel_nome='antigo.sompo')]
+    nav(page, 'ocorrencias')
+    page.locator('[data-oc="1"] [data-abrir-oc]').click()
+    pw.expect(page.locator('#ocResponsavel')).to_have_value('9')
+    page.locator('#ocNota').fill('Conferido')
+    page.locator('#detCorpo [data-salvar-oc]').click()
+    pw.expect(page.locator('#ocMsg')).to_contain_text('salva')
+    assert ('/ocorrencias/1', {'status': 'aberta', 'nota': 'Conferido'}) in state['posts']

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import functools
 import hmac
+import math
 import os
 import time
 from datetime import datetime, timedelta, timezone
@@ -522,6 +523,8 @@ def _coordenada(valor, limite):
     # None limpa a coordenada; qualquer outro valor precisa ser numero dentro do limite.
     if valor is None:
         return None
+    if isinstance(valor, bool):
+        raise ValueError(valor)
     numero = float(valor)
     if not -limite <= numero <= limite:
         raise ValueError(valor)
@@ -531,7 +534,8 @@ def _coordenada(valor, limite):
 @app.patch('/fazendas/<int:value>')
 @somente_sompo
 def fazendas_editar(value):
-    corpo = request.get_json(silent=True) or {}
+    corpo = request.get_json(silent=True)
+    corpo = corpo if isinstance(corpo, dict) else {}
     dados: Dict[str, Any] = {}
     if 'latitude' in corpo or 'longitude' in corpo:
         # O mapa precisa do par: latitude sem longitude (ou o contrario) nao posiciona nada.
@@ -550,9 +554,14 @@ def fazendas_editar(value):
             dados[campo] = texto
     if 'area_ha' in corpo:
         try:
-            dados['area_ha'] = float(corpo['area_ha'])
+            if isinstance(corpo['area_ha'], bool):
+                raise ValueError
+            area = float(corpo['area_ha'])
         except (TypeError, ValueError):
             return jsonify({'erro': 'area_invalida'}), 400
+        if not math.isfinite(area) or area < 0:
+            return jsonify({'erro': 'area_invalida'}), 400
+        dados['area_ha'] = area
     if not dados:
         return jsonify({'erro': 'nada_para_atualizar'}), 400
 

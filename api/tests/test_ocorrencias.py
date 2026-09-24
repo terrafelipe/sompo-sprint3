@@ -148,3 +148,37 @@ def test_sem_migracao_avisa(banco, monkeypatch):
     monkeypatch.setattr(db, 'consultar_tabela', sem_tabela)
     r = cliente().get('/ocorrencias')
     assert r.status_code == 409 and r.json['erro'] == 'migracao_pendente'
+
+
+def test_corrida_no_mesmo_alerta_vira_409(banco, monkeypatch):
+    # Duas abas ao mesmo tempo: a checagem passa nas duas e o indice unico barra a segunda.
+    def unico(tabela, dados):
+        raise RuntimeError('Erro ao inserir no Supabase: 409 - {"code":"23505","message":"duplicate key"}')
+    monkeypatch.setattr(db, 'inserir_tabela', unico)
+    r = cliente().post('/ocorrencias', json={'equipamento_id': 1, 'evento_id': 10, 'titulo': 'Capô'})
+    assert r.status_code == 409 and r.json['erro'] == 'ocorrencia_ja_existe'
+
+
+def test_corpo_que_nao_e_objeto_e_rejeitado(banco):
+    assert cliente().post('/ocorrencias', json=[1]).status_code == 400
+    assert cliente().post('/ocorrencias', json={'fazenda_id': 1, 'titulo': ['x']}).json['erro'] == 'dados_invalidos'
+    cliente().post('/ocorrencias', json={'fazenda_id': 1, 'titulo': 'Capô'})
+    assert cliente().patch('/ocorrencias/1', json='resolvida').json['erro'] == 'nada_para_atualizar'
+
+
+def test_tipo_errado_e_400_e_nao_apaga_o_dado(banco):
+    cliente().post('/ocorrencias', json={'fazenda_id': 1, 'titulo': 'Capô', 'descricao': 'Original'})
+    cliente().patch('/ocorrencias/1', json={'nota': 'Primeira nota'})
+    r = cliente().patch('/ocorrencias/1', json={'nota': 42})
+    assert r.status_code == 400 and r.json['erro'] == 'dados_invalidos'
+    assert banco['ocorrencias'][0]['nota'] == 'Primeira nota'
+    assert cliente().post('/ocorrencias', json={'fazenda_id': 1, 'titulo': 'x', 'descricao': {'a': 1}}).status_code == 400
+
+
+def test_codigo_de_erro_so_vale_no_campo_code(banco, monkeypatch):
+    # Um id de evento com "23505" na URL de um erro de rede nao pode virar "ja existe".
+    def fora_do_ar(tabela, dados):
+        raise RuntimeError('Max retries exceeded with url: /rest/v1/ocorrencias?evento_id=eq.123505')
+    monkeypatch.setattr(db, 'inserir_tabela', fora_do_ar)
+    r = cliente().post('/ocorrencias', json={'fazenda_id': 1, 'titulo': 'x'})
+    assert r.status_code == 502 and r.json['erro'] == 'ocorrencias_indisponiveis'

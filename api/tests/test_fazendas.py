@@ -172,3 +172,12 @@ def test_gestor_nao_edita_fazenda():
     with patch('app.atualizar_tabela') as mock:
         assert client.patch('/fazendas/5', json={'latitude': 1, 'longitude': 1}).status_code == 403
     mock.assert_not_called()
+
+
+def test_patch_fazenda_recusa_booleanos_area_invalida_e_corpo_que_nao_e_objeto():
+    for corpo, erro in [({'latitude': True, 'longitude': False}, 'latitude_invalida'),
+                        ({'area_ha': True}, 'area_invalida'), ({'area_ha': -5}, 'area_invalida'),
+                        ({'area_ha': 'nan'}, 'area_invalida'), ([1], 'nada_para_atualizar')]:
+        response, mock = _patch(corpo)
+        assert response.status_code == 400 and response.get_json()['erro'] == erro, corpo
+        mock.assert_not_called()

@@ -221,3 +221,14 @@ def test_resumo_traz_os_10_alertas_mais_recentes_da_fazenda(banco):
     assert [a['id'] for a in alertas[1:]] == list(range(11, 2, -1))
     assert alertas[1]['equipamento_id'] == 1 and alertas[1]['equipamento_nome'] == 'Trator A'
     assert alertas[2]['equipamento_id'] == 2 and alertas[2]['equipamento_nome'] == 'Trator B'
+
+
+def test_alertas_recentes_seguem_a_maquina_gravada_no_evento(banco):
+    # ESP-A mudou de fazenda: o evento antigo, gravado com a maquina 3 (Vale Verde), nao aparece
+    # em Santa Rita; o evento gravado com a maquina 2 vale mesmo vindo de outro dispositivo.
+    eventos = [{'id': 1, 'dispositivo_id': 'ESP-A', 'equipamento_id': 3, 'tipo': 'furto_capo', 'criado_em': '2026-09-20T10:00:00+00:00'},
+               {'id': 2, 'dispositivo_id': 'ESP-A', 'equipamento_id': 2, 'tipo': 'furto_capo', 'criado_em': '2026-09-20T11:00:00+00:00'},
+               {'id': 3, 'dispositivo_id': 'ESP-A', 'tipo': 'furto_capo', 'criado_em': '2026-09-20T12:00:00+00:00'}]
+    with patch('supabase_client.consultar_periodo', return_value=eventos):
+        alertas = gestor().get('/fazendas/1/resumo?dias=7').json['alertas_recentes']
+    assert [(a['id'], a['equipamento_id']) for a in alertas] == [(3, 1), (2, 2)]

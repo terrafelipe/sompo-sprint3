@@ -3,6 +3,8 @@
 Mesmo escopo da frota: a Sompo ve todas as fazendas; o gestor so a propria.
 A tabela vem de firmware/sql/mapa_ocorrencias.sql; sem ela, as rotas respondem 409.
 """
+import re
+
 from flask import Blueprint, current_app, jsonify, request, session
 
 import frota
@@ -13,6 +15,9 @@ bp = Blueprint('ocorrencias', __name__)
 STATUS = ('aberta', 'em_verificacao', 'resolvida')
 # Tabela ou coluna desconhecida no PostgREST = migracao ainda nao aplicada no Supabase.
 _SEM_MIGRACAO = ('PGRST205', 'PGRST204', '42P01')
+# inserir_tabela lanca RuntimeError com o corpo do PostgREST: o codigo vale so no campo "code"
+# (um id como 123505 numa URL de erro de rede nao pode passar por violacao de unicidade).
+_RE_CODIGO = re.compile(r'"code"\s*:\s*"([0-9A-Z]+)"')
 
 
 @bp.errorhandler(Exception)
@@ -20,8 +25,13 @@ def erro(exc):
     if isinstance(exc, frota.FrotaErro):
         return frota.erro_frota(exc)
     codigo = getattr(exc, 'codigo', '') or ''
-    if codigo in _SEM_MIGRACAO or any(c in str(exc) for c in _SEM_MIGRACAO):
+    if not codigo and (achado := _RE_CODIGO.search(str(exc))):
+        codigo = achado.group(1)
+    if codigo in _SEM_MIGRACAO:
         return jsonify(erro='migracao_pendente'), 409
+    if codigo == '23505':
+        # Duas abas abrindo o mesmo alerta ao mesmo tempo: o indice unico barra a segunda.
+        return jsonify(erro='ocorrencia_ja_existe'), 409
     if codigo in {'23514', '23503', '22P02'}:
         return jsonify(erro='dados_invalidos'), 400
     current_app.logger.warning('Ocorrencias indisponiveis: %s', exc)
@@ -29,7 +39,12 @@ def erro(exc):
 
 
 def _texto(valor, limite):
-    texto = str(valor or '').strip()
+    if valor is None:
+        return None
+    if not isinstance(valor, str):
+        # Tipo errado e erro do cliente: gravar null apagaria o que ja estava la sem aviso.
+        raise frota.FrotaErro('dados_invalidos')
+    texto = valor.strip()
     return texto[:limite] or None
 
 
@@ -48,6 +63,11 @@ def _responsaveis(fazenda_id):
                               select='id_usuario,usuario,role,fk_fazenda_id_fazenda', order='usuario.asc')
     return [r for r in rows if r.get('role') == 'sompo'
             or (r.get('role') == 'gestor_fazenda' and str(r.get('fk_fazenda_id_fazenda')) == str(fazenda_id))]
+
+
+def _corpo():
+    corpo = request.get_json(silent=True)
+    return corpo if isinstance(corpo, dict) else {}
 
 
 @bp.get('/ocorrencias')
@@ -86,7 +106,7 @@ def responsaveis():
 @bp.post('/ocorrencias')
 def criar():
     frota.papel()
-    corpo = request.get_json(silent=True) or {}
+    corpo = _corpo()
     maquina = None
     if corpo.get('equipamento_id') not in (None, ''):
         maquina = frota.equipamento(corpo['equipamento_id'])   # autoriza pela fazenda da maquina
@@ -123,7 +143,7 @@ def editar(value):
     frota.papel()
     ocorrencia = frota.obter('ocorrencias', 'id_ocorrencia', value)
     frota.autorizar_fazenda(ocorrencia['fazenda_id'])
-    corpo = request.get_json(silent=True) or {}
+    corpo = _corpo()
     dados = {}
     if 'status' in corpo:
         if corpo['status'] not in STATUS:
