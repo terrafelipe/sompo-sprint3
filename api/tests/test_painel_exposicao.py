@@ -129,26 +129,80 @@ def test_cartao_sem_valor_com_todas_informadas(painel):
     pw.expect(page.locator('#xSemValorSub')).to_have_text('Todas as máquinas têm valor segurado no cadastro.')
 
 
-ANIMS_EXPO = """() => [...document.querySelectorAll('#xFaixas [data-faixa], #listaExposicao [data-barra], #xTotal, #xAlto')]
-    .filter(el => el.getAnimations().length > 0).length"""
+CONTAR_ANIMS = """() => { window._animsExpo = 0; const orig = Element.prototype.animate;
+    Element.prototype.animate = function(...a){
+      if(this.matches('#xFaixas [data-faixa], #listaExposicao [data-barra], #xTotal, #xAlto')) window._animsExpo++;
+      return orig.apply(this, a); }; }"""
+TOCANDO = """() => [...document.querySelectorAll('#xFaixas [data-faixa], #listaExposicao [data-barra]')]
+    .filter(el => el.getAnimations().some(a => a.playState === 'running')).length"""
 
 
-def test_voltar_para_exposicao_nao_reanima(painel):
+def _abrir_guardando_carteira(page, state):
+    """Abre a Exposicao e devolve a resposta de /carteira (para liberar depois uma carga segurada)."""
+    with page.expect_response('**/carteira*') as resp:
+        _abrir(page, state)
+    return resp.value.json()
+
+
+def test_voltar_para_exposicao_aparece_na_hora_e_anima(painel):
     page, state = painel
     # Conta toda animacao criada nos elementos da Exposicao (mais robusto que olhar so o instante).
-    page.evaluate("""() => { window._animsExpo = 0; const orig = Element.prototype.animate;
-        Element.prototype.animate = function(...a){
-          if(this.matches('#xFaixas [data-faixa], #listaExposicao [data-barra], #xTotal, #xAlto')) window._animsExpo++;
-          return orig.apply(this, a); }; }""")
-    _abrir(page, state)
+    page.evaluate(CONTAR_ANIMS)
+    carteira = _abrir_guardando_carteira(page, state)
     assert page.evaluate('window._animsExpo') > 0   # a primeira pintura anima
-    page.evaluate('window._animsExpo = 0')
+    total = page.locator('#xTotal').inner_text()
     nav(page, 'maquinas')
+    page.wait_for_load_state('networkidle')
+    # A carga da Exposicao fica presa: o que aparece vem do que ja estava em memoria.
+    state['hold'] = '/carteira'
+    page.evaluate('window._animsExpo = 0')
     nav(page, 'exposicao')
-    page.wait_for_load_state('networkidle')
-    page.evaluate('carregarExposicao()')
-    page.wait_for_load_state('networkidle')
-    assert page.evaluate(ANIMS_EXPO) == 0
-    assert page.evaluate('window._animsExpo') == 0
     pw.expect(page.locator('#listaExposicao [data-linha]')).to_have_count(2)
+    pw.expect(page.locator('#xTotal')).to_have_text(total)
+    assert 'Carregando' not in page.locator('[data-section="exposicao"]').inner_text()
+    # A animacao de entrada toca sem esperar a rede.
+    assert page.evaluate('window._animsExpo') > 0
+    assert page.evaluate(TOCANDO) > 0
+    assert state['held']
+    # A carga em segundo plano chega com os mesmos dados: nao redesenha nem reanima de novo.
+    page.evaluate('window._animsExpo = 0')
+    page.evaluate("document.querySelector('#listaExposicao [data-linha]').dataset.marca = '1'")
+    state['hold'] = None
+    for r in state['held']:
+        r.fulfill(json=carteira)
+    page.wait_for_load_state('networkidle')
+    page.wait_for_timeout(100)
+    assert page.evaluate('window._animsExpo') == 0
+    assert page.evaluate("document.querySelector('#listaExposicao [data-linha]').dataset.marca") == '1'
     assert not state['errors']
+
+
+def test_cada_entrada_na_exposicao_reanima(painel):
+    page, state = painel
+    page.evaluate(CONTAR_ANIMS)
+    _abrir(page, state)
+    for _ in range(2):
+        nav(page, 'maquinas')
+        page.wait_for_load_state('networkidle')
+        page.evaluate('window._animsExpo = 0')
+        nav(page, 'exposicao')
+        assert page.evaluate('window._animsExpo') > 0
+        page.wait_for_load_state('networkidle')
+
+
+def test_refresh_de_5s_na_exposicao_nao_reanima(painel):
+    page, state = painel
+    page.evaluate(CONTAR_ANIMS)
+    _abrir(page, state)
+    # O relogio do painel passa a usar o relogio falso do teste.
+    page.clock.install()
+    page.evaluate("pausar('teste'); retomar()")
+    page.wait_for_load_state('networkidle')
+    page.evaluate('window._animsExpo = 0')
+    page.evaluate("document.querySelector('#xFaixas [data-faixa]').dataset.marca = '1'")
+    with page.expect_request('**/carteira*'):
+        page.clock.run_for(5100)
+    page.wait_for_load_state('networkidle')
+    assert page.evaluate('window._animsExpo') == 0
+    assert page.evaluate("document.querySelector('#xFaixas [data-faixa]').dataset.marca") == '1'
+    pw.expect(page.locator('#listaExposicao [data-linha]')).to_have_count(2)
