@@ -3410,6 +3410,7 @@ function abrirFazenda(f){
   let html = linhaDet('Fazenda', f.nome || '—')
            + linhaDet('Localização', f.localizacao || '—')
            + linhaDet('Área', fmtArea(f.area_ha) || '—')
+           + linhaDet('Gestor responsável', nomesGestores(f) || 'Sem gestor')
            + linhaDet('Dono', dono.nome || '—')
            + (dono.cnpj ? linhaDet('CNPJ do dono', dono.cnpj) : '')
            + (dono.telefone ? linhaDet('Telefone', dono.telefone) : '')
@@ -3490,6 +3491,8 @@ async function carregarClientes(){
 }
 
 const fmtArea = a => (a==null||a==='') ? '' : (Number(a).toLocaleString('pt-BR') + ' ha');
+// Gestores da fazenda (com quem falar), so os nomes, separados por virgula.
+const nomesGestores = f => (f.gestores || []).map(g => g.usuario).join(', ');
 
 async function carregarFazendas(){
   iniciando('listaFazendas');
@@ -3499,12 +3502,13 @@ async function carregarFazendas(){
     fazendasCache = fs;
     $('contaFazendas').textContent = fs.length || '';
     if(!fs.length){ renderLista('listaFazendas', vazioHTML('Nenhuma fazenda cadastrada ainda.')); return; }
-    renderLista('listaFazendas', tabelaHTML(['Fazenda','Localização','Área','Cliente','>'], fs.map((f,i) => `<tr data-linha data-faz="${i}" title="Ver detalhes">
+    renderLista('listaFazendas', tabelaHTML(['Fazenda','Localização','Área','Cliente','Gestor responsável','>'], fs.map((f,i) => `<tr data-linha data-faz="${i}" title="Ver detalhes">
       <td><span class="font-medium">${escapar(f.nome||'(sem nome)')}</span></td>
       <td>${f.localizacao ? escapar(f.localizacao) : '<span class="text-on-surface-variant">—</span>'}</td>
       <td class="tabular whitespace-nowrap">${fmtArea(f.area_ha) || '—'}</td>
       <td>${f.cliente ? escapar(f.cliente.nome) : '<span class="text-on-surface-variant">—</span>'}</td>
-      <td class="text-right text-on-surface-variant">${ic('chevron_right')}</td></tr>`).join(''), 5));
+      <td>${nomesGestores(f) ? escapar(nomesGestores(f)) : '<span class="text-on-surface-variant">Sem gestor</span>'}</td>
+      <td class="text-right text-on-surface-variant">${ic('chevron_right')}</td></tr>`).join(''), 6));
   }catch(e){ if(e.obsoleto) return; $('listaFazendas').innerHTML =erroLista('Lista de fazendas indisponível.'); }
 }
 
