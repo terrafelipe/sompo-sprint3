@@ -18,6 +18,15 @@ def _postgrest_offline():
 
 
 @pytest.fixture(autouse=True)
+def _limpar_cache_de_revalidacao():
+    # A revalidacao da sessao fica 20 s em cache por usuario: um teste nao herda a do outro.
+    import app as app_mod
+    app_mod._revalidados.clear()
+    yield
+    app_mod._revalidados.clear()
+
+
+@pytest.fixture(autouse=True)
 def _limpar_cache_llm():
     # Zera o cache da analise antes e depois de cada teste, para um teste nao
     # reaproveitar a resposta (mockada) de outro.

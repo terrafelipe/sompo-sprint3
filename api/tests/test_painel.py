@@ -25,6 +25,18 @@ def painel(request):
                      sem_esp32=False, sem_maquinas=False, deleted=set(), deletes=[], delete_error=None, manut={}, valor={}, scores={}, coords={}, ocorrencias=[], eventos=[])
         page.on('pageerror', lambda e: state['errors'].append(str(e)))
 
+        def resumo(i):
+            data = dict(fazenda=FARMS[i-1], equipamentos=[] if state['sem_maquinas'] or f'/equipamentos/{i}' in state['deleted'] else [dict(
+                id_equipamento=i, nome=f'Trator {i}', fk_fazenda_id_fazenda=i, fk_cliente_id_cliente=i,
+                dispositivo_id=None if state['sem_esp32'] else f'ESP-{i}', fabricacao='2020-01-02',
+                ultima_manutencao=state['manut'].get(i, '2026-09-01'), valor_segurado=state['valor'].get(i, '150000.50'),
+                scores=state['scores'].get(i))])
+            data['alertas_recentes'] = [] if not data['equipamentos'] else [dict(
+                id=10 + k, tipo=t, severidade=sev, equipamento_id=i, equipamento_nome=f'Trator {i}',
+                horario_ocorrencia='2026-09-18T12:00:00Z', criado_em='2026-09-18T12:00:00Z')
+                for k, (t, sev) in enumerate([('furto_capo', 2), ('escape_critico', 4)])]
+            return data
+
         def route(r):
             path = urlparse(r.request.url).path
             if urlparse(r.request.url).hostname != 'painel.test':
@@ -88,17 +100,12 @@ def painel(request):
                 data = {'dados': [
                     dict(dia='2026-09-17', amostras=40, temp_escape_max=80.5, temp_escape_media=42.0, temp_ambiente_media=24.8),
                     dict(dia='2026-09-18', amostras=35, temp_escape_max=61.0, temp_escape_media=38.2, temp_ambiente_media=25.1)]}
+            elif path == '/carteira':
+                # Mesma forma de /fazendas/<id>/resumo, para todas as fazendas numa chamada so.
+                data = {'dados': [dict(resumo(f['id_fazenda']), fazenda={**f, **dict(zip(('latitude', 'longitude'), state['coords'].get(f['id_fazenda'], (None, None))))})
+                                  for f in FARMS if f'/fazendas/{f["id_fazenda"]}' not in state['deleted']]}
             elif path.endswith('/resumo'):
-                i = int(path.split('/')[2])
-                data = dict(fazenda=FARMS[i-1], equipamentos=[] if state['sem_maquinas'] or f'/equipamentos/{i}' in state['deleted'] else [dict(
-                    id_equipamento=i, nome=f'Trator {i}', fk_fazenda_id_fazenda=i, fk_cliente_id_cliente=i,
-                    dispositivo_id=None if state['sem_esp32'] else f'ESP-{i}', fabricacao='2020-01-02',
-                    ultima_manutencao=state['manut'].get(i, '2026-09-01'), valor_segurado=state['valor'].get(i, '150000.50'),
-                    scores=state['scores'].get(i))])
-                data['alertas_recentes'] = [] if not data['equipamentos'] else [dict(
-                    id=10 + k, tipo=t, severidade=sev, equipamento_id=i, equipamento_nome=f'Trator {i}',
-                    horario_ocorrencia='2026-09-18T12:00:00Z', criado_em='2026-09-18T12:00:00Z')
-                    for k, (t, sev) in enumerate([('furto_capo', 2), ('escape_critico', 4)])]
+                data = resumo(int(path.split('/')[2]))
             elif path == '/ocorrencias':
                 data = {'dados': state['ocorrencias']}
             elif path == '/ocorrencias/responsaveis':

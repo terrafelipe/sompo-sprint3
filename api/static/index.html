@@ -1754,11 +1754,11 @@ async function carregarCarteira(){
     await carregarResumoFazenda();
     return {fazendas: fazendasCache, resumos: [resumoFazenda]};
   }
-  const d = await buscarFazendas();
-  const fs = d.dados || [];
-  fazendasCache = fs;
-  const resumos = await Promise.all(fs.map(f => getJSON(`/fazendas/${f.id_fazenda}/resumo?dias=7`).catch(() => null)));
-  return {fazendas: fs, resumos};
+  // Fazendas e o resumo de cada uma numa chamada so (antes: /fazendas + um /resumo por fazenda).
+  const d = await getJSON('/carteira?dias=7');
+  const itens = d.dados || [];
+  fazendasCache = itens.map(x => x.fazenda);
+  return {fazendas: fazendasCache, resumos: itens};
 }
 
 /* ---------- Ocorrencias ---------- */

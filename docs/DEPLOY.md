@@ -94,6 +94,12 @@ timeout 60 s, `LabRole`), a Function URL pública com as duas permissões e a re
 gera respostas 429. O script remove a reserva de concorrência, e a pausa automática do painel
 contém o custo quando ele não está em uso.
 
+O script também cria a regra `sompo-painel-aquecer` no **EventBridge**: a cada 5 minutos ela chama
+a Lambda 3 vezes ao mesmo tempo (rota `POST /events`, que responde sem tocar no banco). Isso mantém
+até 3 instâncias quentes e evita o cold start de 5 a 7 s de quem abre o painel depois de um tempo
+sem uso. O custo é desprezível (~26 mil invocações curtas por mês). Se a conta do lab não permitir
+EventBridge, o script só avisa e o site funciona igual.
+
 ### Alternativa: pelo Windows
 
 Precisa do **Docker Desktop** rodando (exige **SVM Mode** ligado na BIOS — em AMD; "Intel VT-x" em

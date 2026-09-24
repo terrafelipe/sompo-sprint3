@@ -1,4 +1,5 @@
 """Cadastros e autorização da frota. Identidade do operador não é login."""
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
 import hashlib
@@ -351,20 +352,51 @@ def listar_operacoes():
     return jsonify(dados=rows[start:start+limite], total=len(rows), pagina=pagina, limite=limite)
 
 
+def _resumos(fazendas, dias):
+    # Resumo de varias fazendas com poucas consultas: maquinas de todas numa consulta e, em
+    # paralelo, leituras, eventos e operadores (cada consulta cruza EUA -> Supabase em SP).
+    ids = [f['id_fazenda'] for f in fazendas]
+    if not ids:
+        return []
+    em_ids = 'in.(' + ','.join(map(str, ids)) + ')'
+    maquinas = db.consultar_todos('equipamentos', filtros={'fk_fazenda_id_fazenda': em_ids, 'excluido_em': 'is.null'},
+                                  order='nome.asc,id_equipamento.asc')
+    devices = [m['dispositivo_id'] for m in maquinas if m.get('dispositivo_id')]
+    filtros = {'dispositivo_id': 'in.(' + ','.join(devices) + ')'}
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        f_leituras = pool.submit(db.consultar_todos, 'ultima_telemetria', filtros=filtros, order='dispositivo_id.asc') if devices else None
+        f_eventos = pool.submit(db.consultar_periodo, 'eventos', filtros, dias) if devices else None
+        f_operadores = pool.submit(db.consultar_todos, 'operadores', filtros={'fk_fazenda_id_fazenda': em_ids}, order='id_operador.asc')
+        leituras = f_leituras.result() if f_leituras else []
+        eventos = f_eventos.result() if f_eventos else []
+        operadores = f_operadores.result()
+    return [_resumo_de(f, [m for m in maquinas if m.get('fk_fazenda_id_fazenda') == f['id_fazenda']],
+                       leituras, eventos, [o for o in operadores if o.get('fk_fazenda_id_fazenda') == f['id_fazenda']], dias)
+            for f in fazendas]
+
+
+@bp.get('/carteira')
+def carteira():
+    # Inicio da Sompo: fazendas e o resumo de cada uma numa chamada so.
+    if papel() != 'sompo':
+        raise FrotaErro('proibido', 403)
+    fazendas = db.consultar_fazendas()
+    return jsonify(dados=_resumos(fazendas, periodo()))
+
+
 @bp.get('/fazendas/<int:value>/resumo')
 def resumo_fazenda(value):
     autorizar_fazenda(value)
     faz = obter('fazenda', 'id_fazenda', value)
     if faz.get('excluido_em'):
         raise FrotaErro('nao_encontrado', 404)
-    maquinas = db.consultar_todos('equipamentos', filtros={'fk_fazenda_id_fazenda': f'eq.{value}', 'excluido_em': 'is.null'},
-                                  order='nome.asc,id_equipamento.asc')
-    devices = [m['dispositivo_id'] for m in maquinas if m.get('dispositivo_id')]
-    filtros = {'dispositivo_id': 'in.(' + ','.join(devices) + ')'}
-    leituras = db.consultar_todos('ultima_telemetria', filtros=filtros, order='dispositivo_id.asc') if devices else []
-    eventos = db.consultar_periodo('eventos', filtros, periodo()) if devices else []
-    operadores = db.consultar_todos('operadores', filtros={'fk_fazenda_id_fazenda': f'eq.{value}'},
-                                     order='id_operador.asc')
+    return jsonify(**_resumos([faz], periodo())[0])
+
+
+def _resumo_de(faz, maquinas, leituras, eventos, operadores, dias):
+    devices = {m['dispositivo_id'] for m in maquinas if m.get('dispositivo_id')}
+    eventos = [ev for ev in eventos if ev.get('dispositivo_id') in devices]
+    leituras = [r for r in leituras if r.get('dispositivo_id') in devices]
     nomes = {o['id_operador']: o['nome'] for o in operadores}
     por_device = {r['dispositivo_id']: r for r in leituras}
     eventos_device = {}
@@ -387,7 +419,7 @@ def resumo_fazenda(value):
                 pass
         m.update(ultima_telemetria=t, comunicacao=estado,
                  operador_nome=nomes.get(t.get('operador_id') if t else None, 'Operador não identificado'),
-                 scores=calcular_scores(dev or '', periodo(), eventos_device.get(dev, [])),
+                 scores=calcular_scores(dev or '', dias, eventos_device.get(dev, [])),
                  config_pendente=m.get('config_versao_aplicada') != m.get('config_versao', 1))
     # Os 10 alertas mais recentes da fazenda (Inicio do gestor), pelo instante de captura.
     # A maquina gravada no evento manda: um ESP32 que trocou de fazenda nao traz alertas da anterior.
@@ -401,4 +433,4 @@ def resumo_fazenda(value):
             alertas.append({**ev, 'equipamento_id': m['id_equipamento'], 'equipamento_nome': m['nome'],
                             'horario_ocorrencia': ev.get('ocorrido_em') if ev.get('registro_id') else ev.get('criado_em')})
     alertas.sort(key=lambda a: a['horario_ocorrencia'] or '', reverse=True)
-    return jsonify(fazenda=faz, equipamentos=maquinas, alertas_recentes=alertas[:10])
+    return {'fazenda': faz, 'equipamentos': maquinas, 'alertas_recentes': alertas[:10]}

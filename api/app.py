@@ -20,7 +20,6 @@ from flask import (
 )
 from flask_cors import CORS
 
-import documento
 import ocorrencias
 import frota
 import linha_do_tempo
@@ -72,9 +71,23 @@ app.config.update(
 CORS(app, origins=CORS_ORIGINS)
 
 # Rotas liberadas sem API key mesmo com auth ligada (health + painel + login).
-_ROTAS_PUBLICAS = {'saude', 'painel', 'static', 'login'}
+_ROTAS_PUBLICAS = {'saude', 'painel', 'static', 'login', 'aquecer'}
 # Rotas acessiveis sem estar logado (a propria pagina de login e o logout).
-_LOGIN_LIVRE = {'login', 'logout'}
+_LOGIN_LIVRE = {'login', 'logout', 'aquecer'}
+# Revalidacao da sessao: a consulta ao usuario (EUA -> Supabase em SP) ia em TODA requisicao.
+# Guardada por 20 s por usuario; qualquer exclusao de cadastro limpa na hora.
+_REVALIDACAO_SEGUNDOS = 20
+_revalidados: Dict[str, tuple] = {}
+
+
+def _usuario_atual(nome):
+    agora = time.time()
+    guardado = _revalidados.get(nome)
+    if guardado and guardado[0] > agora:
+        return guardado[1]
+    atual = buscar_usuario(nome)
+    _revalidados[nome] = (agora + _REVALIDACAO_SEGUNDOS, atual)
+    return atual
 
 
 @app.before_request
@@ -97,7 +110,7 @@ def exigir_login_painel():
     if session.get('logado'):
         # Cookies remain signed after a deletion; revalidate database identities.
         try:
-            atual = buscar_usuario(session.get('usuario', ''))
+            atual = _usuario_atual(session.get('usuario', ''))
         except Exception as exc:
             return _erro('autenticacao_indisponivel', exc, 502)
         if (atual and atual.get('excluido_em')) or (session.get('usuario_id') and not atual):
@@ -251,6 +264,15 @@ def _erro(message: str, exc, status: int):
     # (evita expor schema/mensagens internas do Supabase). Ver docs/SEGURANCA.md.
     app.logger.warning('%s: %s', message, exc)
     return jsonify({'erro': message}), status
+
+
+@app.post('/events')
+def aquecer():
+    # Ping do EventBridge a cada 5 min (o Lambda Web Adapter entrega eventos nao-HTTP aqui):
+    # mantem instancias quentes. Nao toca no banco; a espera curta faz os alvos simultaneos
+    # ocuparem instancias diferentes.
+    time.sleep(0.3)
+    return '', 204
 
 
 @app.get('/')
@@ -417,6 +439,7 @@ def relatorio_risco_pdf():
         resumo_por_dia = consultar_resumo(dispositivo, dias=dias) if dispositivo else []
         eventos = frota.identificar_registros(consultar_eventos(dispositivo, dias=dias) if dispositivo else [])
         relatorio = montar_relatorio_risco(dispositivo, dias, resumo_por_dia, eventos, contexto=frota.contexto())
+        import documento   # tardio: fpdf2 (Pillow, fontTools) pesava ~1 s em todo cold start
         conteudo = documento.montar_pdf(relatorio, eventos)
 
         carimbo = datetime.now(documento.FUSO_BRASILIA).strftime('%Y%m%d_%H%M')
@@ -670,6 +693,8 @@ def cadastro_excluir(tipo, value):
             'p_tipo': tipo, 'p_id': value, 'p_usuario': session.get('usuario')})
         codigo = resultado.get('erro')
         status = 404 if codigo == 'nao_encontrado' else (409 if codigo else 200)
+        if status == 200:
+            _revalidados.clear()   # uma exclusao pode revogar logins: sem esperar os 20 s do cache
         return jsonify(resultado), status
     except frota.FrotaErro:
         raise

@@ -75,6 +75,8 @@ if ($variaveis['SOMPO_API_KEY']) { throw 'SOMPO_API_KEY deve ficar VAZIA (senao 
 # Fixas do ambiente Lambda: porta do waitress/adapter, readiness sem login e cookie HTTPS.
 $variaveis['PORT'] = '8080'
 $variaveis['AWS_LWA_READINESS_CHECK_PATH'] = '/login'
+# Eventos que nao sao HTTP (o ping do EventBridge) chegam ao Flask como POST neste caminho.
+$variaveis['AWS_LWA_PASS_THROUGH_PATH'] = '/events'
 $variaveis['COOKIE_SEGURO'] = 'true'
 
 # --- 2. Conta, role e repositorio ECR ---------------------------------------------
@@ -165,6 +167,29 @@ $grupo = "/aws/lambda/$Funcao"
 Test-Aws logs create-log-group --log-group-name $grupo | Out-Null
 if (-not (Test-Aws logs put-retention-policy --log-group-name $grupo --retention-in-days 7)) {
     Write-Warning 'Nao foi possivel definir a retencao dos logs.'
+}
+
+# --- 7. Aquecimento: EventBridge chama a Lambda a cada 5 min -----------------------
+# Evita o cold start (5 a 7 s) de quem abre o painel depois de um tempo sem uso. Tres alvos
+# ao mesmo tempo mantem ate tres instancias quentes (o painel faz requisicoes em paralelo).
+# Custo desprezivel (~26 mil invocacoes curtas por mes). Nao fatal: se a conta do lab nao
+# permitir EventBridge, o site funciona igual, so sem o ping.
+$regra = "$Funcao-aquecer"
+$arnFuncao = (Invoke-Aws lambda get-function --function-name $Funcao | ConvertFrom-Json).Configuration.FunctionArn
+if (Test-Aws events put-rule --name $regra --schedule-expression 'rate(5 minutes)' --state ENABLED) {
+    $arnRegra = (Invoke-Aws events describe-rule --name $regra | ConvertFrom-Json).Arn
+    if ($politica -notmatch 'AquecerEventBridge') {
+        Test-Aws lambda add-permission --function-name $Funcao --statement-id AquecerEventBridge `
+            --action lambda:InvokeFunction --principal events.amazonaws.com --source-arn $arnRegra | Out-Null
+    }
+    $alvos = 1..3 | ForEach-Object { "Id=aquecer$_,Arn=$arnFuncao" }
+    if (Test-Aws events put-targets --rule $regra --targets @alvos) {
+        Write-Host 'Aquecimento ligado: EventBridge a cada 5 min.'
+    } else {
+        Write-Warning 'Nao foi possivel ligar o aquecimento (EventBridge); seguindo sem ele.'
+    }
+} else {
+    Write-Warning 'Nao foi possivel criar a regra de aquecimento (EventBridge); seguindo sem ele.'
 }
 
 Write-Host ''

@@ -17,6 +17,9 @@ def test_inicio_nao_carrega_cadastros_nem_repete_fazendas(painel):
     page.wait_for_timeout(600)
     caminhos = _caminhos(pedidos)
     assert caminhos.count('/fazendas') == 1, caminhos
+    # Fazendas e resumos do Inicio numa chamada so, sem um /fazendas/<id>/resumo por fazenda.
+    assert caminhos.count('/carteira') == 1, caminhos
+    assert not [c for c in caminhos if c.endswith('/resumo')], caminhos
     for fora in ('/clientes', '/usuarios', '/operadores'):
         assert fora not in caminhos, (fora, caminhos)
     assert not state['errors']
