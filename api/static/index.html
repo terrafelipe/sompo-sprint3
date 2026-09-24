@@ -567,7 +567,7 @@
       <!-- ATIVIDADE DE ALERTAS (colunas empilhadas por eixo) -->
       <section id="secAlertas" data-ancora data-section="atividade" class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
         <div class="p-5 pb-2 flex items-start justify-between gap-4 flex-wrap">
-          <div><h2 class="text-base font-semibold text-on-surface">Atividade de alertas</h2><p id="atividadeSub" class="text-sm text-on-surface-variant">Eventos por dia nos últimos 7 dias</p></div>
+          <div><div class="flex items-center gap-2 flex-wrap"><h2 class="text-base font-semibold text-on-surface">Atividade de alertas</h2><select id="alertasDias" aria-label="Período dos alertas" title="Vale para Atividade de alertas e Alertas por tipo" class="h-9 inline-flex items-center leading-none bg-surface-container-lowest border border-outline-variant rounded-lg px-3 outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"><option value="7">7 dias</option><option value="30">30 dias</option><option value="90">90 dias</option></select></div><p id="atividadeSub" class="text-sm text-on-surface-variant">Eventos por dia nos últimos 7 dias</p></div>
           <div class="flex items-center gap-4 text-xs text-on-surface-variant pt-1">
             <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm" style="background:var(--s-furto)"></span>Furto <b id="totFurto" class="text-on-surface font-semibold">–</b></span>
             <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm" style="background:var(--s-incendio)"></span>Incêndio <b id="totIncendio" class="text-on-surface font-semibold">–</b></span>
@@ -729,7 +729,7 @@
       <!-- TEMPERATURA POR DIA (linhas) -->
       <section data-section="tempdia" class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
         <div class="p-5 pb-2 flex items-start justify-between gap-4 flex-wrap">
-          <div><h2 class="text-base font-semibold text-on-surface">Temperatura por dia</h2><p id="tempDiaSub" class="text-sm text-on-surface-variant">Escape e ambiente, por dia com leituras</p></div>
+          <div><div class="flex items-center gap-2 flex-wrap"><h2 class="text-base font-semibold text-on-surface">Temperatura por dia</h2><select id="tempDiaDias" aria-label="Período da temperatura" class="h-9 inline-flex items-center leading-none bg-surface-container-lowest border border-outline-variant rounded-lg px-3 outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"><option value="7">7 dias</option><option value="30">30 dias</option><option value="90">90 dias</option></select></div><p id="tempDiaSub" class="text-sm text-on-surface-variant">Escape e ambiente, por dia com leituras</p></div>
           <div class="flex items-center gap-4 text-xs text-on-surface-variant pt-1">
             <span class="inline-flex items-center gap-1.5"><span class="w-3 h-0.5 rounded" style="background:var(--s-incendio)"></span>Escape máx.</span>
             <span class="inline-flex items-center gap-1.5"><span class="w-3.5 border-t-2 border-dashed" style="border-color:var(--s-media)"></span>Escape média</span>
@@ -1526,6 +1526,7 @@ function detalhamentoRisco(el, detalhamento, eixoNome){
 // Evidencias: abre a aba Alertas no mesmo recorte do score (7 dias) filtrada pelo tipo.
 function verEvidencias(tipo){
   filtroDia = null; filtroTipo = tipo;   // mesmo periodo do score que esta na tela
+  periodoAlertas = periodo; $('alertasDias').value = periodo;
   setView('visao'); carregarTudo();
   irPara('secAlertas');
 }
@@ -1707,15 +1708,15 @@ async function carregarEventos(){
   iniciando('eventos');
   try{
     // O refresh conserva os graficos visiveis; somente um contexto novo sinaliza carga.
-    if(mudou('eventos-contexto', `${contextoVersao}|${periodo}|${seletorEquipamento()}`))
+    if(mudou('eventos-contexto', `${contextoVersao}|${periodoAlertas}|${seletorEquipamento()}`))
       ['graficoAtividade','graficoTipos'].forEach(id => $(id).classList.add('viz-carregando'));
-    const per = periodo;
+    const per = periodoAlertas;
     const d = await getJSON(`/eventos?${seletorEquipamento()}&dias=${per * 2}`);
-    if(per !== periodo) return;
-    const corte = Date.now() - periodo * 864e5;
+    if(per !== periodoAlertas) return;
+    const corte = Date.now() - per * 864e5;
     const todos = d.dados || [];
     const evs = todos.filter(e => !e.criado_em || new Date(e.criado_em).getTime() >= corte);
-    variacao($('kpiAlertasSub'), evs.length, todos.length - evs.length, `${periodo} dias`, 'Eventos registrados no período', false);
+    variacao($('kpiAlertasSub'), evs.length, todos.length - evs.length, `${per} dias`, 'Eventos registrados no período', false);
     eventosPeriodo = evs;
     if(animarAgora('kpiAlertas')) contarAoAparecer($('kpiAlertas'), evs.length); else $('kpiAlertas').textContent = evs.length;
     renderizarGraficosEventos(evs);
@@ -2640,6 +2641,8 @@ $('feedFiltros').addEventListener('click', ev => {
 // Paleta validada (dataviz/validate_palette): Furto azul, Incendio vermelho Sompo;
 // temperatura: max vermelho, media laranja, ambiente azul.
 let periodo = 7;
+// Temperatura por dia e Alertas tem periodo proprio; trocar o global reinicia os dois nele.
+let periodoTemp = 7, periodoAlertas = 7;
 // ===== Animacoes de entrada =====
 // Tocam UMA vez por "entrada" (abrir a tela, trocar maquina, fazenda ou periodo); o
 // auto-refresh de 5 s e a troca de tema nunca repetem. So transform e opacity (GPU),
@@ -2806,11 +2809,11 @@ function ligarHover(cont, fn){
 }
 
 function renderizarGraficosEventos(evs){
-  if(!mudou('eventos', `${periodo}|${evs.length}|${evs[0]?.id ?? ''}|${filtroDia}|${filtroTipo}`) && $('graficoAtividade').firstChild){
+  if(!mudou('eventos', `${periodoAlertas}|${evs.length}|${evs[0]?.id ?? ''}|${filtroDia}|${filtroTipo}`) && $('graficoAtividade').firstChild){
     ['graficoAtividade','graficoTipos'].forEach(id => $(id).classList.remove('viz-carregando')); return;
   }
   tipEsconder();
-  const dias = diasDoPeriodo(periodo), idx = new Map(dias.map((d,i)=>[d,i]));
+  const dias = diasDoPeriodo(periodoAlertas), idx = new Map(dias.map((d,i)=>[d,i]));
   const f = dias.map(()=>0), inc = dias.map(()=>0), porTipo = new Map();
   // Filtro cruzado: as colunas respeitam o tipo escolhido; o ranking de tipos, o dia escolhido.
   evs.forEach(e => { if(!filtroDia || diaLocal(e.criado_em) === filtroDia) porTipo.set(e.tipo, (porTipo.get(e.tipo)||0) + 1); });
@@ -2896,26 +2899,26 @@ function renderizarGraficosEventos(evs){
   if(animarAgora('tipos')) entrar(cT, () => crescer(cT.querySelectorAll('.barra-h'), 'X', {atraso: 45}));
   cT.querySelectorAll('[data-tipo]').forEach(b => b.addEventListener('click', () =>
     aplicarFiltroAlertas(filtroDia, b.dataset.tipo === filtroTipo ? null : b.dataset.tipo)));
-  const txt = `últimos ${periodo} dias`;
+  const txt = `últimos ${periodoAlertas} dias`;
   $('atividadeSub').textContent = `Eventos por dia nos ${txt}` + (filtroTipo ? ` · só ${nomeTipo(filtroTipo)}` : '');
   $('tiposSub').textContent = filtroDia ? `Total no dia ${fmtDia(filtroDia)}` : `Total nos ${txt}`;
   $('feedSub').textContent = `Eventos dos ${txt}`;
-  $('kpiAlertasPill').textContent = `${periodo} dias`;
+  $('kpiAlertasPill').textContent = `${periodoAlertas} dias`;
 }
 
 async function carregarTempDia(){
   const c = $('graficoTempDia');
   if(!equipamentoSelecionado && !dispositivo){ c.innerHTML = '<div class="text-sm text-on-surface-variant italic py-10 text-center">Máquina sem ESP32 configurado.</div>'; return; }
-  if(mudou('tempdia-contexto', `${contextoVersao}|${periodo}|${seletorEquipamento()}`)) c.classList.add('viz-carregando');
+  if(mudou('tempdia-contexto', `${contextoVersao}|${periodoTemp}|${seletorEquipamento()}`)) c.classList.add('viz-carregando');
   try{
-    const per = periodo, sel = seletorEquipamento();
+    const per = periodoTemp, sel = seletorEquipamento();
     const d = await getJSON(`/resumo?${sel}&dias=${per}`);
-    if(per !== periodo) return;
+    if(per !== periodoTemp) return;
     c.classList.remove('viz-carregando');
     const rows = (d.dados||[]).filter(r => r.dia).sort((a,b) => a.dia < b.dia ? -1 : 1);
-    if(!mudou('tempdia', `${periodo}|${sel}|${JSON.stringify(rows)}`) && c.firstChild && !c.querySelector('[data-tentar]')) return;
+    if(!mudou('tempdia', `${per}|${sel}|${JSON.stringify(rows)}`) && c.firstChild && !c.querySelector('[data-tentar]')) return;
     tipEsconder();
-    $('tempDiaSub').textContent = `Escape e ambiente nos últimos ${periodo} dias (${rows.length} ${rows.length===1?'dia':'dias'} com leituras)`;
+    $('tempDiaSub').textContent = `Escape e ambiente nos últimos ${per} dias (${rows.length} ${rows.length===1?'dia':'dias'} com leituras)`;
     if(!rows.length){ c.innerHTML = '<div class="text-sm text-on-surface-variant italic py-10 text-center">Sem leituras no período.</div>'; return; }
     const series = [
       ['max', 'Escape máx.', r => r.temp_escape_max],
@@ -2971,12 +2974,23 @@ async function carregarTempDia(){
 }
 
 document.querySelectorAll('[data-periodo]').forEach(b => b.addEventListener('click', () => {
-  periodo = +b.dataset.periodo;
+  periodo = periodoTemp = periodoAlertas = +b.dataset.periodo;
+  $('tempDiaDias').value = $('alertasDias').value = periodo;
   novaEntrada();
   filtroDia = null;   // o dia escolhido pode nao existir no novo periodo
   document.querySelectorAll('[data-periodo]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
   carregarTudo();
 }));
+// O periodo de uma secao so recarrega a propria secao (e redesenha com a animacao de entrada).
+$('tempDiaDias').addEventListener('change', e => {
+  periodoTemp = +e.target.value; animados.delete('tempdia');
+  carregarTempDia();
+});
+$('alertasDias').addEventListener('change', e => {
+  periodoAlertas = +e.target.value; ['atividade','tipos','kpiAlertas'].forEach(k => animados.delete(k));
+  filtroDia = null;   // o dia escolhido pode nao existir no novo periodo
+  carregarEventos();
+});
 
 /* ---------- Grafico de leituras (interativo) ---------- */
 // Auto-refresh a cada 5s: so redesenha quando os dados mudam (senao o tooltip fecharia).
