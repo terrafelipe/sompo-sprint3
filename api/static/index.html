@@ -30,6 +30,21 @@
   .kpi-ico .material-symbols-outlined{font-size:18px}
   .kpi-pill{display:inline-flex;align-items:center;gap:.25rem;font-size:11px;font-weight:600;line-height:1;padding:.3rem .5rem;border-radius:.375rem;border:1px solid transparent}
   .kpi-pill:empty{display:none}
+  /* Filtro de periodo (segmentado) */
+  .per-btn{height:100%;padding:0 .75rem;border-radius:.4rem;font-size:13px;font-weight:500;color:#71717a;transition:background .15s,color .15s}
+  .per-btn:hover{color:#09090b}
+  .per-btn[aria-pressed="true"]{background:#fff;color:#09090b;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+  /* Graficos: tooltip unico, recarga sem piscar */
+  #vizTip{position:fixed;z-index:80;pointer-events:none;min-width:9rem;background:#fff;border:1px solid #e4e4e7;border-radius:.5rem;
+          box-shadow:0 8px 24px rgba(0,0,0,.08);padding:.5rem .625rem;font-size:12px;color:#09090b}
+  #vizTip .tip-t{color:#71717a;margin-bottom:.25rem}
+  #vizTip .tip-l{display:flex;align-items:center;gap:.5rem;justify-content:space-between}
+  #vizTip .tip-l i{display:inline-block;width:10px;height:2px;border-radius:1px}
+  #vizTip .tip-l span{color:#71717a}
+  #vizTip .tip-l b{font-weight:600;font-variant-numeric:tabular-nums}
+  .viz-carregando{opacity:.55;transition:opacity .2s}
+  .viz-hit{fill:transparent;cursor:crosshair}
+  .viz-hit:hover{fill:rgba(9,9,11,.04)}
   /* Sidebar recolhivel (botao no topo). */
   .sb-off #sidebar{display:none!important}
   @media (min-width:1024px){ .sb-off #conteudo{padding-left:0!important} }
@@ -225,6 +240,11 @@
         <input id="dispositivo" value="SOMPO-ESP32" title="ID do dispositivo"
                class="w-36 h-9 bg-surface-container-lowest border border-outline-variant rounded-lg py-1.5 pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-primary/20"/>
       </div>
+      <div id="periodoWrap" class="inline-flex items-center h-9 p-0.5 rounded-lg border border-outline-variant bg-surface-container-low" role="group" aria-label="Período dos gráficos e alertas">
+        <button type="button" data-periodo="7" class="per-btn" aria-pressed="true">7 dias</button>
+        <button type="button" data-periodo="30" class="per-btn" aria-pressed="false">30 dias</button>
+        <button type="button" data-periodo="90" class="per-btn" aria-pressed="false">90 dias</button>
+      </div>
     </div>
 
     <div id="semMaquina" hidden class="bg-surface-container-lowest rounded-xl p-6 mb-6" role="status">Selecione uma máquina para consultar esta aba. <button id="selecionarNoAviso" class="inline-flex items-center gap-1 text-primary font-semibold hover:text-on-primary-fixed-variant"><span class="underline underline-offset-2">Selecionar máquina</span><span class="material-symbols-outlined text-[16px]" aria-hidden="true">arrow_outward</span></button></div>
@@ -241,8 +261,8 @@
       <div class="kpi">
         <div class="kpi-ico"><span class="material-symbols-outlined">notifications</span></div>
         <h3 class="text-sm text-on-surface-variant mt-4">Alertas</h3>
-        <div class="flex items-center gap-2 mt-1"><span id="kpiAlertas" class="text-3xl font-semibold tracking-tight tabular">–</span><span class="kpi-pill" style="background:#f4f4f5;color:#52525b;border-color:#e4e4e7">7 dias</span></div>
-        <p class="text-sm text-on-surface-variant mt-1">Eventos registrados na semana</p>
+        <div class="flex items-center gap-2 mt-1"><span id="kpiAlertas" class="text-3xl font-semibold tracking-tight tabular">–</span><span id="kpiAlertasPill" class="kpi-pill" style="background:#f4f4f5;color:#52525b;border-color:#e4e4e7">7 dias</span></div>
+        <p id="kpiAlertasSub" class="text-sm text-on-surface-variant mt-1">Eventos registrados no período</p>
       </div>
       <div class="kpi">
         <div class="kpi-ico"><span class="material-symbols-outlined">lock_open</span></div>
@@ -260,6 +280,24 @@
 
     <!-- GRID PRINCIPAL (a navegação lateral alterna as views ajustando cada seção) -->
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
+
+      <!-- ATIVIDADE DE ALERTAS (colunas empilhadas por eixo) -->
+      <section data-section="atividade" class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
+        <div class="p-5 pb-2 flex items-start justify-between gap-4 flex-wrap">
+          <div><h2 class="text-base font-semibold text-on-surface">Atividade de alertas</h2><p id="atividadeSub" class="text-sm text-on-surface-variant">Eventos por dia nos últimos 7 dias</p></div>
+          <div class="flex items-center gap-4 text-xs text-on-surface-variant pt-1">
+            <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm" style="background:#2a78d6"></span>Furto <b id="totFurto" class="text-on-surface font-semibold">–</b></span>
+            <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm" style="background:#b70100"></span>Incêndio <b id="totIncendio" class="text-on-surface font-semibold">–</b></span>
+          </div>
+        </div>
+        <div id="graficoAtividade" class="px-5 pb-4"></div>
+      </section>
+
+      <!-- ALERTAS POR TIPO (barras horizontais) -->
+      <section data-section="tipos" class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
+        <div class="p-5 pb-3"><h2 class="text-base font-semibold text-on-surface">Alertas por tipo</h2><p id="tiposSub" class="text-sm text-on-surface-variant">Total nos últimos 7 dias</p></div>
+        <div id="graficoTipos" class="px-5 pb-5 space-y-3"></div>
+      </section>
 
       <!-- ANALISE DE RISCO -->
       <section data-section="risco" class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)] p-6">
@@ -306,10 +344,23 @@
       <!-- ALERTAS -->
       <section data-section="alertas" class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)] flex flex-col">
         <div class="p-5 pb-3 flex items-center justify-between">
-          <div><h2 class="text-base font-semibold text-on-surface">Feed de Alertas</h2><p class="text-sm text-on-surface-variant">Eventos dos últimos 7 dias</p></div>
+          <div><h2 class="text-base font-semibold text-on-surface">Feed de Alertas</h2><p id="feedSub" class="text-sm text-on-surface-variant">Eventos dos últimos 7 dias</p></div>
           <span id="alertasBadge" class="bg-primary text-on-primary text-[11px] font-semibold px-2 py-0.5 rounded-md tabular">0</span>
         </div>
         <div id="eventos" class="p-3 flex-1 overflow-y-auto max-h-[420px] space-y-1"></div>
+      </section>
+
+      <!-- TEMPERATURA POR DIA (linhas) -->
+      <section data-section="tempdia" class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
+        <div class="p-5 pb-2 flex items-start justify-between gap-4 flex-wrap">
+          <div><h2 class="text-base font-semibold text-on-surface">Temperatura por dia</h2><p id="tempDiaSub" class="text-sm text-on-surface-variant">Escape e ambiente, por dia com leituras</p></div>
+          <div class="flex items-center gap-4 text-xs text-on-surface-variant pt-1">
+            <span class="inline-flex items-center gap-1.5"><span class="w-3 h-0.5 rounded" style="background:#b70100"></span>Escape máx.</span>
+            <span class="inline-flex items-center gap-1.5"><span class="w-3 h-0.5 rounded" style="background:#eb6834"></span>Escape média</span>
+            <span class="inline-flex items-center gap-1.5"><span class="w-3 h-0.5 rounded" style="background:#2a78d6"></span>Ambiente média</span>
+          </div>
+        </div>
+        <div id="graficoTempDia" class="px-5 pb-4"></div>
       </section>
 
       <!-- TABELA DE LEITURAS -->
@@ -566,6 +617,7 @@
     <button id="exclusaoConfirmar" class="px-4 py-2 rounded-lg bg-error text-on-error font-semibold">Excluir</button>
   </div>
 </dialog>
+<div id="vizTip" hidden></div>
 <div id="cadastroAviso" role="status" class="hidden fixed bottom-4 right-4 z-[70] max-w-[90vw] bg-surface-container-lowest shadow-lg rounded-xl p-4 text-sm"></div>
 
 <script>
@@ -600,11 +652,11 @@ const CHIP_OFF = ' bg-surface-container text-on-surface-variant';
 const TITULOS = {maquinas:'Máquinas', visao:'Painel da máquina', risco:'Análise de Risco', telemetria:'Telemetria', alertas:'Alertas', operadores:'Operadores', historico:'Histórico', fazendas:'Fazendas', clientes:'Clientes', usuarios:'Usuários'};
 // Para cada view, quais seções aparecem e com qual largura (colunas de 12).
 const VIEWS = {
-  visao:      {kpis:true, risco:12, telemetria:8, alertas:4, tabela:12},
+  visao:      {kpis:true, atividade:8, tipos:4, risco:12, telemetria:8, alertas:4, tempdia:12, tabela:12},
   maquinas:   {maquinas:12},
   risco:      {risco:12},
-  telemetria: {telemetria:12, tabela:12},
-  alertas:    {alertas:12},
+  telemetria: {telemetria:12, tempdia:12, tabela:12},
+  alertas:    {atividade:8, tipos:4, alertas:12},
   operadores: {operadores:12},
   historico:  {historico:12},
   fazendas:   {fazendas:12},
@@ -645,6 +697,7 @@ function setView(view){
   document.querySelectorAll('[data-rotulo-cadastros]').forEach(el => { el.hidden = perfilRole !== 'sompo'; });
   document.querySelectorAll('[data-nav]').forEach(a => { a.hidden = restrita(a.dataset.nav); });
   $('semMaquina').hidden = !dependeMaquina(view) || !!equipamentoSelecionado;
+  $('periodoWrap').hidden = !dependeMaquina(view) || !equipamentoSelecionado;
   $('btnBaixar').classList.remove('hidden');
   $('btnBaixar').disabled = !equipamentoSelecionado;
   $('btnBaixar').title = equipamentoSelecionado ? 'Baixar relatório da máquina selecionada' : 'Selecione uma máquina para exportar';
@@ -673,6 +726,8 @@ function limparMaquina(){
   ['kpiRisco','kpiFurto','kpiIncendio','kpiAlertas','scoreFurto','scoreIncendio','classifFurto','classifIncendio','alertasBadge'].forEach(id => $(id).textContent = '–');
   ['barFurto','barIncendio'].forEach(id => $(id).style.width = '0%');
   ['kpiFurtoPill','kpiIncendioPill'].forEach(id => $(id).textContent = '');
+  ['graficoAtividade','graficoTipos','graficoTempDia'].forEach(id => $(id).innerHTML = '');
+  ['totFurto','totIncendio'].forEach(id => $(id).textContent = '–');
   $('cardRisco').dataset.risco = 'seguro';
   $('equipamentoSel').value = '';
   $('equipamentoSel').title = 'Selecione uma máquina';
@@ -725,7 +780,7 @@ function graficoTemp(rows){
   let grid='', N=4;
   for(let g=0; g<=N; g++){
     const v=mn+(mx-mn)*g/N, yy=Y(v).toFixed(1);
-    grid+=`<line x1="${ML}" y1="${yy}" x2="${W-MR}" y2="${yy}" stroke="#e4e4e7" stroke-width="0.6" stroke-dasharray="3 3"/>`;
+    grid+=`<line x1="${ML}" y1="${yy}" x2="${W-MR}" y2="${yy}" stroke="#e4e4e7" stroke-width="1"/>`;
     grid+=`<text x="${ML-6}" y="${(Y(v)+3).toFixed(1)}" text-anchor="end" font-size="9" fill="#71717a">${Math.round(v)}°</text>`;
   }
   let xlab='';
@@ -735,7 +790,7 @@ function graficoTemp(rows){
   });
   let dots='', hits='', slice=iw/pts.length;
   pts.forEach((p,i)=>{
-    dots+=`<circle cx="${X(i).toFixed(1)}" cy="${Y(p.t).toFixed(1)}" r="${i===pts.length-1?3.2:1.8}" fill="#b70100"/>`;
+    if(i===pts.length-1) dots+=`<circle cx="${X(i).toFixed(1)}" cy="${Y(p.t).toFixed(1)}" r="4" fill="#b70100" stroke="#fff" stroke-width="2"/>`;
     hits+=`<rect x="${(X(i)-slice/2).toFixed(1)}" y="${MT}" width="${slice.toFixed(1)}" height="${ih}" fill="transparent"><title>${p.t} °C · ${fmtHoraCurta(p.h)}</title></rect>`;
   });
 
@@ -856,8 +911,10 @@ async function carregarTelemetria(){
 async function carregarEventos(){
   iniciando('eventos');
   try{
-    const d = await getJSON(`/eventos?${seletorEquipamento()}&dias=7`);
+    ['graficoAtividade','graficoTipos'].forEach(id => $(id).classList.add('viz-carregando'));
+    const d = await getJSON(`/eventos?${seletorEquipamento()}&dias=${periodo}`);
     const evs = d.dados || [];
+    renderizarGraficosEventos(evs);
     $('alertasBadge').textContent = evs.length;
     $('kpiAlertas').textContent = evs.length;
     if(!evs.length){ $('eventos').innerHTML = '<div class="text-on-surface-variant italic text-sm p-3">Nenhum evento no período. 🎉</div>'; return; }
@@ -882,13 +939,208 @@ async function carregarEventos(){
     eventosCache = [];
     $('alertasBadge').textContent = '–'; $('kpiAlertas').textContent = '–';
     $('eventos').innerHTML = erroLista('Eventos indisponíveis.');
+    ['graficoAtividade','graficoTipos'].forEach(id => { $(id).classList.remove('viz-carregando'); $(id).innerHTML = erroLista('Gráfico indisponível.'); });
   }
 }
+
+/* ---------- Graficos (SVG puro, estilo shadcn) ---------- */
+// Paleta validada (dataviz/validate_palette): Furto azul, Incendio vermelho Sompo;
+// temperatura: max vermelho, media laranja, ambiente azul.
+let periodo = 7;
+const COR = {furto:'#2a78d6', incendio:'#b70100', max:'#b70100', media:'#eb6834', ambiente:'#2a78d6'};
+const GRADE = '#e4e4e7', TXT_MUDO = '#71717a';
+const eixoDoTipo = t => { t = String(t||'');
+  if(t.startsWith('furto') || t === 'operador_nao_autorizado' || t === 'sensor_falha') return 'furto';
+  if(t.startsWith('chama') || t.startsWith('escape') || t.startsWith('fumaca')) return 'incendio';
+  return 'outro'; };
+const diaLocal = iso => String(iso||'').slice(0,10);
+const fmtDia = k => { const p = String(k).split('-'); return p.length === 3 ? `${p[2]}/${p[1]}` : k; };
+function diasDoPeriodo(n){
+  const out = [], hoje = new Date();
+  for(let i=n-1; i>=0; i--){ const d = new Date(hoje); d.setDate(hoje.getDate()-i); out.push(d.toLocaleDateString('sv-SE')); }
+  return out;
+}
+function escalaBonita(max, passos=4){
+  if(max <= 0) return {top:passos, step:1};
+  const bruto = max/passos, mag = Math.pow(10, Math.floor(Math.log10(bruto)));
+  const step = [1,2,2.5,5,10].map(m=>m*mag).find(v => v >= bruto);
+  return {top: step*passos, step};
+}
+// Coluna com ponta arredondada (4px) em cima e base reta.
+function coluna(x, y, w, h, arredonda){
+  if(h <= 0) return '';
+  const r = arredonda ? Math.min(4, w/2, h) : 0;
+  return `M${x},${y+h} V${y+r} Q${x},${y} ${x+r},${y} H${x+w-r} Q${x+w},${y} ${x+w},${y+r} V${y+h} Z`;
+}
+// Tooltip unico; conteudo sempre via textContent (dados vem da API).
+function tipMostrar(ev, titulo, linhas){
+  const t = $('vizTip'); t.replaceChildren();
+  const h = document.createElement('div'); h.className = 'tip-t'; h.textContent = titulo; t.appendChild(h);
+  linhas.forEach(([cor, rot, val]) => {
+    const l = document.createElement('div'); l.className = 'tip-l';
+    const k = document.createElement('span'); const i = document.createElement('i'); i.style.background = cor;
+    k.append(i, document.createTextNode(' ' + rot)); k.style.display = 'inline-flex'; k.style.alignItems = 'center'; k.style.gap = '.4rem';
+    const b = document.createElement('b'); b.textContent = val;
+    l.append(k, b); t.appendChild(l);
+  });
+  t.hidden = false;
+  const r = t.getBoundingClientRect();
+  let x = ev.clientX + 14, y = ev.clientY + 14;
+  if(x + r.width > innerWidth - 8) x = ev.clientX - r.width - 14;
+  if(y + r.height > innerHeight - 8) y = ev.clientY - r.height - 14;
+  t.style.left = x + 'px'; t.style.top = y + 'px';
+}
+const tipEsconder = () => { $('vizTip').hidden = true; };
+function ligarHover(cont, fn){
+  cont.querySelectorAll('[data-i]').forEach(el => {
+    el.addEventListener('pointermove', ev => fn(ev, +el.dataset.i, el));
+    el.addEventListener('pointerleave', () => { tipEsconder(); fn(null, +el.dataset.i, el); });
+  });
+}
+
+function renderizarGraficosEventos(evs){
+  tipEsconder();
+  const dias = diasDoPeriodo(periodo), idx = new Map(dias.map((d,i)=>[d,i]));
+  const f = dias.map(()=>0), inc = dias.map(()=>0), porTipo = new Map();
+  evs.forEach(e => {
+    porTipo.set(e.tipo, (porTipo.get(e.tipo)||0) + 1);
+    const i = idx.get(diaLocal(e.criado_em)); if(i == null) return;
+    const eixo = eixoDoTipo(e.tipo);
+    if(eixo === 'furto') f[i]++; else if(eixo === 'incendio') inc[i]++;
+  });
+  const somaF = f.reduce((a,b)=>a+b,0), somaI = inc.reduce((a,b)=>a+b,0);
+  $('totFurto').textContent = somaF; $('totIncendio').textContent = somaI;
+
+  // --- colunas empilhadas por dia
+  const cA = $('graficoAtividade'); cA.classList.remove('viz-carregando');
+  if(!somaF && !somaI){ cA.innerHTML = '<div class="text-sm text-on-surface-variant italic py-10 text-center">Nenhum alerta no período.</div>'; }
+  else {
+    const W=760, H=250, ML=34, MR=6, MT=10, MB=26, iw=W-ML-MR, ih=H-MT-MB;
+    const {top, step} = escalaBonita(Math.max(...dias.map((_,i)=>f[i]+inc[i])));
+    const Y = v => MT + ih - (v/top)*ih;
+    const band = iw/dias.length, bw = Math.max(2, Math.min(24, band*0.72)), GAP = 2;
+    let g = '';
+    for(let v=0; v<=top; v+=step){
+      const y = Y(v).toFixed(1);
+      g += `<line x1="${ML}" x2="${W-MR}" y1="${y}" y2="${y}" stroke="${GRADE}" stroke-width="1"/>`;
+      g += `<text x="${ML-8}" y="${(+y+3).toFixed(1)}" text-anchor="end" font-size="10" fill="${TXT_MUDO}">${v}</text>`;
+    }
+    let barras = '', hits = '', rot = '';
+    const cada = Math.max(1, Math.ceil(dias.length/7));
+    dias.forEach((d,i) => {
+      const x = ML + band*i + (band-bw)/2;
+      const hF = (f[i]/top)*ih, hI = (inc[i]/top)*ih;
+      const yF = MT + ih - hF;
+      barras += `<path d="${coluna(x, yF, bw, hF, !inc[i])}" fill="${COR.furto}"/>`;
+      if(inc[i]){ const gap = f[i] ? GAP : 0; barras += `<path d="${coluna(x, yF - gap - hI, bw, hI, true)}" fill="${COR.incendio}"/>`; }
+      hits += `<rect class="viz-hit" data-i="${i}" x="${(ML+band*i).toFixed(1)}" y="${MT}" width="${band.toFixed(1)}" height="${ih}" rx="4"/>`;
+      if(i % cada === 0 || i === dias.length-1 && (dias.length-1) % cada > cada/2)
+        rot += `<text x="${(x+bw/2).toFixed(1)}" y="${H-8}" text-anchor="middle" font-size="10" fill="${TXT_MUDO}">${fmtDia(d)}</text>`;
+    });
+    cA.innerHTML = `<svg viewBox="0 0 ${W} ${H}" class="w-full" role="img" aria-label="Alertas por dia, furto e incêndio">${g}${barras}${rot}${hits}</svg>`;
+    ligarHover(cA, (ev, i) => { if(ev) tipMostrar(ev, fmtDia(dias[i]), [[COR.furto,'Furto',f[i]],[COR.incendio,'Incêndio',inc[i]]]); });
+  }
+
+  // --- barras horizontais por tipo (cor = eixo do tipo)
+  const cT = $('graficoTipos'); cT.classList.remove('viz-carregando');
+  let tipos = [...porTipo.entries()].sort((a,b)=>b[1]-a[1]);
+  // Top 5 + "Outros" (nunca uma lista sem fim de categorias).
+  if(tipos.length > 6) tipos = [...tipos.slice(0,5), ['__outros', tipos.slice(5).reduce((a,[,n])=>a+n,0)]];
+  if(!tipos.length){ cT.innerHTML = '<div class="text-sm text-on-surface-variant italic py-6 text-center">Nenhum alerta no período.</div>'; }
+  else {
+    const mx = tipos[0][1];
+    cT.replaceChildren(...tipos.map(([tipo, n]) => {
+      const cor = tipo === '__outros' ? '#a1a1aa' : (COR[eixoDoTipo(tipo)] || '#a1a1aa');
+      const linha = document.createElement('div');
+      const topo = document.createElement('div'); topo.className = 'flex items-baseline justify-between gap-3 text-sm mb-1.5';
+      const nome = document.createElement('span'); nome.className = 'text-on-surface truncate'; nome.textContent = tipo === '__outros' ? 'Outros' : (TITULO_TIPO[tipo] || tipo);
+      const val = document.createElement('span'); val.className = 'font-semibold text-on-surface tabular'; val.textContent = n;
+      topo.append(nome, val);
+      const trilho = document.createElement('div'); trilho.className = 'h-2 rounded-r bg-surface-container';
+      const barra = document.createElement('div'); barra.className = 'h-2'; barra.style.borderRadius = '0 4px 4px 0';
+      barra.style.width = Math.max(2, n/mx*100) + '%'; barra.style.background = cor;
+      trilho.appendChild(barra); linha.append(topo, trilho); return linha;
+    }));
+  }
+  const txt = `últimos ${periodo} dias`;
+  $('atividadeSub').textContent = `Eventos por dia nos ${txt}`;
+  $('tiposSub').textContent = `Total nos ${txt}`;
+  $('feedSub').textContent = `Eventos dos ${txt}`;
+  $('kpiAlertasPill').textContent = `${periodo} dias`;
+}
+
+async function carregarTempDia(){
+  const c = $('graficoTempDia');
+  if(!dispositivo){ c.innerHTML = '<div class="text-sm text-on-surface-variant italic py-10 text-center">Máquina sem ESP32 configurado.</div>'; return; }
+  c.classList.add('viz-carregando');
+  try{
+    const d = await getJSON(`/resumo?dispositivo=${encodeURIComponent(dispositivo)}&dias=${periodo}`);
+    c.classList.remove('viz-carregando'); tipEsconder();
+    const rows = (d.dados||[]).filter(r => r.dia).sort((a,b) => a.dia < b.dia ? -1 : 1);
+    $('tempDiaSub').textContent = `Escape e ambiente nos últimos ${periodo} dias (${rows.length} ${rows.length===1?'dia':'dias'} com leituras)`;
+    if(!rows.length){ c.innerHTML = '<div class="text-sm text-on-surface-variant italic py-10 text-center">Sem leituras no período.</div>'; return; }
+    const series = [
+      ['max', 'Escape máx.', r => r.temp_escape_max],
+      ['media', 'Escape média', r => r.temp_escape_media],
+      ['ambiente', 'Ambiente média', r => r.temp_ambiente_media],
+    ];
+    const vals = rows.flatMap(r => series.map(([,,fn]) => fn(r))).filter(v => typeof v === 'number');
+    if(!vals.length){ c.innerHTML = '<div class="text-sm text-on-surface-variant italic py-10 text-center">Sem temperatura no período.</div>'; return; }
+    const W=1100, H=240, ML=40, MR=16, MT=12, MB=26, iw=W-ML-MR, ih=H-MT-MB;
+    let mn = Math.floor(Math.min(...vals) - 1), mx = Math.ceil(Math.max(...vals) + 1);
+    const {step} = escalaBonita(mx - mn); mn = Math.floor(mn/step)*step; mx = Math.ceil(mx/step)*step; if(mx === mn) mx = mn + step;
+    if(Math.min(...vals) >= 0 && mn < 0) mn = 0;   // sem temperatura negativa, o eixo nao desce de 0
+    const X = i => rows.length === 1 ? ML + iw/2 : ML + (i/(rows.length-1))*iw;
+    const Y = v => MT + ih - ((v-mn)/(mx-mn))*ih;
+    let g = '';
+    for(let v=mn; v<=mx+1e-9; v+=step){
+      const y = Y(v).toFixed(1);
+      g += `<line x1="${ML}" x2="${W-MR}" y1="${y}" y2="${y}" stroke="${GRADE}" stroke-width="1"/>`;
+      g += `<text x="${ML-8}" y="${(+y+3).toFixed(1)}" text-anchor="end" font-size="10" fill="${TXT_MUDO}">${Math.round(v*10)/10}°</text>`;
+    }
+    let linhas = '', pontos = '';
+    series.forEach(([k,,fn]) => {
+      const pts = rows.map((r,i) => [X(i), fn(r)]).filter(p => typeof p[1] === 'number').map(([x,v]) => [x, Y(v)]);
+      if(!pts.length) return;
+      linhas += `<path d="${pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ')}" fill="none" stroke="${COR[k]}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+      // Poucos dias: marca cada ponto (deixa claro onde ha dado); muitos: so o ultimo.
+      (pts.length <= 15 ? pts : [pts[pts.length-1]]).forEach(u =>
+        pontos += `<circle cx="${u[0].toFixed(1)}" cy="${u[1].toFixed(1)}" r="4" fill="${COR[k]}" stroke="#fff" stroke-width="2"/>`);
+    });
+    const cada = Math.max(1, Math.ceil(rows.length/8));
+    let rot = '', hits = '';
+    const faixa = rows.length === 1 ? iw : iw/(rows.length-1);
+    rows.forEach((r,i) => {
+      if(i % cada === 0 || i === rows.length-1)
+        rot += `<text x="${X(i).toFixed(1)}" y="${H-8}" text-anchor="${rows.length===1?'middle':(i===0?'start':(i===rows.length-1?'end':'middle'))}" font-size="10" fill="${TXT_MUDO}">${fmtDia(r.dia)}</text>`;
+      const x0 = Math.max(ML, X(i) - faixa/2), x1 = Math.min(W-MR, X(i) + faixa/2);
+      hits += `<rect class="viz-hit" data-i="${i}" x="${x0.toFixed(1)}" y="${MT}" width="${(x1-x0).toFixed(1)}" height="${ih}"/>`;
+    });
+    const mira = `<line id="miraTemp" x1="0" x2="0" y1="${MT}" y2="${MT+ih}" stroke="#a1a1aa" stroke-width="1" visibility="hidden"/>`;
+    c.innerHTML = `<svg viewBox="0 0 ${W} ${H}" class="w-full" role="img" aria-label="Temperatura diária: escape máxima, escape média e ambiente">${g}${mira}${linhas}${pontos}${rot}${hits}</svg>`;
+    const fmtT = v => typeof v === 'number' ? v.toFixed(1).replace('.', ',') + ' °C' : '–';
+    ligarHover(c, (ev, i) => {
+      const m = c.querySelector('#miraTemp');
+      if(!ev){ m.setAttribute('visibility','hidden'); return; }
+      m.setAttribute('x1', X(i)); m.setAttribute('x2', X(i)); m.setAttribute('visibility','visible');
+      tipMostrar(ev, fmtDia(rows[i].dia) + ` · ${rows[i].amostras ?? '–'} leituras`, series.map(([k,rot,fn]) => [COR[k], rot, fmtT(fn(rows[i]))]));
+    });
+  }catch(e){ if(e.obsoleto) return;
+    c.classList.remove('viz-carregando');
+    c.innerHTML = erroLista('Gráfico indisponível.');
+  }
+}
+
+document.querySelectorAll('[data-periodo]').forEach(b => b.addEventListener('click', () => {
+  periodo = +b.dataset.periodo;
+  document.querySelectorAll('[data-periodo]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  carregarTudo();
+}));
 
 /* ---------- Detalhe do alerta (modal) ---------- */
 const TITULO_TIPO = {
   chama_detectada:'Chama detectada', escape_critico:'Escape crítico', escape_atencao:'Escape em atenção',
-  furto_adulteracao:'Adulteração / vibração', furto_capo:'Capô aberto', furto_tanque:'Tanque aberto',
+  furto_adulteracao:'Adulteração / vibração', furto_movimento:'Movimento suspeito', furto_capo:'Capô aberto', furto_tanque:'Tanque aberto',
   operador_nao_autorizado:'Partida sem crachá', sensor_falha:'Sensor de adulteração removido'
 };
 const ROTULO_DET = {
@@ -1387,7 +1639,7 @@ async function atualizarView(){
   if(viewAtual === 'clientes'){ await carregarListaClientes(); return; }
   if(viewAtual === 'usuarios'){ await carregarUsuarios(); return; }
   if(!equipamentoSelecionado){ setView(viewAtual); return; }
-  await Promise.all([carregarSaude(), carregarRisco(), carregarTelemetria(), carregarEventos()]);
+  await Promise.all([carregarSaude(), carregarRisco(), carregarTelemetria(), carregarEventos(), carregarTempDia()]);
   $('ultima').textContent = new Date().toLocaleTimeString('pt-BR');
 }
 
