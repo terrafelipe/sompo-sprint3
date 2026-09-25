@@ -32,7 +32,6 @@ from config import (
     FLASK_HOST,
     FLASK_PORT,
     PAINEL_SENHA,
-    PAINEL_USUARIO,
     SECRET_KEY,
     SESSAO_HORAS,
     SOMPO_API_KEY,
@@ -154,9 +153,9 @@ def _senha_confere(guardada: str, digitada: str) -> Tuple[bool, bool]:
 
 
 def _autenticar(usuario: str, senha: str) -> Dict[str, Any] | None:
-    # Perfis: 1) tabela `usuario` (role + fazenda vinculada); 2) fallback para a
-    # credencial do env (PAINEL_USUARIO/SENHA) como perfil 'sompo', para nao quebrar
-    # o login ja configurado. Senha com hash (ver _senha_confere).
+    # Perfis vem so da tabela `usuario` (role + fazenda vinculada), com senha em hash
+    # (ver _senha_confere). PAINEL_SENHA apenas liga o login: nao e senha de ninguem
+    # (o antigo login reserva do env era uma 2a senha de admin e foi removido).
     try:
         u = buscar_usuario(usuario)
     except Exception as exc:
@@ -181,9 +180,6 @@ def _autenticar(usuario: str, senha: str) -> Dict[str, Any] | None:
             'fazenda_nome': faz.get('nome'),
             'dispositivo_forcado': faz.get('dispositivo_id'),
         }
-    if PAINEL_USUARIO and hmac.compare_digest(usuario, PAINEL_USUARIO) and hmac.compare_digest(senha, PAINEL_SENHA):
-        return {'usuario': usuario, 'role': 'sompo', 'fazenda_id': None,
-                'fazenda_nome': None, 'dispositivo_forcado': None}
     return None
 
 

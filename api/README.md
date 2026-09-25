@@ -82,7 +82,6 @@ SOMPO_API_KEY=
 CORS_ORIGINS=
 
 # Login do painel publico (ver docs/DEPLOY.md)
-PAINEL_USUARIO=sompo
 PAINEL_SENHA=
 SECRET_KEY=
 SESSAO_HORAS=24
@@ -95,7 +94,8 @@ Variáveis de segurança:
   toda rota (menos `/saude`) exige o header `X-API-Key` com esse valor.
 - `CORS_ORIGINS` — origens liberadas para CORS, separadas por vírgula. Vazio = nenhuma.
 - `PAINEL_SENHA` — vazio desliga o login do painel (demo local aberta). Se definido, **todo o
-  site** (painel + endpoints) exige login em `/login`. `PAINEL_USUARIO` é o usuário (padrão `sompo`).
+  site** (painel + endpoints) exige login em `/login`. Só liga o login: os usuários e senhas (em hash)
+  ficam na tabela `usuario`; defina com `tools/definir_senha.py`.
 - `SECRET_KEY` — assina o cookie de sessão; vazio gera uma aleatória por start.
 - `SESSAO_HORAS` — horas até a sessão expirar e exigir novo login (padrão 24).
 - `COOKIE_SEGURO` — `true` marca o cookie de sessão como `Secure` (só HTTPS). Ligado em

@@ -11,7 +11,7 @@ HASH_CERTO = generate_password_hash('certa-123')
 def _login(guardada, digitada):
     usuario = {'id_usuario': 5, 'usuario': 'gestor.x', 'senha': guardada, 'role': 'sompo'}
     client = app.app.test_client()
-    with patch('app.PAINEL_SENHA', 'liga-o-login'), patch('app.PAINEL_USUARIO', 'outro'), \
+    with patch('app.PAINEL_SENHA', 'liga-o-login'), \
          patch('app.buscar_usuario', return_value=usuario), patch('app.atualizar_tabela') as gravar:
         resposta = client.post('/login', data={'usuario': 'gestor.x', 'senha': digitada})
     return resposta.status_code, gravar
@@ -50,7 +50,7 @@ def test_senha_legada_errada_nao_entra_nem_regrava():
 def test_falha_ao_regravar_nao_impede_o_login():
     usuario = {'id_usuario': 5, 'usuario': 'gestor.x', 'senha': 'antiga-texto', 'role': 'sompo'}
     client = app.app.test_client()
-    with patch('app.PAINEL_SENHA', 'liga-o-login'), patch('app.PAINEL_USUARIO', 'outro'), \
+    with patch('app.PAINEL_SENHA', 'liga-o-login'), \
          patch('app.buscar_usuario', return_value=usuario), \
          patch('app.atualizar_tabela', side_effect=RuntimeError('banco fora')):
         assert client.post('/login', data={'usuario': 'gestor.x', 'senha': 'antiga-texto'}).status_code == 302

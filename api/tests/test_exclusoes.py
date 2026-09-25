@@ -63,20 +63,30 @@ def test_falha_banco_nao_vaza_detalhes():
 
 def test_usuario_excluido_nao_usa_fallback():
     with patch('app.buscar_usuario', return_value={'excluido_em': '2026-01-01'}), \
-         patch('app.PAINEL_USUARIO', 'admin'), patch('app.PAINEL_SENHA', 'secret'):
+         patch('app.PAINEL_SENHA', 'secret'):
         assert _autenticar('admin', 'secret') is None
 
 
 def test_fallback_falha_fechado_sem_banco():
     with patch('app.buscar_usuario', side_effect=RuntimeError('offline')), \
-         patch('app.PAINEL_USUARIO', 'admin'), patch('app.PAINEL_SENHA', 'secret'):
+         patch('app.PAINEL_SENHA', 'secret'):
         assert _autenticar('admin', 'secret') is None
 
 
-def test_fallback_continua_disponivel_sem_usuario_cadastrado():
+def test_login_reserva_do_env_nao_entra_sem_usuario_cadastrado():
+    # PAINEL_SENHA so liga o login; nao e senha de ninguem (era uma 2a senha de admin).
     with patch('app.buscar_usuario', return_value=None), \
-         patch('app.PAINEL_USUARIO', 'admin'), patch('app.PAINEL_SENHA', 'secret'):
-        assert _autenticar('admin', 'secret')['role'] == 'sompo'
+         patch('app.PAINEL_SENHA', 'secret'):
+        assert _autenticar('admin', 'secret') is None
+
+
+def test_login_reserva_do_env_nao_entra_com_usuario_de_outra_senha():
+    # Cenario de producao: 'sompo' no banco com senha nova e PAINEL_SENHA = senha antiga.
+    from werkzeug.security import generate_password_hash
+    usuario = {'id_usuario': 1, 'senha': generate_password_hash('nova-senha-1')}
+    with patch('app.buscar_usuario', return_value=usuario), \
+         patch('app.PAINEL_SENHA', 'antiga'):
+        assert _autenticar('sompo', 'antiga') is None
 
 
 @pytest.mark.parametrize('usuario_id', [None, 1])

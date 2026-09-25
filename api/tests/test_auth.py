@@ -82,10 +82,14 @@ def test_cookie_seguro_parse_da_env(monkeypatch):
 
 
 def _set_cookie_do_login(secure):
-    # Login real pela credencial do env (tabela usuario mockada vazia).
+    # Login real de um usuario da tabela (mockada) com senha em hash.
+    from werkzeug.security import generate_password_hash
+    usuario = {'id_usuario': 1, 'usuario': 'sompo', 'senha': generate_password_hash('senha-do-usuario'), 'role': 'sompo'}
     client = app.test_client()
-    with patch('app.PAINEL_SENHA', 'senha-do-painel'),          patch('app.PAINEL_USUARIO', 'sompo'),          patch('app.buscar_usuario', return_value=None),          patch.dict(app.config, {'SESSION_COOKIE_SECURE': secure}):
-        response = client.post('/login', data={'usuario': 'sompo', 'senha': 'senha-do-painel'})
+    with patch('app.PAINEL_SENHA', 'liga-o-login'), \
+         patch('app.buscar_usuario', return_value=usuario), \
+         patch.dict(app.config, {'SESSION_COOKIE_SECURE': secure}):
+        response = client.post('/login', data={'usuario': 'sompo', 'senha': 'senha-do-usuario'})
     assert response.status_code == 302
     return response.headers['Set-Cookie']
 
@@ -102,7 +106,7 @@ def test_cookie_seguro_desligado_mantem_sessao_sem_secure():
 
 def test_tela_de_login_mantem_campos_e_erro():
     client = app.test_client()
-    with patch('app.PAINEL_SENHA', 'senha-do-painel'), patch('app.PAINEL_USUARIO', 'sompo'), \
+    with patch('app.PAINEL_SENHA', 'senha-do-painel'), \
          patch('app.buscar_usuario', return_value=None):
         pagina = client.get('/login?proximo=/painel').get_data(as_text=True)
         errada = client.post('/login', data={'usuario': 'sompo', 'senha': 'errada', 'proximo': '/painel'})

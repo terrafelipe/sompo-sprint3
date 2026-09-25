@@ -45,7 +45,7 @@ Copie `infra/.env.aws.example` para `infra/.env.aws` (**gitignorado**) e preench
 | `SUPABASE_URL` | a **Project URL** (`https://<ref>.supabase.co`) |
 | `SUPABASE_SECRET_KEY` | a **secret/service_role** key (fica só na API) |
 | `LLM_API_KEY` / `LLM_MODEL` | chave do Google Gemini / `gemini-flash-lite-latest` |
-| `PAINEL_USUARIO` / `PAINEL_SENHA` | credenciais do login do painel (senha **obrigatória**) |
+| `PAINEL_SENHA` | **obrigatória**: liga o login. Valor aleatório (`python -c "import secrets; print(secrets.token_urlsafe(24))"`); **não** é senha de ninguém. Os logins ficam na tabela `usuario` (senha com `tools/definir_senha.py`) |
 | `SECRET_KEY` | **fixa**: `python -c "import secrets; print(secrets.token_hex(32))"` |
 | `SESSAO_HORAS` | `24` |
 | `SOMPO_API_KEY` | **VAZIA** |
