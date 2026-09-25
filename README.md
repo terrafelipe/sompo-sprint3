@@ -139,15 +139,17 @@ tabela `usuario` e semeia os logins de teste).
 
 **Credenciais de teste:**
 
-| Usuário | Senha | Perfil | Enxerga |
-|---|---|---|---|
-| `sompo` | `sompo123` | Sompo | todas as fazendas + abas de cadastro |
-| `gestor.santarita` | `santarita123` | Gestor de Fazenda | só a Fazenda Santa Rita (`SOMPO-ESP32`) |
-| `gestor.valeverde` | `valeverde123` | Gestor de Fazenda | só a Fazenda Vale Verde (`SOMPO-ESP32-SIM`) |
+| Usuário | Perfil | Enxerga |
+|---|---|---|
+| `sompo` | Sompo | todas as fazendas + abas de cadastro |
+| `gestor.santarita` | Gestor de Fazenda | só a Fazenda Santa Rita (`SOMPO-ESP32`) |
+| `gestor.valeverde` | Gestor de Fazenda | só a Fazenda Vale Verde (`SOMPO-ESP32-SIM`) |
+
+As senhas **não ficam no repositório** (ele é público). O banco guarda só o hash; peça as senhas
+ao responsável pelo projeto ou defina uma com `python tools/definir_senha.py <usuario>`.
 
 > Para demonstrar a troca de perfis ao vivo, o login precisa estar ligado (`PAINEL_SENHA` definida
-> no `.env`/`infra/.env.aws`). A credencial antiga (`PAINEL_USUARIO`/`PAINEL_SENHA`) continua valendo como um
-> login Sompo de reserva. Senhas em texto plano são intencionais aqui (demo); não use em produção.
+> no `.env`/`infra/.env.aws`). A `PAINEL_SENHA` só liga o login: não é senha de nenhum usuário.
 
 ## Segurança
 

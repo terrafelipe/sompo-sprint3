@@ -535,16 +535,19 @@ estragaria as médias da view `resumo_diario`.
 
 ---
 
-## 13. Credenciais de teste (demo — senha em texto plano)
+## 13. Logins de teste
 
-| Usuário | Senha | Perfil | Enxerga |
-|---|---|---|---|
-| `sompo` | `sompo123` | Sompo | todas as fazendas + abas de cadastro |
-| `gestor.santarita` | `santarita123` | Gestor de Fazenda | só a Fazenda Santa Rita (`SOMPO-ESP32`) |
-| `gestor.valeverde` | `valeverde123` | Gestor de Fazenda | só a Fazenda Vale Verde (`SOMPO-ESP32-SIM`) |
+| Usuário | Perfil | Enxerga |
+|---|---|---|
+| `sompo` | Sompo | todas as fazendas + abas de cadastro |
+| `gestor.santarita` | Gestor de Fazenda | só a Fazenda Santa Rita (`SOMPO-ESP32`) |
+| `gestor.valeverde` | Gestor de Fazenda | só a Fazenda Vale Verde (`SOMPO-ESP32-SIM`) |
 
-A credencial de env (`PAINEL_USUARIO`/`PAINEL_SENHA`) continua valendo como um login Sompo
-de reserva. Os perfis só funcionam com o **login ligado** (`PAINEL_SENHA` definida).
+As senhas **não ficam no repositório** (ele é público). O banco guarda só o hash; peça as senhas
+ao responsável pelo projeto ou defina uma com `python tools/definir_senha.py <usuario>`.
+
+A `PAINEL_SENHA` só liga o login (não é senha de nenhum usuário). Os perfis só funcionam
+com o **login ligado** (`PAINEL_SENHA` definida).
 
 ---
 

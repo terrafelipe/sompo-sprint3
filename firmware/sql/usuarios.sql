@@ -5,9 +5,11 @@
 --   gestor.santarita -> role 'gestor_fazenda' (ve so a Fazenda Santa Rita)
 --   gestor.valeverde -> role 'gestor_fazenda' (ve so a Fazenda Vale Verde)
 --
--- ATENCAO: senha em TEXTO PLANO de proposito - e uma demo academica (dados simulados, sem
--- seguranca de producao). Nao use este padrao em producao. O RLS impede a chave anon (ESP32)
--- de ler esta tabela; so a API (secret key/service_role) le.
+-- Senhas: a coluna guarda HASH (werkzeug). Os seeds entram BLOQUEADOS ('!', nunca confere);
+-- defina a senha de cada um com:  python tools/definir_senha.py <usuario>
+-- (senha em texto puro de bancos antigos vira hash no primeiro login ou com
+-- tools/migrar_senhas_hash.py). O RLS impede a chave anon (ESP32) de ler esta tabela;
+-- so a API (secret key/service_role) le.
 --
 -- Ordem: rode ANTES o preparar_supabase.sql, o dados_exemplo.sql e o fazenda.sql (com a coluna
 -- dispositivo_id). Este script e idempotente.
@@ -49,20 +51,20 @@ alter table public.usuario enable row level security;  -- sem policy anon => ESP
 -- 3. Seeds dos 3 logins de teste
 -- ==========================================================================
 insert into public.usuario (usuario, senha, role, fk_fazenda_id_fazenda)
-select 'sompo', 'sompo123', 'sompo', null
+select 'sompo', '!', 'sompo', null
 where not exists (select 1 from public.usuario where usuario = 'sompo');
 
 -- Renomeia os logins antigos (fazenda1/fazenda2), se ja existirem, para os nomes didaticos.
-update public.usuario set usuario = 'gestor.santarita', senha = 'santarita123' where usuario = 'fazenda1';
-update public.usuario set usuario = 'gestor.valeverde', senha = 'valeverde123' where usuario = 'fazenda2';
+update public.usuario set usuario = 'gestor.santarita', senha = '!' where usuario = 'fazenda1';
+update public.usuario set usuario = 'gestor.valeverde', senha = '!' where usuario = 'fazenda2';
 
 insert into public.usuario (usuario, senha, role, fk_fazenda_id_fazenda)
-select 'gestor.santarita', 'santarita123', 'gestor_fazenda',
+select 'gestor.santarita', '!', 'gestor_fazenda',
        (select id_fazenda from public.fazenda where nome = 'Fazenda Santa Rita')
 where not exists (select 1 from public.usuario where usuario = 'gestor.santarita');
 
 insert into public.usuario (usuario, senha, role, fk_fazenda_id_fazenda)
-select 'gestor.valeverde', 'valeverde123', 'gestor_fazenda',
+select 'gestor.valeverde', '!', 'gestor_fazenda',
        (select id_fazenda from public.fazenda where nome = 'Fazenda Vale Verde')
 where not exists (select 1 from public.usuario where usuario = 'gestor.valeverde');
 

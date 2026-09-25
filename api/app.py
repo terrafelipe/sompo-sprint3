@@ -20,6 +20,7 @@ from flask import (
     url_for,
 )
 from flask_cors import CORS
+from werkzeug.security import check_password_hash, generate_password_hash
 
 import ocorrencias
 import frota
@@ -135,10 +136,27 @@ def _destino_seguro(proximo: str) -> str:
     return url_for('painel')
 
 
+# Senhas do painel: o banco guarda hash (werkzeug). Senha legada em texto puro ainda entra,
+# uma vez, e e regravada como hash no mesmo login. '!' marca conta sem senha definida
+# (seeds do usuarios.sql; definir com tools/definir_senha.py).
+_PREFIXOS_HASH = ('scrypt:', 'pbkdf2:')
+SENHA_BLOQUEADA = '!'
+
+
+def _senha_confere(guardada: str, digitada: str) -> Tuple[bool, bool]:
+    """Devolve (confere, regravar_como_hash)."""
+    if not guardada or guardada == SENHA_BLOQUEADA or not digitada:
+        return False, False
+    if guardada.startswith(_PREFIXOS_HASH):
+        return check_password_hash(guardada, digitada), False
+    confere = hmac.compare_digest(guardada.encode('utf-8'), digitada.encode('utf-8'))
+    return confere, confere
+
+
 def _autenticar(usuario: str, senha: str) -> Dict[str, Any] | None:
     # Perfis: 1) tabela `usuario` (role + fazenda vinculada); 2) fallback para a
     # credencial do env (PAINEL_USUARIO/SENHA) como perfil 'sompo', para nao quebrar
-    # o login ja configurado. Senha em texto plano - demo academica (ver usuarios.sql).
+    # o login ja configurado. Senha com hash (ver _senha_confere).
     try:
         u = buscar_usuario(usuario)
     except Exception as exc:
@@ -146,7 +164,14 @@ def _autenticar(usuario: str, senha: str) -> Dict[str, Any] | None:
         return None  # Fail closed: an excluded login must not use the env fallback.
     if u and u.get('excluido_em'):
         return None
-    if u and hmac.compare_digest(str(u.get('senha', '')), senha):
+    confere, regravar = _senha_confere(str((u or {}).get('senha') or ''), senha)
+    if u and confere:
+        if regravar:
+            try:
+                atualizar_tabela('usuario', {'id_usuario': f"eq.{u.get('id_usuario')}"},
+                                 {'senha': generate_password_hash(senha)})
+            except Exception as exc:   # o login segue; a migracao pega depois
+                app.logger.warning('login: nao regravou a senha como hash: %s', exc)
         faz = u.get('fazenda') or {}
         return {
             'usuario_id': u.get('id_usuario'),
@@ -697,7 +722,7 @@ def usuarios_criar():
     if role not in _ROLES_VALIDAS:
         return jsonify({'erro': 'role_invalida'}), 400
 
-    payload: Dict[str, Any] = {'usuario': usuario, 'senha': senha, 'role': role}
+    payload: Dict[str, Any] = {'usuario': usuario, 'senha': generate_password_hash(senha), 'role': role}
     # gestor_fazenda tem de estar vinculado a uma fazenda (e o que escopa a visao dele).
     if role == 'gestor_fazenda':
         fazenda_id = corpo.get('fk_fazenda_id_fazenda')
