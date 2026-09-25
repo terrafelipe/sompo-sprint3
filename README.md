@@ -146,7 +146,9 @@ tabela `usuario` e semeia os logins de teste).
 | `gestor.valeverde` | Gestor de Fazenda | só a Fazenda Vale Verde (`SOMPO-ESP32-SIM`) |
 
 As senhas **não ficam no repositório** (ele é público). O banco guarda só o hash; peça as senhas
-ao responsável pelo projeto ou defina uma com `python tools/definir_senha.py <usuario>`.
+ao responsável pelo projeto. Para trocar: no painel, menu do usuário → **Trocar minha senha**
+(pede a atual); o perfil Sompo troca a de qualquer login em Usuários → detalhe → **Trocar senha**.
+Sem o painel: `python tools/definir_senha.py <usuario>`. Trocar a senha derruba as sessões abertas.
 
 > Para demonstrar a troca de perfis ao vivo, o login precisa estar ligado (`PAINEL_SENHA` definida
 > no `.env`/`infra/.env.aws`). A `PAINEL_SENHA` só liga o login: não é senha de nenhum usuário.

@@ -247,6 +247,7 @@
   .menu-acoes{position:fixed;inset:auto;margin:0;padding:4px;min-width:11.5rem;border:1px solid var(--v-borda);border-radius:.625rem;background:var(--v-card);box-shadow:0 10px 30px rgba(0,0,0,.08);color:var(--v-texto)}
   .menu-acoes button{display:flex!important;width:100%;align-items:center;gap:.55rem;padding:.45rem .6rem!important;border-radius:.375rem!important;font-size:13px!important;font-weight:400!important;color:var(--v-texto)!important;text-align:left;background:none!important;text-decoration:none!important}
   .menu-acoes button:hover{background:var(--v-hover)!important}
+  .menu-acoes [hidden]{display:none!important}
   .menu-acoes button .material-symbols-outlined{font-size:18px;color:var(--v-texto2)}
   .menu-acoes hr{border:0;border-top:1px solid var(--v-borda);margin:4px 0}
   .menu-acoes [data-excluir-tipo]{color:#ba1a1a!important}
@@ -420,6 +421,7 @@
         <div id="sideUsuario" class="text-sm font-medium text-on-surface truncate">Sompo</div>
         <div id="sidePerfil" class="text-xs text-on-surface-variant truncate">Portfólio</div>
       </div>
+      <button type="button" data-minha-senha hidden title="Trocar minha senha" aria-label="Trocar minha senha" class="sb-txt p-1.5 rounded-md text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors"><span class="material-symbols-outlined text-[18px]">password</span></button>
       <a href="/logout" title="Sair" class="sb-txt p-1.5 rounded-md text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors"><span class="material-symbols-outlined text-[18px]">logout</span></a>
     </div>
   </div>
@@ -466,6 +468,7 @@
       <hr>
       <div class="px-2.5 py-1.5 text-xs text-on-surface-variant flex items-center gap-2"><span class="material-symbols-outlined text-[16px]">database</span><span id="saudeTxt">verificando…</span></div>
       <hr>
+      <button type="button" data-minha-senha hidden><span class="material-symbols-outlined">password</span>Trocar minha senha</button>
       <a href="/logout"><span class="material-symbols-outlined">logout</span>Sair</a>
     </div>
   </header>
@@ -1079,7 +1082,7 @@
           </div>
           <div>
             <label class="block text-xs font-semibold text-on-surface-variant mb-1">Senha *</label>
-            <input id="usSenha" required autocomplete="new-password" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20" placeholder="senha de acesso"/>
+            <input id="usSenha" type="password" required minlength="10" autocomplete="new-password" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20" placeholder="mínimo de 10 caracteres"/>
           </div>
           <div>
             <label class="block text-xs font-semibold text-on-surface-variant mb-1">Perfil *</label>
@@ -3678,6 +3681,7 @@ async function criarCliente(ev){
 const ROLE_ROTULO = {sompo:'Sompo', gestor_fazenda:'Gestor da fazenda'};
 const ERRO_USUARIO = {
   usuario_obrigatorio:'Informe o nome de usuário.', senha_obrigatoria:'Informe a senha.',
+  senha_curta:'A senha precisa de pelo menos 10 caracteres.',
   role_invalida:'Selecione um perfil.', fazenda_obrigatoria:'Selecione a fazenda do gestor.',
   fazenda_invalida:'Fazenda inválida.', usuario_ja_existe:'Já existe um usuário com esse nome.'
 };
@@ -4007,6 +4011,7 @@ async function aplicarPerfil(){
   }
   $('perfilBadge').classList.remove('hidden');
   $('sideUsuario').textContent = me.usuario || 'Modo demonstração';
+  document.querySelectorAll('[data-minha-senha]').forEach(b => b.hidden = !me.usuario);
   $('menuUsuarioNome').textContent = me.usuario || 'Modo demonstração';
   if(perfilRole !== 'gestor_fazenda') $('sidePerfil').textContent = 'Sompo · Portfólio';
 }
@@ -4258,9 +4263,72 @@ async function abrirUsuario(id){
       ['Data de cadastro',u.criado_em?new Date(u.criado_em).toLocaleString('pt-BR'):null],
       ['Fazenda',f?.nome],['Localização',f?.localizacao],['Cliente',c?.nome],
       ['CNPJ',c?.cnpj],['Telefone do cliente',c?.telefone],['E-mail do cliente',c?.email]];
-    abrirDetalhe(u.usuario,'account_circle',campos.map(([k,v])=>linhaDet(k,v??'Não informado')).join('')+botaoExcluir('usuarios',u.id_usuario,u.usuario));
+    const btnSenha = `<button type="button" data-trocar-senha-usuario="${u.id_usuario}" data-nome="${escapar(u.usuario)}" class="bg-surface-container-high text-primary font-semibold text-xs px-3 py-2 rounded-lg inline-flex items-center gap-1.5"><span class="material-symbols-outlined text-[16px]" aria-hidden="true">password</span>Trocar senha</button>`;
+    abrirDetalhe(u.usuario,'account_circle',campos.map(([k,v])=>linhaDet(k,v??'Não informado')).join('')
+      + `<div class="mt-4 flex flex-wrap items-center gap-2">${btnSenha}${botaoExcluir('usuarios',u.id_usuario,u.usuario)}</div>`);
   }catch(e){ if(!e.obsoleto && versao===detalheVersao) $('detCorpo').textContent='Não foi possível carregar os detalhes do usuário.'; }
 }
+/* ---------- Troca de senha ---------- */
+// A propria (menu do usuario; exige a atual) e a de outro login (detalhe do usuario; so Sompo).
+// Erros viram frases no proprio formulario, como nos cadastros.
+const ERRO_SENHA = {
+  senha_curta:'A senha nova precisa de pelo menos 10 caracteres.', senha_igual:'A senha nova tem de ser diferente da atual.',
+  senha_atual_incorreta:'A senha atual não confere.', muitas_tentativas:'Muitas tentativas erradas. Espere alguns minutos e tente de novo.',
+  nao_encontrado:'Este usuário não existe mais.', proibido:'Só o perfil Sompo pode trocar a senha de outra pessoa.',
+  sem_usuario:'O painel está sem login (modo demonstração): não há senha para trocar.'
+};
+const campoSenha = (id, rotulo, auto) => `<div><label for="${id}" class="block text-xs font-semibold text-on-surface-variant mb-1">${rotulo}</label><input id="${id}" type="password" autocomplete="${auto}" class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20"/></div>`;
+const rodapeSenha = msgId => `<div class="flex flex-wrap items-center gap-x-3 gap-y-2"><button type="submit" class="bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg">Salvar senha</button><span id="${msgId}" role="status" class="basis-full text-[13px] font-semibold"></span></div>`;
+function abrirMinhaSenha(){
+  $('menuUsuario').hidePopover?.();
+  abrirDetalhe('Trocar minha senha','password', `<form id="formMinhaSenha" class="grid gap-4" novalidate>
+    ${campoSenha('msAtual','Senha atual','current-password')}
+    ${campoSenha('msNova','Senha nova (mínimo de 10 caracteres)','new-password')}
+    ${campoSenha('msConfirma','Repita a senha nova','new-password')}
+    ${rodapeSenha('msMsg')}</form>`);
+  $('msAtual').focus();
+}
+function abrirSenhaUsuario(id, nome){
+  abrirDetalhe(`Trocar a senha de ${nome}`,'password', `<form id="formSenhaUsuario" data-id="${escapar(id)}" data-nome="${escapar(nome)}" class="grid gap-4" novalidate>
+    <p class="text-sm text-on-surface-variant">A senha atual não é pedida. As sessões abertas deste login são encerradas.</p>
+    ${campoSenha('suNova','Senha nova (mínimo de 10 caracteres)','new-password')}
+    ${campoSenha('suConfirma','Repita a senha nova','new-password')}
+    ${rodapeSenha('suMsg')}</form>`);
+  $('suNova').focus();
+}
+async function salvarSenha(form, url, corpo, confirma, msg, textoOk){
+  const erro = texto => { msg.textContent = texto; msg.style.color = '#ba1a1a'; };
+  if((corpo.senha_nova || '').length < 10) return erro(ERRO_SENHA.senha_curta);
+  if(corpo.senha_nova !== confirma) return erro('As duas senhas novas não conferem.');
+  const botao = form.querySelector('[type="submit"]');
+  botao.disabled = true; msg.textContent = 'Salvando…'; msg.style.color = '#545f73';
+  try{
+    const r = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json'}, body: JSON.stringify(corpo)});
+    const d = await r.json().catch(() => ({}));
+    if(!r.ok) return erro(ERRO_SENHA[d.erro] || (r.status === 429 ? ERRO_SENHA.muitas_tentativas : 'Não foi possível trocar a senha agora. Tente de novo em instantes.'));
+    msg.textContent = textoOk; msg.style.color = '#10b981';
+    form.querySelectorAll('input').forEach(i => { i.value = ''; i.disabled = true; });
+    botao.hidden = true;
+  }catch(e){ erro('Não foi possível trocar a senha agora. Tente de novo em instantes.'); }
+  finally{ botao.disabled = false; }
+}
+document.addEventListener('submit', e => {
+  const f = e.target;
+  if(f.id === 'formMinhaSenha'){
+    e.preventDefault();
+    salvarSenha(f, '/me/senha', {senha_atual: $('msAtual').value, senha_nova: $('msNova').value}, $('msConfirma').value, $('msMsg'),
+      'Senha trocada. As outras sessões abertas com a senha antiga foram encerradas.');
+  }
+  if(f.id === 'formSenhaUsuario'){
+    e.preventDefault();
+    salvarSenha(f, `/usuarios/${encodeURIComponent(f.dataset.id)}/senha`, {senha_nova: $('suNova').value}, $('suConfirma').value, $('suMsg'),
+      `Senha de ${f.dataset.nome} trocada. As sessões abertas deste login foram encerradas.`);
+  }
+});
+document.addEventListener('click', e => {
+  if(e.target.closest('[data-minha-senha]')) abrirMinhaSenha();
+  const s = e.target.closest('[data-trocar-senha-usuario]'); if(s) abrirSenhaUsuario(s.dataset.trocarSenhaUsuario, s.dataset.nome);
+});
 document.addEventListener('click',e=>{
   const b=e.target.closest('[data-excluir-tipo]'); if(b) solicitarExclusao(b);
   const u=e.target.closest('[data-usuario-detalhe]'); if(u) abrirUsuario(u.dataset.usuarioDetalhe);

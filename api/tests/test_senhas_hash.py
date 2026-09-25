@@ -65,7 +65,7 @@ def test_senha_bloqueada_nunca_entra():
 def test_cadastro_de_usuario_grava_hash_e_nunca_a_senha():
     client = app.app.test_client()
     with patch('app.inserir_tabela', return_value={'id_usuario': 9, 'usuario': 'novo'}) as inserir:
-        resposta = client.post('/usuarios', json={'usuario': 'novo', 'senha': 'segredo-9', 'role': 'sompo'})
+        resposta = client.post('/usuarios', json={'usuario': 'novo', 'senha': 'segredo-longo-9', 'role': 'sompo'})
     assert resposta.status_code == 201
     payload = inserir.call_args.args[1]
-    assert payload['senha'] != 'segredo-9' and check_password_hash(payload['senha'], 'segredo-9')
+    assert payload['senha'] != 'segredo-longo-9' and check_password_hash(payload['senha'], 'segredo-longo-9')

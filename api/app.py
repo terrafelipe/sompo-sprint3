@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import functools
+import hashlib
 import hmac
 import math
 import os
@@ -51,6 +52,7 @@ from supabase_client import (
     consultar_resumo,
     consultar_telemetria,
     consultar_telemetria_intervalo,
+    consultar_usuario,
     consultar_usuarios,
     inserir_tabela,
 )
@@ -154,6 +156,9 @@ def exigir_login_painel():
             return _erro('autenticacao_indisponivel', exc, 502)
         if (atual and atual.get('excluido_em')) or (session.get('usuario_id') and not atual):
             session.clear()
+        # Senha trocada (pelo proprio usuario em outra sessao ou pela Sompo): a sessao cai.
+        if session.get('senha_fp') and atual and _impressao_senha(str(atual.get('senha') or '')) != session['senha_fp']:
+            session.clear()
         # Timeout absoluto: expira SESSAO_HORAS apos o login, independente de atividade.
         if time.time() - session.get('login_em', 0) < _SESSAO_SEGUNDOS:
             return None
@@ -181,6 +186,23 @@ SENHA_BLOQUEADA = '!'
 # resposta revelaria quais usuarios existem.
 _HASH_FALSO = generate_password_hash('conta-inexistente')
 _TAMANHO_MAX_USUARIO = 150
+TAMANHO_MIN_SENHA = 10
+
+
+def _impressao_senha(guardada: str) -> str | None:
+    # Impressao do HASH (com sal) guardada na sessao para derrubar sessoes quando a senha muda.
+    # Nunca de senha em texto puro: o cookie de sessao e assinado, mas legivel.
+    if not guardada.startswith(_PREFIXOS_HASH):
+        return None
+    return hashlib.sha256(guardada.encode('utf-8')).hexdigest()[:16]
+
+
+def _erro_senha_nova(nova, atual: str | None = None) -> str | None:
+    if not isinstance(nova, str) or len(nova) < TAMANHO_MIN_SENHA:
+        return 'senha_curta'
+    if atual is not None and nova == atual:
+        return 'senha_igual'
+    return None
 
 
 def _senha_confere(guardada: str, digitada: str) -> Tuple[bool, bool]:
@@ -209,12 +231,14 @@ def _autenticar(usuario: str, senha: str) -> Dict[str, Any] | None:
     guardada = '' if not u or u.get('excluido_em') else str(u.get('senha') or '')
     confere, regravar = _senha_confere(guardada, senha)
     if u and confere:
+        impressao = _impressao_senha(guardada)
         if regravar:
             try:
                 # So troca se o valor guardado ainda nao for hash nem '!': nao desfaz um
                 # definir_senha.py feito ao mesmo tempo, e a senha nao vai na URL do PostgREST.
                 atualizar_tabela('usuario', {'id_usuario': f"eq.{u.get('id_usuario')}", 'and': '(senha.not.like.scrypt:*,senha.not.like.pbkdf2:*,senha.neq.!)'},
-                                 {'senha': generate_password_hash(senha)})
+                                 {'senha': (novo := generate_password_hash(senha))})
+                impressao = _impressao_senha(novo)
             except Exception as exc:   # o login segue; a migracao pega depois
                 app.logger.warning('login: nao regravou a senha como hash: %s', exc)
         faz = u.get('fazenda') or {}
@@ -225,6 +249,7 @@ def _autenticar(usuario: str, senha: str) -> Dict[str, Any] | None:
             'fazenda_id': u.get('fk_fazenda_id_fazenda'),
             'fazenda_nome': faz.get('nome'),
             'dispositivo_forcado': faz.get('dispositivo_id'),
+            'senha_fp': impressao,
         }
     return None
 
@@ -318,6 +343,7 @@ def login():
             session['fazenda_id'] = perfil['fazenda_id']
             session['fazenda_nome'] = perfil['fazenda_nome']
             session['dispositivo_forcado'] = perfil['dispositivo_forcado']
+            session['senha_fp'] = perfil.get('senha_fp')
             # "Manter conectado": marcado = cookie persiste (ate SESSAO_HORAS); desmarcado =
             # cai ao fechar o navegador. O timeout de SESSAO_HORAS vale nos dois casos.
             session.permanent = bool(request.form.get('lembrar'))
@@ -831,6 +857,8 @@ def usuarios_criar():
     senha = str(corpo.get('senha', '')).strip()
     if not senha:
         return jsonify({'erro': 'senha_obrigatoria'}), 400
+    if _erro_senha_nova(senha):
+        return jsonify({'erro': 'senha_curta'}), 400
     role = str(corpo.get('role', '')).strip()
     if role not in _ROLES_VALIDAS:
         return jsonify({'erro': 'role_invalida'}), 400
@@ -870,6 +898,67 @@ def usuario_detalhe(value):
         return jsonify(usuario=usuario)
     except Exception as exc:
         return _erro('falha_na_consulta', exc, 502)
+
+
+@app.post('/me/senha')
+def trocar_minha_senha():
+    # A propria senha: exige a atual; tentativas erradas contam no limite do /login.
+    usuario = session.get('usuario')
+    if not session.get('usuario_id') or not usuario:
+        return jsonify({'erro': 'sem_usuario'}), 409
+    corpo = request.get_json(silent=True)
+    if not isinstance(corpo, dict):
+        return jsonify({'erro': 'json_invalido'}), 400
+    chave, agora = _chave_login(usuario), time.time()
+    espera = max(_espera(_falhas_login, chave, _TENTATIVAS_MAX, agora),
+                 _espera(_falhas_ip, chave[1], _TENTATIVAS_MAX_IP, agora))
+    if espera:
+        return jsonify({'erro': 'muitas_tentativas'}), 429, {'Retry-After': str(espera)}
+    atual = corpo.get('senha_atual') if isinstance(corpo.get('senha_atual'), str) else ''
+    erro = _erro_senha_nova(corpo.get('senha_nova'), atual)
+    if erro:
+        return jsonify({'erro': erro}), 400
+    try:
+        u = buscar_usuario(usuario)
+        if not u or u.get('excluido_em'):
+            return jsonify({'erro': 'sem_usuario'}), 409
+        confere, _regravar = _senha_confere(str(u.get('senha') or ''), atual)
+        if not confere:
+            _registrar_falha(_falhas_login, chave, _TENTATIVAS_MAX, agora)
+            _registrar_falha(_falhas_ip, chave[1], _TENTATIVAS_MAX_IP, agora)
+            return jsonify({'erro': 'senha_atual_incorreta'}), 400
+        novo = generate_password_hash(corpo['senha_nova'])
+        atualizar_tabela('usuario', {'id_usuario': f"eq.{u['id_usuario']}"}, {'senha': novo})
+    except Exception as exc:
+        return _erro('falha_ao_trocar_senha', exc, 502)
+    session['senha_fp'] = _impressao_senha(novo)   # esta sessao continua; as outras caem
+    _falhas_login.pop(chave, None)
+    _revalidados.clear()
+    return jsonify({'ok': True}), 200
+
+
+@app.post('/usuarios/<int:value>/senha')
+@somente_sompo
+def trocar_senha_de_usuario(value):
+    # A Sompo define a senha de qualquer login (sem a antiga); as sessoes dele caem.
+    corpo = request.get_json(silent=True)
+    if not isinstance(corpo, dict):
+        return jsonify({'erro': 'json_invalido'}), 400
+    erro = _erro_senha_nova(corpo.get('senha_nova'))
+    if erro:
+        return jsonify({'erro': erro}), 400
+    try:
+        alvo = consultar_usuario(value)
+        if not alvo or alvo.get('excluido_em'):
+            return jsonify({'erro': 'nao_encontrado'}), 404
+        novo = generate_password_hash(corpo['senha_nova'])
+        atualizar_tabela('usuario', {'id_usuario': f'eq.{value}'}, {'senha': novo})
+    except Exception as exc:
+        return _erro('falha_ao_trocar_senha', exc, 502)
+    if str(session.get('usuario_id')) == str(value):
+        session['senha_fp'] = _impressao_senha(novo)
+    _revalidados.clear()
+    return jsonify({'ok': True}), 200
 
 
 @app.delete('/clientes/<int:value>', defaults={'tipo': 'clientes'})

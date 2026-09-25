@@ -24,7 +24,7 @@ def test_criar_usuario_sompo_ok():
     client = app.test_client()
     retorno = {'id_usuario': 2, 'usuario': 'novo', 'role': 'sompo', 'senha': 'x'}
     with patch('app.inserir_tabela', return_value=retorno) as ins:
-        response = client.post('/usuarios', json={'usuario': 'novo', 'senha': 'segredo', 'role': 'sompo'})
+        response = client.post('/usuarios', json={'usuario': 'novo', 'senha': 'senha-valida-10', 'role': 'sompo'})
     assert response.status_code == 201
     corpo = response.get_json()
     assert corpo['ok'] is True
@@ -37,7 +37,7 @@ def test_criar_usuario_sompo_ok():
 def test_criar_usuario_gestor_exige_fazenda():
     client = app.test_client()
     with patch('app.inserir_tabela') as ins:
-        response = client.post('/usuarios', json={'usuario': 'g', 'senha': 's', 'role': 'gestor_fazenda'})
+        response = client.post('/usuarios', json={'usuario': 'g', 'senha': 'senha-valida-10', 'role': 'gestor_fazenda'})
     assert response.status_code == 400
     assert response.get_json()['erro'] == 'fazenda_obrigatoria'
     ins.assert_not_called()
@@ -48,7 +48,7 @@ def test_criar_usuario_gestor_com_fazenda_ok():
     retorno = {'id_usuario': 3, 'usuario': 'g', 'role': 'gestor_fazenda'}
     with patch('app.inserir_tabela', return_value=retorno) as ins:
         response = client.post('/usuarios', json={
-            'usuario': 'g', 'senha': 's', 'role': 'gestor_fazenda', 'fk_fazenda_id_fazenda': 5})
+            'usuario': 'g', 'senha': 'senha-valida-10', 'role': 'gestor_fazenda', 'fk_fazenda_id_fazenda': 5})
     assert response.status_code == 201
     # A fazenda vai no payload já como int.
     assert ins.call_args[0][1]['fk_fazenda_id_fazenda'] == 5
@@ -57,7 +57,7 @@ def test_criar_usuario_gestor_com_fazenda_ok():
 def test_criar_usuario_sem_usuario_400():
     client = app.test_client()
     with patch('app.inserir_tabela') as ins:
-        response = client.post('/usuarios', json={'senha': 's', 'role': 'sompo'})
+        response = client.post('/usuarios', json={'senha': 'senha-valida-10', 'role': 'sompo'})
     assert response.status_code == 400
     assert response.get_json()['erro'] == 'usuario_obrigatorio'
     ins.assert_not_called()
@@ -66,7 +66,7 @@ def test_criar_usuario_sem_usuario_400():
 def test_criar_usuario_role_invalida_400():
     client = app.test_client()
     with patch('app.inserir_tabela') as ins:
-        response = client.post('/usuarios', json={'usuario': 'x', 'senha': 's', 'role': 'admin'})
+        response = client.post('/usuarios', json={'usuario': 'x', 'senha': 'senha-valida-10', 'role': 'admin'})
     assert response.status_code == 400
     assert response.get_json()['erro'] == 'role_invalida'
     ins.assert_not_called()
@@ -76,7 +76,7 @@ def test_criar_usuario_duplicado_409():
     client = app.test_client()
     erro = RuntimeError('Erro ao inserir no Supabase: 409 - duplicate key value (23505)')
     with patch('app.inserir_tabela', side_effect=erro):
-        response = client.post('/usuarios', json={'usuario': 'sompo', 'senha': 's', 'role': 'sompo'})
+        response = client.post('/usuarios', json={'usuario': 'sompo', 'senha': 'senha-valida-10', 'role': 'sompo'})
     assert response.status_code == 409
     assert response.get_json()['erro'] == 'usuario_ja_existe'
 
