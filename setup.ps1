@@ -20,8 +20,10 @@ if (Test-Path $venvPy) {
 }
 
 # --- 2. Dependencias ---
-Write-Host "[..]  instalando dependencias (requirements.txt)"
-& $venvPy -m pip install -r (Join-Path $api 'requirements.txt') -q
+# requirements-test.txt inclui o requirements.txt + pytest e playwright (o pytest saiu das
+# dependencias de producao da Lambda).
+Write-Host "[..]  instalando dependencias (requirements-test.txt)"
+& $venvPy -m pip install -r (Join-Path $api 'requirements-test.txt') -q
 Write-Host "[ok]  dependencias instaladas" -ForegroundColor Green
 
 # --- 3. .env da API ---
