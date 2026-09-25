@@ -897,6 +897,7 @@
           <div id="opFazendaWrap"><label class="block text-xs font-semibold text-on-surface-variant mb-1">Fazenda *</label><select id="opFazenda" class="w-full bg-surface-container-lowest rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"></select></div>
           <div class="md:col-span-2 flex flex-wrap items-center gap-x-3 gap-y-2"><button type="submit" class="bg-primary text-on-primary font-semibold px-4 py-2 rounded-lg">Salvar operador</button><button type="button" id="btnCancelarOperador" class="font-semibold text-on-surface-variant px-3 py-2">Cancelar</button><span id="opMsg" class="basis-full md:basis-0 md:grow text-[13px] font-semibold"></span></div>
         </form>
+        <div data-filtro-maquina hidden class="mb-4"><span class="inline-flex items-center gap-2 rounded-full bg-primary/10 text-primary text-sm pl-3 pr-1 py-1"><span class="material-symbols-outlined text-[18px]" aria-hidden="true">filter_alt</span>Filtrando por <strong data-filtro-nome></strong><button type="button" data-limpar-maquina aria-label="Limpar o filtro da máquina" title="Limpar o filtro" class="w-7 h-7 grid place-items-center rounded-full hover:bg-primary/15"><span class="material-symbols-outlined text-[18px]" aria-hidden="true">close</span></button></span></div>
         <div id="listaOperadores"></div>
       </section>
 
@@ -978,6 +979,7 @@
           <div><h2 class="text-base font-semibold text-on-surface inline-flex items-center gap-2">Sessões de operação <span id="contaHistorico" class="selo"></span></h2><p class="text-xs text-on-surface-variant mt-1">Sessões identificadas pelo crachá, sem atribuição automática de responsabilidade.</p></div>
           <div class="flex items-center gap-2 flex-wrap"><div class="relative"><span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant pointer-events-none">search</span><input type="search" id="buscaHistorico" placeholder="Buscar máquina ou operador…" aria-label="Buscar máquina ou operador…" class="busca"/></div><select id="historicoDias" class="h-9 inline-flex items-center leading-none bg-surface-container-lowest border border-outline-variant rounded-lg px-3 outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"><option value="7">7 dias</option><option value="30">30 dias</option><option value="90">90 dias</option></select></div>
         </div>
+        <div data-filtro-maquina hidden class="mb-4"><span class="inline-flex items-center gap-2 rounded-full bg-primary/10 text-primary text-sm pl-3 pr-1 py-1"><span class="material-symbols-outlined text-[18px]" aria-hidden="true">filter_alt</span>Filtrando por <strong data-filtro-nome></strong><button type="button" data-limpar-maquina aria-label="Limpar o filtro da máquina" title="Limpar o filtro" class="w-7 h-7 grid place-items-center rounded-full hover:bg-primary/15"><span class="material-symbols-outlined text-[18px]" aria-hidden="true">close</span></button></span></div>
         <div id="listaHistorico"></div>
       </section>
 
@@ -1237,6 +1239,15 @@ let viewAtual = 'maquinas';
 const restrita = view => perfilRole !== 'sompo'
   && (['fazendas','clientes','usuarios'].includes(view) || (view === 'inicio' && perfilRole !== 'gestor_fazenda'));
 const dependeMaquina = view => view === 'visao';
+// Operadores e Historico ficam na aba ao escolher a maquina e filtram por ela.
+const filtraPorMaquina = view => view === 'operadores' || view === 'historico';
+function atualizarFiltroMaquina(){
+  const m = equipamentoSelecionado && maquinasCache.find(x => String(x.id_equipamento) === String(equipamentoSelecionado));
+  document.querySelectorAll('[data-filtro-maquina]').forEach(el => {
+    el.hidden = !m;
+    el.querySelector('[data-filtro-nome]').textContent = m ? m.nome : '';
+  });
+}
 function setView(view){
   if(restrita(view)) view = 'maquinas';
   const mudou = viewAtual !== view;
@@ -3881,10 +3892,15 @@ async function carregarOperadores(){
   iniciando('listaOperadores');
   try{
     const q = perfilRole==='sompo' && fazendaSelecionada ? `?fazenda=${fazendaSelecionada}` : '';
-    const d=await getJSON('/operadores'+q); operadoresCache=d.dados||[];
-    $('contaOperadores').textContent = operadoresCache.length || '';
-    if(!operadoresCache.length){ renderLista('listaOperadores', vazioHTML('Nenhum operador cadastrado.')); return; }
-    renderLista('listaOperadores', tabelaHTML(['Operador','Crachá (UID)','Matrícula','Status','>'], operadoresCache.map((o,i) => `<tr data-linha data-op="${i}" title="Ver detalhes" class="cursor-pointer">
+    atualizarFiltroMaquina();
+    const [d, aut] = await Promise.all([getJSON('/operadores'+q),
+      equipamentoSelecionado ? getJSON(`/equipamentos/${encodeURIComponent(equipamentoSelecionado)}/operadores`) : null]);
+    operadoresCache=d.dados||[];
+    const autorizados = aut && new Set((aut.dados||[]).map(a => String(a.operador_id)));
+    const linhas = operadoresCache.map((o,i) => [o,i]).filter(([o]) => !autorizados || autorizados.has(String(o.id_operador)));
+    $('contaOperadores').textContent = linhas.length || '';
+    if(!linhas.length){ renderLista('listaOperadores', vazioHTML(autorizados ? 'Nenhum crachá autorizado nesta máquina.' : 'Nenhum operador cadastrado.')); return; }
+    renderLista('listaOperadores', tabelaHTML(['Operador','Crachá (UID)','Matrícula','Status','>'], linhas.map(([o,i]) => `<tr data-linha data-op="${i}" title="Ver detalhes" class="cursor-pointer">
       <td><span class="font-medium">${escapar(o.nome)}</span></td>
       <td class="font-mono text-xs">${escapar(o.uid)}</td>
       <td>${o.matricula ? escapar(o.matricula) : '<span class="text-on-surface-variant">—</span>'}</td>
@@ -3965,7 +3981,7 @@ function renderHistorico(){
 }
 async function carregarHistorico(){
   iniciando('listaHistorico');
-  try{ const q=new URLSearchParams({dias:$('historicoDias').value}); if(perfilRole==='sompo'&&fazendaSelecionada) q.set('fazenda',fazendaSelecionada); const d=await getJSON('/operacoes?'+q);
+  try{ const q=new URLSearchParams({dias:$('historicoDias').value}); if(perfilRole==='sompo'&&fazendaSelecionada) q.set('fazenda',fazendaSelecionada); if(equipamentoSelecionado) q.set('equipamento',equipamentoSelecionado); atualizarFiltroMaquina(); const d=await getJSON('/operacoes?'+q);
     historicoCache = d.dados || [];
     renderHistorico();
   }catch(e){ if(e.obsoleto) return; $('listaHistorico').innerHTML=erroLista('Histórico indisponível.'); }
@@ -4149,7 +4165,9 @@ $('btnBaixar').addEventListener('click', () => {
 });
 $('dispositivo').addEventListener('change', carregarTudo);
 $('fazendaSel').addEventListener('change', ()=>trocarFazenda($('fazendaSel').value));
-$('equipamentoSel').addEventListener('change', ()=>{ const id=$('equipamentoSel').value; if(id) selecionarMaquina(id, dependeMaquina(viewAtual) ? viewAtual : 'visao'); else { limparMaquina(); setView(viewAtual); } });
+document.addEventListener('click', e => { if(!e.target.closest('[data-limpar-maquina]')) return;
+  limparMaquina(); $('equipamentoSel').value = ''; setView(viewAtual); carregarTudo(); });
+$('equipamentoSel').addEventListener('change', ()=>{ const id=$('equipamentoSel').value; if(id) selecionarMaquina(id, dependeMaquina(viewAtual) || filtraPorMaquina(viewAtual) ? viewAtual : 'visao'); else { limparMaquina(); setView(viewAtual); } });
 
 // Feed de alertas clicavel -> modal com os detalhes do evento.
 $('eventos').addEventListener('click', e=>{ const c = e.target.closest('[data-ev]'); if(c) abrirEvento(eventosCache[+c.dataset.ev]); });
