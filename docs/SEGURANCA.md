@@ -153,6 +153,11 @@ a senha na URL; limpar o seletor limpa o filtro na hora; além de 5 falhas por u
 falhas por IP (qualquer nome) travam o IP. Limite aceito: os contadores valem por instância da
 Lambda e um ataque distribuído (muitos IPs) não é coberto.
 
+Troca de senha pelo painel (2026-09-25, revisada pelo Codex): a própria exige a atual e conta no
+limite de tentativas; a Sompo troca a de qualquer login; trocar derruba as outras sessões (a sessão guarda
+a impressão do hash; cookie sem impressão cai quando o banco já tem hash) e as rotas de senha revalidam a
+sessão no banco, sem o cache de 20 s. Aceito: corrida de milissegundos entre conferir a senha atual e gravar.
+
 Informativo: nomes de máquina e fazenda digitados pelo gestor entram no prompt do Gemini
 (injeção de prompt). Impacto baixo: os scores são calculados sem IA e o texto da IA vai para a
 tela por `textContent`.

@@ -155,11 +155,43 @@ def test_sessao_cai_quando_a_senha_foi_trocada_em_outro_lugar():
         assert not s.get('logado')
 
 
-def test_sessao_antiga_sem_impressao_continua_valendo():
+def test_sessao_antiga_sem_impressao_cai_quando_o_banco_ja_tem_hash():
+    # Cookies de antes deste deploy nao tem a impressao: sem ela, a troca de senha nao os
+    # derrubaria. Com o banco ja em hash, pede login de novo (uma vez).
     client = app.app.test_client()
     _logado(client, impressao=False)
     with patch('app.PAINEL_SENHA', 'liga-o-login'), patch('app.buscar_usuario', return_value=_usuario()):
+        assert client.get('/me', headers={'Accept': 'application/json'}).status_code == 401
+
+
+def test_sessao_sem_impressao_de_conta_legada_continua():
+    # Senha ainda em texto puro no banco: nao ha impressao possivel (nunca do texto puro).
+    client = app.app.test_client()
+    _logado(client, usuario=_usuario(senha='legada-texto'), impressao=False)
+    with patch('app.PAINEL_SENHA', 'liga-o-login'), patch('app.buscar_usuario', return_value=_usuario(senha='legada-texto')):
         assert client.get('/me').status_code == 200
+
+
+def test_cache_velho_de_outra_instancia_nao_derruba_quem_acabou_de_trocar():
+    # A troca foi em outra instancia: esta guarda o hash antigo no cache de 20 s. Antes de
+    # derrubar a sessao, a revalidacao consulta o banco de novo.
+    client = app.app.test_client()
+    nova = _usuario(senha=generate_password_hash('nova-senha-123'))
+    _logado(client, usuario=nova)
+    app._revalidados['ana'] = (time.time() + 20, _usuario())   # hash antigo em cache
+    with patch('app.PAINEL_SENHA', 'liga-o-login'), patch('app.buscar_usuario', return_value=nova):
+        assert client.get('/me').status_code == 200
+
+
+def test_login_legado_sem_linha_gravada_nao_guarda_impressao():
+    # O PATCH condicional nao alterou nada (outro processo trocou a senha no meio).
+    client = app.app.test_client()
+    legado = _usuario(senha='legada-texto')
+    with patch('app.PAINEL_SENHA', 'liga-o-login'), patch('app.buscar_usuario', return_value=legado), \
+         patch('app.atualizar_tabela', return_value={}):
+        assert client.post('/login', data={'usuario': 'ana', 'senha': 'legada-texto'}).status_code == 302
+    with client.session_transaction() as s:
+        assert s.get('senha_fp') is None
 
 
 def test_login_guarda_a_impressao_do_hash_e_nunca_a_senha():
@@ -176,3 +208,32 @@ def test_cadastro_com_senha_curta_e_recusado():
         resposta = app.app.test_client().post('/usuarios', json={'usuario': 'novo', 'senha': 'curta', 'role': 'sompo'})
     assert resposta.status_code == 400 and resposta.json == {'erro': 'senha_curta'}
     inserir.assert_not_called()
+
+
+def test_rotas_de_senha_revalidam_a_sessao_sem_cache():
+    # Sessao revogada (senha trocada em outra instancia) com o hash antigo ainda no cache de 20 s:
+    # as rotas de senha consultam o banco antes de agir.
+    antigo = _usuario()
+    trocado = _usuario(senha=generate_password_hash('trocada-por-outro-1'))
+    for rota, corpo in [('/usuarios/7/senha', {'senha_nova': 'senha-do-gil-1'}),
+                        ('/me/senha', {'senha_atual': ATUAL, 'senha_nova': 'nova-senha-123'})]:
+        client = app.app.test_client()
+        _logado(client, usuario=antigo)
+        app._revalidados['ana'] = (time.time() + 20, antigo)
+        resposta, gravar = _chamar(client, 'post', rota, corpo, lambda n: {'ana': trocado, 'gil': GIL}.get(n))
+        assert resposta.status_code == 401, rota
+        gravar.assert_not_called()
+
+
+def test_dois_logins_legados_simultaneos_nao_derrubam_o_segundo():
+    # O 1o login ja regravou o hash; o PATCH do 2o nao altera linha. Se o hash gravado aceita a
+    # mesma senha, a sessao guarda a impressao dele e continua.
+    client = app.app.test_client()
+    legado = _usuario(senha='legada-texto')
+    ja_em_hash = _usuario(senha=generate_password_hash('legada-texto'))
+    respostas = iter([legado, ja_em_hash])
+    with patch('app.PAINEL_SENHA', 'liga-o-login'), patch('app.buscar_usuario', side_effect=lambda n: next(respostas)), \
+         patch('app.atualizar_tabela', return_value={}):
+        assert client.post('/login', data={'usuario': 'ana', 'senha': 'legada-texto'}).status_code == 302
+    with client.session_transaction() as s:
+        assert s['senha_fp'] == app._impressao_senha(ja_em_hash['senha'])

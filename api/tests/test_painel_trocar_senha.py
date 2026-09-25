@@ -67,3 +67,15 @@ def test_sompo_troca_a_senha_de_um_usuario(painel):
     page.locator('#formSenhaUsuario [type="submit"]').click()
     pw.expect(page.locator('#suMsg')).to_contain_text('Senha de gestor.teste trocada')
     assert state['posts'][-1] == ('/usuarios/7/senha', {'senha_nova': 'senha-do-gestor-1'})
+
+
+def test_sessao_caida_durante_a_troca_volta_para_o_login(painel):
+    page, state = painel
+    _logado_como(page)
+    page.route('**/me/senha', lambda r: r.fulfill(status=401, json={'erro': 'nao_autorizado'}))
+    _abrir_minha_senha(page)
+    page.fill('#msAtual', 'senha-atual-1')
+    page.fill('#msNova', 'senha-nova-123')
+    page.fill('#msConfirma', 'senha-nova-123')
+    with page.expect_navigation(url='**/login'):
+        page.locator('#formMinhaSenha [type="submit"]').click()

@@ -4304,6 +4304,7 @@ async function salvarSenha(form, url, corpo, confirma, msg, textoOk){
   botao.disabled = true; msg.textContent = 'Salvando…'; msg.style.color = '#545f73';
   try{
     const r = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json'}, body: JSON.stringify(corpo)});
+    if(r.status === 401){ window.location = '/login'; return; }   // sessao caiu: igual ao resto do painel
     const d = await r.json().catch(() => ({}));
     if(!r.ok) return erro(ERRO_SENHA[d.erro] || (r.status === 429 ? ERRO_SENHA.muitas_tentativas : 'Não foi possível trocar a senha agora. Tente de novo em instantes.'));
     msg.textContent = textoOk; msg.style.color = '#10b981';

@@ -118,10 +118,10 @@ _REVALIDACAO_SEGUNDOS = 20
 _revalidados: Dict[str, tuple] = {}
 
 
-def _usuario_atual(nome):
+def _usuario_atual(nome, fresco=False):
     agora = time.time()
     guardado = _revalidados.get(nome)
-    if guardado and guardado[0] > agora:
+    if guardado and guardado[0] > agora and not fresco:
         return guardado[1]
     atual = buscar_usuario(nome)
     _revalidados[nome] = (agora + _REVALIDACAO_SEGUNDOS, atual)
@@ -157,8 +157,16 @@ def exigir_login_painel():
         if (atual and atual.get('excluido_em')) or (session.get('usuario_id') and not atual):
             session.clear()
         # Senha trocada (pelo proprio usuario em outra sessao ou pela Sompo): a sessao cai.
-        if session.get('senha_fp') and atual and _impressao_senha(str(atual.get('senha') or '')) != session['senha_fp']:
-            session.clear()
+        # Sessao sem impressao (cookie de antes desta regra) tambem cai quando o banco ja tem
+        # hash: pede login de novo uma vez. Antes de derrubar, consulta o banco sem o cache
+        # de 20 s (a troca pode ter sido em outra instancia da Lambda).
+        if session.get('usuario_id') and atual and _impressao_diverge(atual):
+            try:
+                atual = _usuario_atual(session.get('usuario', ''), fresco=True)
+            except Exception as exc:
+                return _erro('autenticacao_indisponivel', exc, 502)
+            if not atual or _impressao_diverge(atual):
+                session.clear()
         # Timeout absoluto: expira SESSAO_HORAS apos o login, independente de atividade.
         if time.time() - session.get('login_em', 0) < _SESSAO_SEGUNDOS:
             return None
@@ -195,6 +203,23 @@ def _impressao_senha(guardada: str) -> str | None:
     if not guardada.startswith(_PREFIXOS_HASH):
         return None
     return hashlib.sha256(guardada.encode('utf-8')).hexdigest()[:16]
+
+
+def _impressao_diverge(usuario_do_banco: Dict[str, Any]) -> bool:
+    impressao = _impressao_senha(str(usuario_do_banco.get('senha') or ''))
+    return impressao is not None and impressao != session.get('senha_fp')
+
+
+def _sessao_valida_no_banco() -> bool:
+    # Rotas sensiveis (troca de senha) nao confiam no cache de 20 s da revalidacao: a sessao pode
+    # ter sido revogada em outra instancia. Consulta o banco e derruba a sessao se divergir.
+    if not session.get('usuario_id'):
+        return True
+    atual = _usuario_atual(session.get('usuario', ''), fresco=True)
+    if not atual or atual.get('excluido_em') or _impressao_diverge(atual):
+        session.clear()
+        return False
+    return True
 
 
 def _erro_senha_nova(nova, atual: str | None = None) -> str | None:
@@ -236,9 +261,16 @@ def _autenticar(usuario: str, senha: str) -> Dict[str, Any] | None:
             try:
                 # So troca se o valor guardado ainda nao for hash nem '!': nao desfaz um
                 # definir_senha.py feito ao mesmo tempo, e a senha nao vai na URL do PostgREST.
-                atualizar_tabela('usuario', {'id_usuario': f"eq.{u.get('id_usuario')}", 'and': '(senha.not.like.scrypt:*,senha.not.like.pbkdf2:*,senha.neq.!)'},
-                                 {'senha': (novo := generate_password_hash(senha))})
-                impressao = _impressao_senha(novo)
+                gravado = atualizar_tabela('usuario', {'id_usuario': f"eq.{u.get('id_usuario')}", 'and': '(senha.not.like.scrypt:*,senha.not.like.pbkdf2:*,senha.neq.!)'},
+                                           {'senha': (novo := generate_password_hash(senha))})
+                if gravado:
+                    impressao = _impressao_senha(novo)
+                else:
+                    # Nenhuma linha alterada: outro login (ou definir_senha.py) gravou antes. Vale a
+                    # impressao do que esta no banco so se esse hash aceita a mesma senha.
+                    relido = str((buscar_usuario(usuario) or {}).get('senha') or '')
+                    confere_relido = relido.startswith(_PREFIXOS_HASH) and check_password_hash(relido, senha)
+                    impressao = _impressao_senha(relido) if confere_relido else None
             except Exception as exc:   # o login segue; a migracao pega depois
                 app.logger.warning('login: nao regravou a senha como hash: %s', exc)
         faz = u.get('fazenda') or {}
@@ -906,6 +938,11 @@ def trocar_minha_senha():
     usuario = session.get('usuario')
     if not session.get('usuario_id') or not usuario:
         return jsonify({'erro': 'sem_usuario'}), 409
+    try:
+        if not _sessao_valida_no_banco():
+            return jsonify({'erro': 'nao_autorizado'}), 401
+    except Exception as exc:
+        return _erro('autenticacao_indisponivel', exc, 502)
     corpo = request.get_json(silent=True)
     if not isinstance(corpo, dict):
         return jsonify({'erro': 'json_invalido'}), 400
@@ -941,6 +978,11 @@ def trocar_minha_senha():
 @somente_sompo
 def trocar_senha_de_usuario(value):
     # A Sompo define a senha de qualquer login (sem a antiga); as sessoes dele caem.
+    try:
+        if not _sessao_valida_no_banco():
+            return jsonify({'erro': 'nao_autorizado'}), 401
+    except Exception as exc:
+        return _erro('autenticacao_indisponivel', exc, 502)
     corpo = request.get_json(silent=True)
     if not isinstance(corpo, dict):
         return jsonify({'erro': 'json_invalido'}), 400
