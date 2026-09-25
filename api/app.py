@@ -72,6 +72,39 @@ app.config.update(
 # CORS restrito as origens de CORS_ORIGINS (vazio = nenhuma origem cross-origin).
 CORS(app, origins=CORS_ORIGINS)
 
+# Cabecalhos de seguranca em toda resposta. A CSP lista so o que o painel usa de fora:
+# cdnjs (SortableJS/Leaflet, com SRI), Google Fonts, tiles OSM/Esri e logo do cliente (img
+# https), Nominatim (busca de cidade). 'unsafe-inline' fica porque o painel tem script e
+# estilos inline (e o Leaflet usa style=); sem nonce por enquanto.
+_CSP = '; '.join([
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com",
+    "font-src 'self' https://fonts.gstatic.com",
+    "img-src 'self' data: https:",
+    "connect-src 'self' https://nominatim.openstreetmap.org",
+    "frame-ancestors 'none'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+])
+CABECALHOS_SEGURANCA = {
+    'Content-Security-Policy': _CSP,
+    'X-Frame-Options': 'DENY',
+    'X-Content-Type-Options': 'nosniff',
+    'Referrer-Policy': 'same-origin',
+    'Permissions-Policy': 'geolocation=(), camera=(), microphone=(), payment=(), usb=()',
+}
+
+
+@app.after_request
+def cabecalhos_de_seguranca(resposta):
+    for nome, valor in CABECALHOS_SEGURANCA.items():
+        resposta.headers.setdefault(nome, valor)
+    if COOKIE_SEGURO:   # so em HTTPS (producao); no http local o navegador ignoraria
+        resposta.headers.setdefault('Strict-Transport-Security', 'max-age=31536000')
+    return resposta
+
 # Rotas liberadas sem API key mesmo com auth ligada (health + painel + login).
 _ROTAS_PUBLICAS = {'saude', 'painel', 'static', 'login', 'aquecer'}
 # Rotas acessiveis sem estar logado (a propria pagina de login e o logout).

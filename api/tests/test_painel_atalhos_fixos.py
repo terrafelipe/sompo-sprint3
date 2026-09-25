@@ -62,7 +62,7 @@ def test_atalhos_ficam_abaixo_do_aviso_de_pausa(painel):
     page.wait_for_function("""() => document.getElementById('atalhosPainel').getBoundingClientRect().top
         >= document.getElementById('avisoPausa').getBoundingClientRect().bottom - 1""")
     page.evaluate("document.getElementById('avisoPausa').hidden = true")
-    page.wait_for_function("document.getElementById('atalhosPainel').getBoundingClientRect().top <= 60")
+    page.wait_for_function("() => document.getElementById('atalhosPainel').getBoundingClientRect().top <= 60")
 
 
 def test_painel_sem_rolagem_horizontal(painel):

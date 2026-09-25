@@ -24,6 +24,9 @@ def painel(request):
         state = dict(role='sompo', fail=set(), posts=[], held=[], hold=None, errors=[],
                      sem_esp32=False, sem_maquinas=False, deleted=set(), deletes=[], delete_error=None, manut={}, valor={}, scores={}, coords={}, ocorrencias=[], eventos=[], gestores={})
         page.on('pageerror', lambda e: state['errors'].append(str(e)))
+        # A pagina roda sob a CSP real do app: qualquer violacao no console reprova o teste.
+        page.on('console', lambda m: state['errors'].append(m.text)
+                if 'Content Security Policy' in m.text or 'Content-Security-Policy' in m.text else None)
 
         def resumo(i):
             data = dict(fazenda=FARMS[i-1], equipamentos=[] if state['sem_maquinas'] or f'/equipamentos/{i}' in state['deleted'] else [dict(
@@ -43,7 +46,8 @@ def painel(request):
                 r.continue_()
                 return
             if path == '/':
-                r.fulfill(body=HTML, content_type='text/html')
+                import app as app_mod   # mesmos cabecalhos (CSP inclusive) que o servidor envia
+                r.fulfill(body=HTML, content_type='text/html', headers=app_mod.CABECALHOS_SEGURANCA)
                 return
             if path.startswith('/static/'):   # CSS gerado do Tailwind (painel.css/login.css)
                 r.fulfill(path=str(Path(__file__).parents[1] / 'static' / path[len('/static/'):]))
