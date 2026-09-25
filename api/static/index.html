@@ -3410,6 +3410,7 @@ async function abrirSessao(s){
   const motivo = s.motivo ? (MOTIVO_SESSAO[s.motivo] || s.motivo) : '';
   const ini = s.inicio_em ? new Date(s.inicio_em) : null, fim = s.fim_em ? new Date(s.fim_em) : null;
   const campos = [['Máquina', s.equipamento_nome || 'Máquina'], ['Operador', s.operador_nome || 'Não identificado'],
+    ['Situação do operador', s.operador_excluido_em ? `Excluído em ${quandoExcluido(s.operador_excluido_em)}` : null],
     ['Crachá (UID)', s.uid || s.operador_uid || operadoresCache.find(o => o.id_operador === s.operador_id)?.uid], ['Início', ini ? fmtHora(s.inicio_em) : 'Horário desconhecido'],
     ['Fim', fim ? fmtHora(s.fim_em) : '—'], ['Duração', ini && fim ? fmtDuracao(fim - ini) : '—'],
     ['Status', st + (motivo ? ' ' + motivo : '')]];
@@ -3886,8 +3887,12 @@ async function salvarMaquina(ev){
   finally{ if(envio===envioMaquina) $('maqSalvar').disabled = false; }
 }
 
+// Sompo sem fazenda escolhida: Operadores e Historico pedem a fazenda, como a aba Maquinas.
+const SEM_FAZENDA = '<div class="col-span-full text-on-surface-variant italic py-4">Nenhuma fazenda selecionada. Escolha uma no Início ou no seletor acima.</div>';
+const semFazenda = () => perfilRole === 'sompo' && !fazendaSelecionada;
 async function carregarOperadores(){
   iniciando('listaOperadores');
+  if(semFazenda()){ operadoresCache = []; $('contaOperadores').textContent = ''; atualizarFiltroMaquina(); $('listaOperadores').innerHTML = SEM_FAZENDA; return; }
   try{
     const q = perfilRole==='sompo' && fazendaSelecionada ? `?fazenda=${fazendaSelecionada}` : '';
     atualizarFiltroMaquina();
@@ -3947,6 +3952,8 @@ function fmtDuracao(ms){
   if(m) return `${m} min ${String(ss).padStart(2,'0')} s`;
   return `${ss} s`;
 }
+// "24/09/2026 às 13:14" (hora local), para o selo de operador excluido.
+const quandoExcluido = v => { const d = new Date(v); return `${d.toLocaleDateString('pt-BR')} às ${d.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'})}`; };
 function renderHistorico(){
   if(!historicoCache.length){ $('contaHistorico').textContent = ''; renderLista('listaHistorico', vazioHTML('Nenhuma sessão no período.')); return; }
   const q = ($('buscaHistorico').value || '').trim().toLowerCase();
@@ -3962,7 +3969,7 @@ function renderHistorico(){
     const dur = s.inicio_em && s.fim_em ? fmtDuracao(new Date(s.fim_em) - new Date(s.inicio_em)) : '—';
     return `<tr data-linha data-ses="${idx}" title="Ver detalhes da sessão" class="cursor-pointer">
       <td><span class="font-medium">${escapar(s.equipamento_nome||'Máquina')}</span></td>
-      <td>${s.operador_nome ? escapar(s.operador_nome) : '<span class="text-on-surface-variant">Não identificado</span>'}</td>
+      <td>${s.operador_nome ? escapar(s.operador_nome) : '<span class="text-on-surface-variant">Não identificado</span>'}${s.operador_excluido_em ? `<span class="sub">Operador excluído em ${quandoExcluido(s.operador_excluido_em)}</span>` : ''}</td>
       <td class="tabular whitespace-nowrap">${s.inicio_em ? fmtHora(s.inicio_em) : '<span class="text-on-surface-variant">Horário desconhecido</span>'}</td>
       <td class="tabular whitespace-nowrap">${s.fim_em ? fmtHora(s.fim_em) : '<span class="text-on-surface-variant">—</span>'}</td>
       <td class="tabular whitespace-nowrap">${dur}</td>
@@ -3979,6 +3986,7 @@ function renderHistorico(){
 }
 async function carregarHistorico(){
   iniciando('listaHistorico');
+  if(semFazenda()){ historicoCache = []; $('contaHistorico').textContent = ''; atualizarFiltroMaquina(); $('listaHistorico').innerHTML = SEM_FAZENDA; return; }
   try{ const q=new URLSearchParams({dias:$('historicoDias').value}); if(perfilRole==='sompo'&&fazendaSelecionada) q.set('fazenda',fazendaSelecionada); if(equipamentoSelecionado) q.set('equipamento',equipamentoSelecionado); atualizarFiltroMaquina(); const d=await getJSON('/operacoes?'+q);
     historicoCache = d.dados || [];
     renderHistorico();

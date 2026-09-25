@@ -241,3 +241,20 @@ def test_alertas_recentes_seguem_a_maquina_gravada_no_evento(banco):
     with patch('supabase_client.consultar_periodo', return_value=eventos):
         alertas = gestor().get('/fazendas/1/resumo?dias=7').json['alertas_recentes']
     assert [(a['id'], a['equipamento_id']) for a in alertas] == [(2, 2)]
+
+
+def test_historico_informa_quando_o_operador_foi_excluido(banco):
+    # O historico mostra quem operou na epoca; se o operador foi excluido depois, a sessao traz a data.
+    banco['operadores'][0]['excluido_em'] = '2026-09-24T13:14:03-03:00'
+    banco['operadores'].append({'id_operador': 3, 'nome': 'Caio', 'uid': '0A0B0C0D',
+                                'fk_fazenda_id_fazenda': 1, 'ativo': True})
+    sessoes = [{'sessao_id': 'a', 'operador_id': 1, 'operador_nome': 'Ana', 'equipamento_id': 1},
+               {'sessao_id': 'b', 'operador_id': 3, 'operador_nome': 'Caio', 'equipamento_id': 1},
+               {'sessao_id': 'c', 'operador_id': None, 'operador_nome': None, 'equipamento_id': 1}]
+    with patch('supabase_client.consultar_periodo', return_value=sessoes):
+        r = gestor().get('/operacoes')
+    assert r.status_code == 200
+    dados = {s['sessao_id']: s for s in r.json['dados']}
+    assert dados['a']['operador_excluido_em'] == '2026-09-24T13:14:03-03:00'
+    assert dados['b']['operador_excluido_em'] is None
+    assert dados['c']['operador_excluido_em'] is None

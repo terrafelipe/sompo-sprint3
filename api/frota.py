@@ -355,7 +355,16 @@ def listar_operacoes():
     pagina = inteiro(request.args.get('pagina', 1), 'pagina')
     limite = inteiro(request.args.get('limite', 50), 'limite', maximo=200)
     start = (pagina-1)*limite
-    return jsonify(dados=rows[start:start+limite], total=len(rows), pagina=pagina, limite=limite)
+    dados = rows[start:start+limite]
+    # O historico mostra quem operou na epoca; se o operador foi excluido depois, a sessao traz a data.
+    ids = sorted({str(r['operador_id']) for r in dados if r.get('operador_id')})
+    excluidos = {}
+    if ids:
+        excluidos = {str(o['id_operador']): o.get('excluido_em') for o in db.consultar_todos(
+            'operadores', filtros={'id_operador': 'in.(' + ','.join(ids) + ')'},
+            select='id_operador,excluido_em', order='id_operador.asc')}
+    dados = [{**r, 'operador_excluido_em': excluidos.get(str(r.get('operador_id')))} for r in dados]
+    return jsonify(dados=dados, total=len(rows), pagina=pagina, limite=limite)
 
 
 def _resumos(fazendas, dias):
