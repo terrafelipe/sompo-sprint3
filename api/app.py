@@ -183,6 +183,30 @@ def _autenticar(usuario: str, senha: str) -> Dict[str, Any] | None:
     return None
 
 
+# Limite de tentativas: 5 falhas em 15 min travam o usuario naquela conexao (vale ate para a
+# senha certa, senao a forca bruta so continuaria). A chave usa o IP da conexao, nunca um
+# cabecalho (X-Forwarded-For e falsificavel); atras da Cloudflare isso vira um limite por
+# usuario. Fica em memoria: vale por instancia da Lambda.
+_TENTATIVAS_MAX = 5
+_JANELA_LOGIN_SEGUNDOS = 15 * 60
+_falhas_login: Dict[Tuple[str, str], List[float]] = {}
+
+
+def _chave_login(usuario: str) -> Tuple[str, str]:
+    return usuario.strip().lower(), request.remote_addr or ''
+
+
+def _espera_login(chave: Tuple[str, str], agora: float) -> int:
+    recentes = [t for t in _falhas_login.get(chave, []) if agora - t < _JANELA_LOGIN_SEGUNDOS]
+    if recentes:
+        _falhas_login[chave] = recentes
+    else:
+        _falhas_login.pop(chave, None)
+    if len(recentes) < _TENTATIVAS_MAX:
+        return 0
+    return int(recentes[0] + _JANELA_LOGIN_SEGUNDOS - agora) + 1
+
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     # Login desligado (demo) -> nao ha tela de login; segue para o painel.
@@ -193,8 +217,15 @@ def login():
 
     erro = False
     if request.method == 'POST':
+        chave, agora = _chave_login(request.form.get('usuario', '')), time.time()
+        espera = _espera_login(chave, agora)
+        if espera:
+            pagina = render_template('login.html', erro=False, bloqueado_minutos=math.ceil(espera / 60),
+                                     proximo=request.values.get('proximo', ''))
+            return pagina, 429, {'Retry-After': str(espera)}
         perfil = _autenticar(request.form.get('usuario', ''), request.form.get('senha', ''))
         if perfil:
+            _falhas_login.pop(chave, None)
             session['logado'] = True
             session['login_em'] = time.time()  # inicio da sessao, para o timeout absoluto
             session['usuario'] = perfil['usuario']
@@ -208,6 +239,7 @@ def login():
             session.permanent = bool(request.form.get('lembrar'))
             return redirect(_destino_seguro(request.form.get('proximo', '')))
         erro = True
+        _falhas_login.setdefault(chave, []).append(agora)
 
     proximo = request.values.get('proximo', '')
     pagina = render_template('login.html', erro=erro, proximo=proximo)

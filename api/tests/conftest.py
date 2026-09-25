@@ -22,8 +22,10 @@ def _limpar_cache_de_revalidacao():
     # A revalidacao da sessao fica 20 s em cache por usuario: um teste nao herda a do outro.
     import app as app_mod
     app_mod._revalidados.clear()
+    app_mod._falhas_login.clear()   # limite de tentativas do /login: um teste nao herda o do outro
     yield
     app_mod._revalidados.clear()
+    app_mod._falhas_login.clear()
 
 
 @pytest.fixture(autouse=True)
