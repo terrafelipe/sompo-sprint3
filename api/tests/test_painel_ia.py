@@ -110,9 +110,12 @@ def test_ia_de_outro_periodo_e_descartada_e_falha_fica_no_template(painel):
     page.select_option('#equipamentoSel', '1')
     pw.expect(page.locator('#riscoResumo')).to_have_text('Gerando explicação da IA…')
     # Troca de periodo no meio: a IA de 7 dias chega depois e e descartada.
-    page.locator('[data-periodo="30"]:visible').first.click()
+    # Espera o pedido da IA de 30 dias em si: o networkidle volta na hora se a pagina ja tinha
+    # ficado ociosa antes (com o CSS local a carga ficou rapida e isso virou corrida).
+    with page.expect_request(lambda req: '/relatorio/risco?' in req.url and 'dias=30' in req.url
+                             and 'ia=0' not in req.url):
+        page.locator('[data-periodo="30"]:visible').first.click()
     page.wait_for_function('n => document.querySelectorAll("[data-periodo=\\"30\\"][aria-pressed=\\"true\\"]").length', arg=1)
-    page.wait_for_load_state('networkidle')
     assert len(estado['presas']) == 2 and 'dias=30' in estado['ia'][1]
     _soltar_ia(estado, resumo='Texto velho de 7 dias.')
     page.wait_for_load_state('networkidle')
