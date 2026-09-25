@@ -399,7 +399,7 @@ def telemetria_linha_do_tempo():
 def eventos():
     dispositivo = _dispositivo_para(request.args.get('dispositivo', 'SOMPO-ESP32'))
     eq = frota.id_selecionado()
-    dias = _parse_int(request.args.get('dias', '7'), 7, minimum=1)
+    dias = frota.periodo()   # 1..365, senao 400 dias_invalido (como no /operacoes)
 
     try:
         dados = frota.identificar_registros(consultar_eventos(dispositivo, dias=dias, equipamento=eq) if dispositivo or eq else [])
@@ -412,7 +412,7 @@ def eventos():
 def resumo():
     dispositivo = _dispositivo_para(request.args.get('dispositivo', 'SOMPO-ESP32'))
     eq = frota.id_selecionado()
-    dias = _parse_int(request.args.get('dias', '7'), 7, minimum=1)
+    dias = frota.periodo()   # 1..365, senao 400 dias_invalido (como no /operacoes)
 
     try:
         dados = consultar_resumo(dispositivo, dias=dias, equipamento=eq) if dispositivo or eq else []
@@ -425,7 +425,7 @@ def resumo():
 def scores():
     dispositivo = _dispositivo_para(request.args.get('dispositivo', 'SOMPO-ESP32'))
     eq = frota.id_selecionado()
-    dias = _parse_int(request.args.get('dias', '7'), 7, minimum=1)
+    dias = frota.periodo()   # 1..365, senao 400 dias_invalido (como no /operacoes)
 
     try:
         eventos = consultar_eventos(dispositivo, dias=dias, equipamento=eq) if dispositivo or eq else []
@@ -438,7 +438,7 @@ def scores():
 def relatorio_bruto():
     dispositivo = _dispositivo_para(request.args.get('dispositivo', 'SOMPO-ESP32'))
     eq = frota.id_selecionado()
-    dias = _parse_int(request.args.get('dias', '7'), 7, minimum=1)
+    dias = frota.periodo()   # 1..365, senao 400 dias_invalido (como no /operacoes)
 
     try:
         resumo_por_dia = consultar_resumo(dispositivo, dias=dias, equipamento=eq) if dispositivo or eq else []
@@ -469,7 +469,7 @@ def _separar_periodo(eventos, dias):
 def relatorio_risco():
     dispositivo = _dispositivo_para(request.args.get('dispositivo', 'SOMPO-ESP32'))
     eq = frota.id_selecionado()
-    dias = _parse_int(request.args.get('dias', '7'), 7, minimum=1)
+    dias = frota.periodo()   # 1..365, senao 400 dias_invalido (como no /operacoes)
 
     try:
         resumo_por_dia = consultar_resumo(dispositivo, dias=dias, equipamento=eq) if dispositivo or eq else []
@@ -496,7 +496,7 @@ def relatorio_risco_pdf():
     # Mesmo conteúdo do /relatorio/risco, mas como PDF para download (abre em qualquer celular).
     dispositivo = _dispositivo_para(request.args.get('dispositivo', 'SOMPO-ESP32'))
     eq = frota.id_selecionado()
-    dias = _parse_int(request.args.get('dias', '7'), 7, minimum=1)
+    dias = frota.periodo()   # 1..365, senao 400 dias_invalido (como no /operacoes)
 
     try:
         resumo_por_dia = consultar_resumo(dispositivo, dias=dias, equipamento=eq) if dispositivo or eq else []
