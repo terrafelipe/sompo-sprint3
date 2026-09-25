@@ -352,6 +352,27 @@ os horários em Brasília — mais fácil de ler/apresentar que o JSON.
 
 ---
 
+## 8. CSS do painel (Tailwind gerado)
+
+O painel e a tela de login **não** usam mais o Tailwind do CDN (sem versão fixa nem SRI, e rodava
+na página da senha). O CSS fica em `api/static/painel.css` e `api/static/login.css`, gerado pelo
+**Tailwind CLI standalone v3.4.17** (um `.exe`, sem Node) a partir de `api/tailwind/*.config.js`.
+
+Regere sempre que mudar classes no `index.html` ou no `login.html` (classe nova sem rebuild fica
+sem estilo):
+
+```powershell
+# uma vez: baixar o CLI para fora do repo
+gh release download v3.4.17 -R tailwindlabs/tailwindcss -p "tailwindcss-windows-x64.exe" -D C:\dev\_tools
+# rebuild (rodar DENTRO de api\, os caminhos do content partem daqui)
+cd api
+C:\dev\_tools\tailwindcss-windows-x64.exe -c tailwind\painel.config.js -i tailwind\entrada.css -o static\painel.css --minify
+C:\dev\_tools\tailwindcss-windows-x64.exe -c tailwind\login.config.js  -i tailwind\entrada.css -o static\login.css  --minify
+```
+
+Classe montada por concatenação no JS precisa aparecer inteira em algum lugar do arquivo
+(ex.: `'text-error'`), senão o scan não a encontra.
+
 ## Se algo falhar
 - **`No such file or directory` / `can't open file` ou `Could not open requirements file`:**
   você está na pasta errada. Rode `cd "<raiz>\api"` antes — todos os comandos da API rodam de

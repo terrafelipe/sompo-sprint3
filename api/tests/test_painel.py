@@ -45,6 +45,9 @@ def painel(request):
             if path == '/':
                 r.fulfill(body=HTML, content_type='text/html')
                 return
+            if path.startswith('/static/'):   # CSS gerado do Tailwind (painel.css/login.css)
+                r.fulfill(path=str(Path(__file__).parents[1] / 'static' / path[len('/static/'):]))
+                return
             if path == state['hold']:
                 state['held'].append(r)
                 return

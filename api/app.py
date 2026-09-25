@@ -104,6 +104,9 @@ def exigir_login_painel():
         return None
     if request.endpoint in _LOGIN_LIVRE:
         return None
+    # A tela de login usa o login.css antes de haver sessao; o resto do /static segue protegido.
+    if request.endpoint == 'static' and (request.view_args or {}).get('filename') == 'login.css':
+        return None
     # Cliente de API (script, aparelho no campo, outro front) entra pela chave, sem
     # sessao de navegador: se o X-API-Key confere, libera aqui e deixa a trava de
     # API key (exigir_api_key) cuidar da validacao por rota.

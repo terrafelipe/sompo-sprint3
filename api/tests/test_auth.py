@@ -116,3 +116,15 @@ def test_tela_de_login_mantem_campos_e_erro():
     assert 'Usuário ou senha incorretos.' not in pagina
     assert errada.status_code == 401
     assert 'Usuário ou senha incorretos.' in errada.get_data(as_text=True)
+
+
+def test_css_da_tela_de_login_e_livre_e_o_resto_do_static_nao():
+    # A tela de login precisa do login.css antes de haver sessao; o painel continua protegido.
+    client = app.test_client()
+    with patch('app.PAINEL_SENHA', 'liga-o-login'):
+        css = client.get('/static/login.css', headers={'Accept': 'text/css'})
+        painel_css = client.get('/static/painel.css', headers={'Accept': 'text/css'})
+        html = client.get('/static/index.html', headers={'Accept': 'application/json'})
+    assert css.status_code == 200 and css.mimetype == 'text/css'
+    assert painel_css.status_code == 401
+    assert html.status_code == 401

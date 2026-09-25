@@ -1,0 +1,10 @@
+// Gerado a partir do tailwind.config que ficava inline em static/index.html.
+// Rebuild: ver docs/COMO_TESTAR.md (Tailwind CLI standalone v3.4.17).
+module.exports = {
+  content: ['./static/index.html'],
+  ...({theme:{extend:{
+    "colors":{"surface-tint":"rgb(var(--c-surface-tint) / <alpha-value>)","secondary":"rgb(var(--c-secondary) / <alpha-value>)","primary":"rgb(var(--c-primary) / <alpha-value>)","surface":"rgb(var(--c-surface) / <alpha-value>)","background":"rgb(var(--c-background) / <alpha-value>)","on-primary":"rgb(var(--c-on-primary) / <alpha-value>)","on-surface":"rgb(var(--c-on-surface) / <alpha-value>)","on-background":"rgb(var(--c-on-background) / <alpha-value>)","on-surface-variant":"rgb(var(--c-on-surface-variant) / <alpha-value>)","surface-variant":"rgb(var(--c-surface-variant) / <alpha-value>)","surface-container-lowest":"rgb(var(--c-surface-container-lowest) / <alpha-value>)","surface-container-low":"rgb(var(--c-surface-container-low) / <alpha-value>)","surface-container":"rgb(var(--c-surface-container) / <alpha-value>)","surface-container-high":"rgb(var(--c-surface-container-high) / <alpha-value>)","primary-container":"rgb(var(--c-primary-container) / <alpha-value>)","on-primary-container":"rgb(var(--c-on-primary-container) / <alpha-value>)","primary-fixed-dim":"rgb(var(--c-primary-fixed-dim) / <alpha-value>)","on-primary-fixed-variant":"rgb(var(--c-on-primary-fixed-variant) / <alpha-value>)","outline":"rgb(var(--c-outline) / <alpha-value>)","outline-variant":"rgb(var(--c-outline-variant) / <alpha-value>)","sidebar":"rgb(var(--c-sidebar) / <alpha-value>)","tertiary":"rgb(var(--c-tertiary) / <alpha-value>)","tertiary-container":"rgb(var(--c-tertiary-container) / <alpha-value>)","error":"rgb(var(--c-error) / <alpha-value>)","ok":"rgb(var(--c-ok) / <alpha-value>)","atencao":"rgb(var(--c-atencao) / <alpha-value>)"},
+    "fontFamily":{"sans":["Inter","system-ui","sans-serif"]},
+    "borderRadius":{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","2xl":"1rem","full":"9999px"}
+  }}}),
+};
