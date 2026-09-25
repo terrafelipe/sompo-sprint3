@@ -68,6 +68,16 @@ foreach ($linha in Get-Content $arquivoEnv -Encoding UTF8) {
     }
     $variaveis[$partes[0].Trim()] = $valor
 }
+# PROXY_SEGREDO (novo em 2026-09-25): faltando, e gerado e gravado no .env.aws, para o deploy seguir
+# sem passo manual. Para o limite de tentativas do login usar o IP real do visitante, ponha o MESMO
+# valor na variavel PROXY_SEGREDO do Cloudflare Pages e republique infra/pages (docs/DEPLOY.md).
+if (-not $variaveis['PROXY_SEGREDO']) {
+    $bytes = New-Object byte[] 24
+    [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+    $variaveis['PROXY_SEGREDO'] = [Convert]::ToBase64String($bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_')
+    Add-Content -Path $arquivoEnv -Value "`nPROXY_SEGREDO=$($variaveis['PROXY_SEGREDO'])" -Encoding UTF8
+    Write-Host 'PROXY_SEGREDO gerado e gravado em infra/.env.aws. Opcional: copie o mesmo valor para o Cloudflare Pages (docs/DEPLOY.md).' -ForegroundColor Yellow
+}
 foreach ($obrigatoria in 'SUPABASE_URL', 'SUPABASE_SECRET_KEY', 'PAINEL_SENHA', 'SECRET_KEY', 'PROXY_SEGREDO') {
     if (-not $variaveis[$obrigatoria]) { throw "$obrigatoria vazia em infra/.env.aws" }
 }
