@@ -77,6 +77,22 @@ def test_operadores_fica_na_aba_e_mostra_so_os_autorizados(painel):
     pw.expect(page.locator('#listaOperadores')).to_contain_text('Bruno')
 
 
+def test_voltar_o_seletor_para_vazio_limpa_o_filtro_na_hora(painel):
+    page, state = painel
+    pedidos = _historico(page)
+    nav(page, 'historico')
+    page.select_option('#equipamentoSel', '1')
+    filtro = page.locator('[data-section="historico"] [data-filtro-maquina]')
+    pw.expect(filtro).to_be_visible()
+    pw.expect(page.locator('#listaHistorico')).not_to_contain_text('Bruno')
+
+    page.evaluate("pausar('aba')")   # sem o refresh de 5 s: a limpeza tem de ser imediata
+    page.select_option('#equipamentoSel', '')
+    pw.expect(filtro).to_be_hidden()
+    pw.expect(page.locator('#listaHistorico')).to_contain_text('Bruno')
+    assert 'equipamento' not in pedidos[-1]
+
+
 def test_na_aba_maquinas_escolher_maquina_continua_abrindo_o_painel(painel):
     page, state = painel
     nav(page, 'maquinas')

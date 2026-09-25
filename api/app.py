@@ -32,6 +32,7 @@ from config import (
     FLASK_HOST,
     FLASK_PORT,
     PAINEL_SENHA,
+    PROXY_SEGREDO,
     SECRET_KEY,
     SESSAO_HORAS,
     SOMPO_API_KEY,
@@ -176,14 +177,20 @@ def _destino_seguro(proximo: str) -> str:
 # (seeds do usuarios.sql; definir com tools/definir_senha.py).
 _PREFIXOS_HASH = ('scrypt:', 'pbkdf2:')
 SENHA_BLOQUEADA = '!'
+# Conta inexistente, excluida ou bloqueada tambem paga o custo de um hash: senao o tempo de
+# resposta revelaria quais usuarios existem.
+_HASH_FALSO = generate_password_hash('conta-inexistente')
+_TAMANHO_MAX_USUARIO = 150
 
 
 def _senha_confere(guardada: str, digitada: str) -> Tuple[bool, bool]:
     """Devolve (confere, regravar_como_hash)."""
+    if guardada.startswith(_PREFIXOS_HASH):
+        confere = check_password_hash(guardada, digitada)
+        return bool(digitada) and confere, False
+    check_password_hash(_HASH_FALSO, digitada or '-')
     if not guardada or guardada == SENHA_BLOQUEADA or not digitada:
         return False, False
-    if guardada.startswith(_PREFIXOS_HASH):
-        return check_password_hash(guardada, digitada), False
     confere = hmac.compare_digest(guardada.encode('utf-8'), digitada.encode('utf-8'))
     return confere, confere
 
@@ -192,18 +199,21 @@ def _autenticar(usuario: str, senha: str) -> Dict[str, Any] | None:
     # Perfis vem so da tabela `usuario` (role + fazenda vinculada), com senha em hash
     # (ver _senha_confere). PAINEL_SENHA apenas liga o login: nao e senha de ninguem
     # (o antigo login reserva do env era uma 2a senha de admin e foi removido).
-    try:
-        u = buscar_usuario(usuario)
-    except Exception as exc:
-        app.logger.warning('login: busca de usuario indisponivel: %s', exc)
-        return None  # Fail closed: an excluded login must not use the env fallback.
-    if u and u.get('excluido_em'):
-        return None
-    confere, regravar = _senha_confere(str((u or {}).get('senha') or ''), senha)
+    u = None
+    if len(usuario) <= _TAMANHO_MAX_USUARIO:   # nome gigante nem vai ao banco
+        try:
+            u = buscar_usuario(usuario)
+        except Exception as exc:
+            app.logger.warning('login: busca de usuario indisponivel: %s', exc)
+            return None  # Fail closed: an excluded login must not use the env fallback.
+    guardada = '' if not u or u.get('excluido_em') else str(u.get('senha') or '')
+    confere, regravar = _senha_confere(guardada, senha)
     if u and confere:
         if regravar:
             try:
-                atualizar_tabela('usuario', {'id_usuario': f"eq.{u.get('id_usuario')}"},
+                # So troca se o valor guardado ainda nao for hash nem '!': nao desfaz um
+                # definir_senha.py feito ao mesmo tempo, e a senha nao vai na URL do PostgREST.
+                atualizar_tabela('usuario', {'id_usuario': f"eq.{u.get('id_usuario')}", 'and': '(senha.not.like.scrypt:*,senha.not.like.pbkdf2:*,senha.neq.!)'},
                                  {'senha': generate_password_hash(senha)})
             except Exception as exc:   # o login segue; a migracao pega depois
                 app.logger.warning('login: nao regravou a senha como hash: %s', exc)
@@ -219,26 +229,62 @@ def _autenticar(usuario: str, senha: str) -> Dict[str, Any] | None:
     return None
 
 
-# Limite de tentativas: 5 falhas em 15 min travam o usuario naquela conexao (vale ate para a
-# senha certa, senao a forca bruta so continuaria). A chave usa o IP da conexao, nunca um
-# cabecalho (X-Forwarded-For e falsificavel); atras da Cloudflare isso vira um limite por
-# usuario. Fica em memoria: vale por instancia da Lambda.
+# Limite de tentativas (vale ate para a senha certa, senao a forca bruta so continuaria):
+#   - 5 falhas em 15 min travam aquele usuario naquele IP;
+#   - 20 falhas em 15 min, com quaisquer nomes, travam o IP inteiro (um IP nao consegue
+#     encher o registro com nomes inventados).
+# Em memoria: vale por instancia da Lambda. Cada registro tem teto de chaves e nunca despeja
+# uma chave ainda na janela (despejar deixaria uma enxurrada zerar o contador de um alvo);
+# cheio, a chave nova so fica sem registro.
 _TENTATIVAS_MAX = 5
+_TENTATIVAS_MAX_IP = 20
 _JANELA_LOGIN_SEGUNDOS = 15 * 60
+_LIMITE_CHAVES_LOGIN = 5000
 _falhas_login: Dict[Tuple[str, str], List[float]] = {}
+_falhas_ip: Dict[str, List[float]] = {}
+
+
+def _ip_conexao() -> str:
+    # Pelo Worker do Cloudflare Pages (com o segredo compartilhado), o IP real do visitante e o
+    # CF-Connecting-IP. Sem o segredo esse cabecalho e ignorado: quem chama a Function URL
+    # direto poderia inventa-lo.
+    if PROXY_SEGREDO and hmac.compare_digest(request.headers.get('X-Sompo-Proxy', ''), PROXY_SEGREDO):
+        visitante = request.headers.get('CF-Connecting-IP', '').strip()
+        if visitante:
+            return visitante
+    # O Lambda Web Adapter conecta pelo localhost; o IP real e o ULTIMO do X-Forwarded-For,
+    # que a AWS acrescenta (o cliente so controla o que vem antes). Fora do localhost o
+    # cabecalho e ignorado, porque qualquer um poderia escreve-lo.
+    ip = request.remote_addr or ''
+    if ip in ('127.0.0.1', '::1'):
+        encaminhado = request.headers.get('X-Forwarded-For', '').split(',')[-1].strip()
+        if encaminhado:
+            return encaminhado
+    return ip
 
 
 def _chave_login(usuario: str) -> Tuple[str, str]:
-    return usuario.strip().lower(), request.remote_addr or ''
+    return usuario.strip().lower()[:_TAMANHO_MAX_USUARIO], _ip_conexao()
 
 
-def _espera_login(chave: Tuple[str, str], agora: float) -> int:
-    recentes = [t for t in _falhas_login.get(chave, []) if agora - t < _JANELA_LOGIN_SEGUNDOS]
+def _registrar_falha(registro: Dict[Any, List[float]], chave, maximo: int, agora: float) -> None:
+    if chave not in registro and len(registro) >= _LIMITE_CHAVES_LOGIN:
+        for velha in [k for k, ts in registro.items() if agora - ts[-1] >= _JANELA_LOGIN_SEGUNDOS]:
+            del registro[velha]
+        if len(registro) >= _LIMITE_CHAVES_LOGIN:
+            return
+    tentativas = registro.setdefault(chave, [])
+    tentativas.append(agora)
+    del tentativas[:-maximo]
+
+
+def _espera(registro: Dict[Any, List[float]], chave, maximo: int, agora: float) -> int:
+    recentes = [t for t in registro.get(chave, []) if agora - t < _JANELA_LOGIN_SEGUNDOS]
     if recentes:
-        _falhas_login[chave] = recentes
+        registro[chave] = recentes
     else:
-        _falhas_login.pop(chave, None)
-    if len(recentes) < _TENTATIVAS_MAX:
+        registro.pop(chave, None)
+    if len(recentes) < maximo:
         return 0
     return int(recentes[0] + _JANELA_LOGIN_SEGUNDOS - agora) + 1
 
@@ -254,7 +300,9 @@ def login():
     erro = False
     if request.method == 'POST':
         chave, agora = _chave_login(request.form.get('usuario', '')), time.time()
-        espera = _espera_login(chave, agora)
+        ip = chave[1]
+        espera = max(_espera(_falhas_login, chave, _TENTATIVAS_MAX, agora),
+                     _espera(_falhas_ip, ip, _TENTATIVAS_MAX_IP, agora))
         if espera:
             pagina = render_template('login.html', erro=False, bloqueado_minutos=math.ceil(espera / 60),
                                      proximo=request.values.get('proximo', ''))
@@ -275,7 +323,8 @@ def login():
             session.permanent = bool(request.form.get('lembrar'))
             return redirect(_destino_seguro(request.form.get('proximo', '')))
         erro = True
-        _falhas_login.setdefault(chave, []).append(agora)
+        _registrar_falha(_falhas_login, chave, _TENTATIVAS_MAX, agora)
+        _registrar_falha(_falhas_ip, ip, _TENTATIVAS_MAX_IP, agora)
 
     proximo = request.values.get('proximo', '')
     pagina = render_template('login.html', erro=erro, proximo=proximo)

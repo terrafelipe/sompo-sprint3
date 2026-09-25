@@ -37,7 +37,7 @@ def test_senha_legada_em_texto_entra_e_vira_hash():
     status, gravar = _login('antiga-texto', 'antiga-texto')
     assert status == 302
     tabela, filtros, dados = gravar.call_args.args
-    assert tabela == 'usuario' and filtros == {'id_usuario': 'eq.5'}
+    assert tabela == 'usuario' and filtros == {'id_usuario': 'eq.5', 'and': '(senha.not.like.scrypt:*,senha.not.like.pbkdf2:*,senha.neq.!)'}
     assert dados['senha'] != 'antiga-texto' and check_password_hash(dados['senha'], 'antiga-texto')
 
 

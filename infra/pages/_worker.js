@@ -20,9 +20,16 @@ export default {
     destino.pathname = origem.pathname;
     destino.search = origem.search;
 
+    // Segredo compartilhado (variavel PROXY_SEGREDO do projeto Pages = PROXY_SEGREDO da Lambda):
+    // com ele o Flask confia no CF-Connecting-IP (IP real do visitante) no limite de tentativas
+    // do login. O valor que o visitante mandar nesse cabecalho e sempre descartado.
+    const headers = new Headers(request.headers);
+    headers.delete('X-Sompo-Proxy');
+    if (env.PROXY_SEGREDO) headers.set('X-Sompo-Proxy', env.PROXY_SEGREDO);
+
     return fetch(destino, {
       method: request.method,
-      headers: request.headers, // o fetch troca o Host pelo da Function URL
+      headers, // o fetch troca o Host pelo da Function URL
       body: ['GET', 'HEAD'].includes(request.method) ? undefined : request.body,
       redirect: 'manual', // redirects (ex.: /login) voltam para o navegador
     });

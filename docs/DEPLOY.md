@@ -47,6 +47,7 @@ Copie `infra/.env.aws.example` para `infra/.env.aws` (**gitignorado**) e preench
 | `LLM_API_KEY` / `LLM_MODEL` | chave do Google Gemini / `gemini-flash-lite-latest` |
 | `PAINEL_SENHA` | **obrigatória**: liga o login. Valor aleatório (`python -c "import secrets; print(secrets.token_urlsafe(24))"`); **não** é senha de ninguém. Os logins ficam na tabela `usuario` (senha com `tools/definir_senha.py`) |
 | `SECRET_KEY` | **fixa**: `python -c "import secrets; print(secrets.token_hex(32))"` |
+| `PROXY_SEGREDO` | **obrigatória** (o deploy e a Lambda recusam sem ela): valor aleatório, **igual** à variável `PROXY_SEGREDO` do projeto Cloudflare Pages (Settings → Variables and Secrets, tipo *Secret*) e republicar o `infra/pages`. Com ele o limite de tentativas do login usa o IP real do visitante; sem ele, todos os visitantes pelo Pages parecem o mesmo IP (um pode travar o login do outro por 15 min) |
 | `SESSAO_HORAS` | `24` |
 | `SOMPO_API_KEY` | **VAZIA** |
 

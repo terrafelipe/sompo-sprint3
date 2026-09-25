@@ -47,13 +47,17 @@ COOKIE_SEGURO = _get_bool('COOKIE_SEGURO')
 # CORS_ORIGINS: lista separada por virgula. Vazia = nenhuma origem cross-origin
 # liberada (padrao seguro). Ex.: "http://localhost:3000,https://painel.exemplo.com".
 CORS_ORIGINS = [o.strip() for o in _get_env('CORS_ORIGINS').split(',') if o.strip()]
+# Segredo compartilhado com o Worker do Cloudflare Pages (infra/pages/_worker.js). Com ele o
+# app confia no CF-Connecting-IP (IP real do visitante) para o limite de tentativas do login.
+PROXY_SEGREDO = _get_env('PROXY_SEGREDO')
 
 # Na Lambda (producao) os padroes de demo abririam tudo: sem PAINEL_SENHA o site inteiro fica
 # sem login, sem SECRET_KEY fixa a sessao cai a cada cold start e sem COOKIE_SEGURO o cookie
-# trafega fora do HTTPS. O deploy-aws.ps1 ja exige/forca esses valores; aqui e a 2a trava.
+# trafega fora do HTTPS; sem PROXY_SEGREDO o limite de tentativas do login ve todo visitante do
+# Pages como o mesmo IP. O deploy-aws.ps1 ja exige/forca esses valores; aqui e a 2a trava.
 if _get_env('AWS_LAMBDA_FUNCTION_NAME'):
     _faltando = [nome for nome, ok in (('PAINEL_SENHA', PAINEL_SENHA), ('SECRET_KEY', _get_env('SECRET_KEY')),
-                                       ('COOKIE_SEGURO', COOKIE_SEGURO)) if not ok]
+                                       ('COOKIE_SEGURO', COOKIE_SEGURO), ('PROXY_SEGREDO', PROXY_SEGREDO)) if not ok]
     if _faltando:
         raise RuntimeError('Configuracao insegura na Lambda; defina: ' + ', '.join(_faltando))
 

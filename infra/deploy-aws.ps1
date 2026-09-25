@@ -68,7 +68,7 @@ foreach ($linha in Get-Content $arquivoEnv -Encoding UTF8) {
     }
     $variaveis[$partes[0].Trim()] = $valor
 }
-foreach ($obrigatoria in 'SUPABASE_URL', 'SUPABASE_SECRET_KEY', 'PAINEL_SENHA', 'SECRET_KEY') {
+foreach ($obrigatoria in 'SUPABASE_URL', 'SUPABASE_SECRET_KEY', 'PAINEL_SENHA', 'SECRET_KEY', 'PROXY_SEGREDO') {
     if (-not $variaveis[$obrigatoria]) { throw "$obrigatoria vazia em infra/.env.aws" }
 }
 if ($variaveis['SOMPO_API_KEY']) { throw 'SOMPO_API_KEY deve ficar VAZIA (senao o painel recebe 401)' }

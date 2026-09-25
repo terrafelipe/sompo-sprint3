@@ -23,9 +23,11 @@ def _limpar_cache_de_revalidacao():
     import app as app_mod
     app_mod._revalidados.clear()
     app_mod._falhas_login.clear()   # limite de tentativas do /login: um teste nao herda o do outro
+    app_mod._falhas_ip.clear()
     yield
     app_mod._revalidados.clear()
     app_mod._falhas_login.clear()
+    app_mod._falhas_ip.clear()
 
 
 @pytest.fixture(autouse=True)

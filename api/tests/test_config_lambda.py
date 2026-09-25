@@ -6,7 +6,7 @@ import pytest
 import config
 
 SEGURA = {'AWS_LAMBDA_FUNCTION_NAME': 'sompo-painel', 'PAINEL_SENHA': 'liga', 'SECRET_KEY': 'fixa' * 16,
-          'COOKIE_SEGURO': 'true'}
+          'COOKIE_SEGURO': 'true', 'PROXY_SEGREDO': 'segredo-do-worker'}
 
 
 @pytest.fixture
@@ -29,7 +29,7 @@ def test_na_lambda_com_tudo_configurado_sobe(recarregar):
     assert recarregar(**SEGURA).PAINEL_SENHA == 'liga'
 
 
-@pytest.mark.parametrize('falta', ['PAINEL_SENHA', 'SECRET_KEY', 'COOKIE_SEGURO'])
+@pytest.mark.parametrize('falta', ['PAINEL_SENHA', 'SECRET_KEY', 'COOKIE_SEGURO', 'PROXY_SEGREDO'])
 def test_na_lambda_sem_configuracao_segura_nao_sobe(recarregar, falta):
     env = {k: v for k, v in SEGURA.items() if k != falta}
     with pytest.raises(RuntimeError, match=falta):

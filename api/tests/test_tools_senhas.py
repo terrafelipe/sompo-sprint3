@@ -30,7 +30,8 @@ def test_migracao_so_troca_senha_em_texto_puro():
         assert migrar.main(['migrar_senhas_hash.py']) == 0
     assert gravar.call_count == 1
     tabela, filtros, dados = gravar.call_args.args
-    assert tabela == 'usuario' and filtros == {'id_usuario': 'eq.1'}
+    # So troca se a senha ainda for a lida (nao desfaz um definir_senha feito ao mesmo tempo).
+    assert tabela == 'usuario' and filtros == {'id_usuario': 'eq.1', 'and': '(senha.not.like.scrypt:*,senha.not.like.pbkdf2:*,senha.neq.!)'}
     assert check_password_hash(dados['senha'], 'antiga-123')
 
 
@@ -68,3 +69,14 @@ def test_definir_senha_de_usuario_inexistente_falha():
          patch.object(definir.db, 'atualizar_tabela') as gravar:
         assert definir.main(['definir_senha.py', 'ninguem']) == 1
     gravar.assert_not_called()
+
+
+def test_migracao_avisa_quando_a_senha_mudou_no_meio():
+    migrar = _carregar('migrar_senhas_hash')
+    with patch.object(migrar.db, 'consultar_todos', return_value=USUARIOS[:1]), \
+         patch.object(migrar.db, 'atualizar_tabela', return_value={}), \
+         patch('builtins.print') as saida:
+        assert migrar.main(['migrar_senhas_hash.py']) == 0
+    linhas = [str(c.args[0]) for c in saida.call_args_list]
+    assert any('pulado' in linha for linha in linhas)
+    assert any(linha.startswith('0 de 1 logins passaram para hash') and '1 pulado' in linha for linha in linhas)

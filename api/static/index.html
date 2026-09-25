@@ -4160,8 +4160,8 @@ $('btnBaixar').addEventListener('click', () => {
 $('dispositivo').addEventListener('change', carregarTudo);
 $('fazendaSel').addEventListener('change', ()=>trocarFazenda($('fazendaSel').value));
 document.addEventListener('click', e => { if(!e.target.closest('[data-limpar-maquina]')) return;
-  limparMaquina(); $('equipamentoSel').value = ''; setView(viewAtual); carregarTudo(); });
-$('equipamentoSel').addEventListener('change', ()=>{ const id=$('equipamentoSel').value; if(id) selecionarMaquina(id, dependeMaquina(viewAtual) || filtraPorMaquina(viewAtual) ? viewAtual : 'visao'); else { limparMaquina(); setView(viewAtual); } });
+  limparMaquina(); $('equipamentoSel').value = ''; setView(viewAtual); atualizarFiltroMaquina(); carregarTudo(); });
+$('equipamentoSel').addEventListener('change', ()=>{ const id=$('equipamentoSel').value; if(id) selecionarMaquina(id, dependeMaquina(viewAtual) || filtraPorMaquina(viewAtual) ? viewAtual : 'visao'); else { limparMaquina(); setView(viewAtual); atualizarFiltroMaquina(); if(filtraPorMaquina(viewAtual)) carregarTudo(); } });
 
 // Feed de alertas clicavel -> modal com os detalhes do evento.
 $('eventos').addEventListener('click', e=>{ const c = e.target.closest('[data-ev]'); if(c) abrirEvento(eventosCache[+c.dataset.ev]); });

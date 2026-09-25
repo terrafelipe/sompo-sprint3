@@ -144,6 +144,15 @@ devolve `Location: /%5Cevil.example`, que o navegador trata como caminho do pró
 | 7 | `dias` fora de 1..365 → 400 `dias_invalido` nas 6 rotas. |
 | 8 | Na Lambda, o app recusa subir sem `PAINEL_SENHA`, `SECRET_KEY` e `COOKIE_SEGURO=true`. |
 
+Revisão cruzada (Codex gpt-6-sol) destas correções, 6 achados, todos corrigidos:
+o registro de falhas tem teto e não despeja alvo bloqueado; o IP do limite vem do
+`CF-Connecting-IP` só com o segredo `PROXY_SEGREDO` do Worker (senão, do último
+`X-Forwarded-For` que a AWS acrescenta); conta inexistente também calcula hash (sem
+enumeração por tempo); a regravação da senha legada não desfaz troca simultânea e não põe
+a senha na URL; limpar o seletor limpa o filtro na hora; além de 5 falhas por usuário+IP, 20
+falhas por IP (qualquer nome) travam o IP. Limite aceito: os contadores valem por instância da
+Lambda e um ataque distribuído (muitos IPs) não é coberto.
+
 Informativo: nomes de máquina e fazenda digitados pelo gestor entram no prompt do Gemini
 (injeção de prompt). Impacto baixo: os scores são calculados sem IA e o texto da IA vai para a
 tela por `textContent`.
