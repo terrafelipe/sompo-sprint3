@@ -117,6 +117,7 @@
 #define INTERVALO_LENTO_MS      2000   // AHT10 e MAX6675 (conversao lenta)
 #define INTERVALO_TELEMETRIA_MS 10000  // amostra gravada no Supabase (10s: casa com o refresh de 5s
                                        // do painel; gera ~3x mais linhas na tabela telemetria - ok p/ demo)
+#define INTERVALO_TELEMETRIA_AO_VIVO_MS 2000  // modo ao vivo, ligado pelo painel (resposta do registrar_dispositivo)
 #define INTERVALO_SAUDE_MPU_MS  5000   // reconferencia do MPU no barramento
 
 #define LIMIAR_POT_MOTOR_DESLIGADO 2000  // pot (0-4095) abaixo disso = desligado
@@ -1004,6 +1005,19 @@ namespace Risco {
   }
 }
 
+// Intervalo da telemetria: o painel liga o modo ao vivo no banco e a resposta de cada
+// envio diz o intervalo. Escrito pela tarefa de rede (nucleo 0), lido pelo loop (nucleo 1).
+volatile uint32_t intervaloTelemetria = INTERVALO_TELEMETRIA_MS;
+
+// So aceita os dois valores conhecidos: um valor estranho do servidor nao derruba a placa.
+uint32_t intervaloDaResposta(const String &corpo) {
+  int k = corpo.indexOf("\"telemetria_ms\"");
+  if (k < 0) return INTERVALO_TELEMETRIA_MS;
+  int dp = corpo.indexOf(':', k);
+  long v = dp < 0 ? 0 : corpo.substring(dp + 1).toInt();
+  return v == INTERVALO_TELEMETRIA_AO_VIVO_MS ? INTERVALO_TELEMETRIA_AO_VIVO_MS : INTERVALO_TELEMETRIA_MS;
+}
+
 // ---------------------------------------------------------------------------
 // Rede: Wi-Fi, NTP e envio ao Supabase (tarefa propria - o loop nunca posta)
 // ---------------------------------------------------------------------------
@@ -1079,6 +1093,14 @@ p/SgguMh1YQdc4acLa/KNJvxn7kjNuK8YAOdgLOaVsjh4rsUecrNIdSUtUlD
     corpo += '}';
     int codigo = http.POST((uint8_t*)corpo.c_str(), corpo.length());
     Envio resultado = (codigo >= 200 && codigo < 300) ? ENVIADO : FALHOU;
+    if (resultado == ENVIADO) {
+      uint32_t novo = intervaloDaResposta(http.getString());
+      if (novo != intervaloTelemetria) {
+        Serial.printf("[REDE] telemetria a cada %lu s%s\n", (unsigned long)(novo / 1000),
+                      novo == INTERVALO_TELEMETRIA_AO_VIVO_MS ? " (ao vivo)" : "");
+        intervaloTelemetria = novo;
+      }
+    }
     if (resultado != ENVIADO) {
       // O corpo do erro do PostgREST diz exatamente o que esta errado (coluna
       // inexistente, RLS negando, JSON invalido). Sem isso a depuracao e cega.
@@ -1385,7 +1407,7 @@ void loop() {
     Mpu::saude();
   }
 
-  if (agora - telemetria >= INTERVALO_TELEMETRIA_MS) {
+  if (agora - telemetria >= intervaloTelemetria) {
     telemetria = agora;
     Telemetria::enviar();
   }
