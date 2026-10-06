@@ -25,6 +25,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 import ocorrencias
 import frota
+import ao_vivo
 import linha_do_tempo
 from config import (
     COOKIE_SEGURO,
@@ -60,6 +61,7 @@ from supabase_client import (
 app = Flask(__name__)
 app.register_blueprint(frota.bp)
 app.register_blueprint(ocorrencias.bp)
+app.register_blueprint(ao_vivo.bp)
 # Chave para assinar o cookie de sessao do login.
 app.secret_key = SECRET_KEY
 _SESSAO_SEGUNDOS = SESSAO_HORAS * 3600

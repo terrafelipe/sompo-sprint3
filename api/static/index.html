@@ -378,6 +378,53 @@
     option[value=""]:checked{ background:var(--v-hover); color:var(--v-texto2); font-weight:500; }
   }
 
+  /* ---------- Modo ao vivo (secao Telemetria atual) ---------- */
+  .av-acoes{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .av-btn{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 10px;border-radius:8px;border:1px solid var(--v-borda);background:var(--v-card);color:var(--v-texto);font-size:13px;font-weight:600;transition:background .15s,transform .1s,border-color .3s,color .3s}
+  .av-btn:hover{background:var(--v-hover)} .av-btn:active{transform:scale(.97)} .av-btn[hidden]{display:none}
+  .av-dot{width:8px;height:8px;border-radius:50%;background:#a1a1aa;position:relative;display:inline-block}
+  .av-so-ligado{display:none !important}
+  .av-pill{align-items:center;gap:6px;font-size:12px;font-weight:600;border-radius:999px;padding:3px 9px;color:#fca5a5;border:1px solid #7f1d1d;background:rgba(127,29,29,.35)}
+  .av-cont{gap:4px;font-size:12px;color:#a1a1aa}
+  .av-aguarda{font-size:12px;color:#fbbf24} .av-aviso{font-size:12px;color:#fca5a5}
+  .av-aguarda[hidden], .av-aviso[hidden]{display:none}
+  .av-faixa{max-height:0;overflow:hidden;opacity:0;border-radius:10px;font-weight:600;padding:0 14px;transition:all .35s}
+  .av-faixa.av-mostra{max-height:60px;opacity:1;padding:11px 14px;margin-bottom:12px}
+  .av-faixa.av-fogo{background:#b70100;color:#fff} .av-faixa.av-furto{background:#2a78d6;color:#fff}
+  .av-term{max-height:0;opacity:0;overflow:hidden;padding:0 12px;transition:max-height .5s,opacity .5s,padding .5s,margin .5s}
+  #secTelemetria{transition:background .5s,border-color .5s,color .5s}
+  #secTelemetria.ao-vivo{background:#0b0d10;border-color:#26282e;color:#e4e4e7}
+  #secTelemetria.ao-vivo .av-so-ligado{display:inline-flex !important}
+  #secTelemetria.ao-vivo h2{color:#e4e4e7} #secTelemetria.ao-vivo #telemetriaSub{color:#a1a1aa}
+  #secTelemetria.ao-vivo .av-btn{background:#16181d;border-color:#33363d;color:#e4e4e7}
+  #secTelemetria.ao-vivo #btnAoVivo{border-color:#7f1d1d;color:#fca5a5}
+  #secTelemetria.ao-vivo .av-dot{background:#e5484d}
+  #secTelemetria.ao-vivo .av-dot::after{content:"";position:absolute;inset:0;border-radius:50%;background:#e5484d;animation:av-pulso 1.4s ease-out infinite}
+  @keyframes av-pulso{from{transform:scale(1);opacity:.7}to{transform:scale(2.8);opacity:0}}
+  #secTelemetria #kpis > div{transition:all .45s cubic-bezier(.2,.8,.2,1)}
+  #secTelemetria.ao-vivo #kpis > div{background:#16181d;border-color:#26282e}
+  #secTelemetria.ao-vivo #kpis > div > div:first-child{color:#a1a1aa;text-transform:uppercase;letter-spacing:.04em;font-size:11px}
+  #secTelemetria.ao-vivo .kpi-v{font-size:24px;color:#e4e4e7;transition:font-size .45s,color .3s}
+  #secTelemetria.ao-vivo #kpis > .av-alerta{background:rgba(229,72,77,.18);border-color:#e5484d} #secTelemetria.ao-vivo .av-alerta .kpi-v{color:#fca5a5}
+  #secTelemetria.ao-vivo #kpis > .av-azul{background:rgba(57,135,229,.18);border-color:#3987e5} #secTelemetria.ao-vivo .av-azul .kpi-v{color:#93c5fd}
+  .kpi-v.av-pisca{animation:av-pisca .6s}
+  @keyframes av-pisca{0%{opacity:.35}100%{opacity:1}}
+  #secTelemetria.ao-vivo .av-term{display:flex;flex-direction:column;justify-content:flex-end;max-height:200px;height:200px;opacity:1;margin:0 0 16px;padding:10px 12px;background:#0b0d10;border:1px solid #26282e;border-radius:10px;font:12.5px/1.6 ui-monospace,"Cascadia Mono",Consolas,monospace;color:#d4d4d8}
+  .av-ln{display:flex;gap:10px;white-space:nowrap;animation:av-entra .35s cubic-bezier(.2,.8,.2,1)}
+  @keyframes av-entra{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .av-ln .av-h{color:#71717a} .av-ln .av-txt{flex:1;overflow:hidden;text-overflow:ellipsis} .av-ln .av-ok{color:#4ade80}
+  .av-ln.av-fogo{background:rgba(229,72,77,.16);color:#fecaca;border-radius:4px}
+  .av-ln.av-furto{background:rgba(57,135,229,.18);color:#bfdbfe;border-radius:4px}
+  .av-ln.av-cracha{color:#fde68a}
+  #secTelemetria.ao-vivo .border-t{border-color:#26282e}
+  #secTelemetria.ao-vivo [role="group"]{background:#16181d;border-color:#33363d}
+  #secTelemetria.ao-vivo .per-btn{color:#a1a1aa} #secTelemetria.ao-vivo .per-btn[aria-pressed="true"]{background:#26282e;color:#e4e4e7}
+  #secTelemetria:fullscreen{overflow:auto;padding:28px;border-radius:0}
+  @media (prefers-reduced-motion: reduce){
+    #secTelemetria, #secTelemetria #kpis > div, .av-faixa, .av-term, .av-ln, .kpi-v.av-pisca, #secTelemetria.ao-vivo .av-dot::after{transition:none;animation:none}
+  }
+  @media (max-width:640px){ #secTelemetria.ao-vivo .av-term{height:160px;max-height:160px;font-size:11px} #secTelemetria.ao-vivo .kpi-v{font-size:20px} }
+
 </style>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
@@ -686,10 +733,20 @@
 
       <!-- TELEMETRIA -->
       <section id="secTelemetria" data-ancora data-section="telemetria" class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)] p-6">
-        <div class="flex items-center justify-between mb-5">
-          <div><h2 class="text-base font-semibold text-on-surface">Telemetria atual</h2><p class="text-sm text-on-surface-variant">Sensores da leitura mais recente</p></div>
+        <div class="flex items-start justify-between gap-3 flex-wrap mb-5">
+          <div><h2 class="text-base font-semibold text-on-surface">Telemetria atual</h2><p id="telemetriaSub" class="text-sm text-on-surface-variant">Sensores da leitura mais recente</p></div>
+          <div class="av-acoes">
+            <span id="aoVivoAguarda" class="av-aguarda" hidden>aguardando a placa acelerar…</span>
+            <span id="aoVivoAviso" class="av-aviso" hidden></span>
+            <span class="av-pill av-so-ligado"><span class="av-dot"></span>AO VIVO</span>
+            <span class="av-cont av-so-ligado">desliga em <span id="aoVivoCont">2:00:00</span></span>
+            <button id="btnAoVivo" type="button" class="av-btn" hidden><span class="av-dot"></span><span id="txtAoVivo">Ao vivo</span></button>
+            <button id="btnTelaCheia" type="button" class="av-btn av-so-ligado" title="Tela cheia (Esc sai)"><span class="material-symbols-outlined text-[18px]">fullscreen</span>Tela cheia</button>
+          </div>
         </div>
+        <div id="aoVivoFaixa" class="av-faixa" role="alert"></div>
         <div id="kpis" class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6"></div>
+        <div id="aoVivoTerminal" class="av-term" aria-live="polite"></div>
         <div class="border-t border-outline-variant/30 pt-4">
           <div class="flex items-center justify-between gap-3 flex-wrap mb-3">
             <div class="inline-flex items-center h-8 p-0.5 rounded-lg border border-outline-variant bg-surface-container-low" role="group" aria-label="Métrica do gráfico de leituras">
@@ -1348,6 +1405,7 @@ function conexao(ok){ const a = $('avisoConexao'); if(a) a.hidden = ok; }
 const erroLista = mensagem => `<div role="alert" class="col-span-full text-error py-4">${mensagem} <button data-tentar class="underline font-semibold">Tentar novamente</button></div>`;
 function iniciando(id){ if(!$(id).innerHTML.trim() || $(id).querySelector('[data-tentar]')) $(id).textContent = 'Carregando…'; }
 function limparMaquina(){
+  desligarAoVivo(); $('btnAoVivo').hidden = true;
   contextoVersao++;
   equipamentoSelecionado = null; dispositivo = ''; eventosCache = [];
   ['kpis','sparkTemp','tabelaTelemetria','eventos','justFurto','justIncendio','recs','lim','origemBadge'].forEach(id => $(id).innerHTML = '');
@@ -1668,8 +1726,10 @@ async function carregarTelemetria(){
     const t = linhas[0] || null;
     const bool = v => v ? 'Sim' : 'Não';
 
+    // Ao vivo ja pintou os quadradinhos: a carga de 5 s nao volta para uma leitura mais antiga.
+    const kpisAoVivo = aoVivo.ligado && $('kpis').querySelector('[data-kpi]');
     if(!t){
-      $('kpis').innerHTML = '<div class="col-span-full text-on-surface-variant italic text-sm py-2">Sem telemetria ainda: aguardando o ESP32.</div>';
+      if(!kpisAoVivo) $('kpis').innerHTML = '<div class="col-span-full text-on-surface-variant italic text-sm py-2">Sem telemetria ainda: aguardando o ESP32.</div>';
       $('kpiRisco').textContent = '–';
       $('cardRisco').dataset.risco = 'seguro';   // sem dado -> sem feixe
       $('sparkTemp').innerHTML = graficoTemp([]);
@@ -1681,20 +1741,7 @@ async function carregarTelemetria(){
     $('kpiRisco').style.color = nivelCor(t.nivel_risco);
     $('cardRisco').dataset.risco = estadoRisco(t.nivel_risco);   // aciona o border-beam
 
-    const kpi = (icon,k,v) => `<div class="rounded-lg border border-outline-variant p-3">
-      <div class="text-xs text-on-surface-variant flex items-center gap-1.5"><span class="material-symbols-outlined text-[16px]">${icon}</span>${k}</div>
-      <div class="text-base font-semibold mt-1 tabular">${v}</div></div>`;
-    $('kpis').innerHTML =
-      kpi('shield','Nível de risco', t.nivel_risco ?? '–') +
-      kpi('settings','Motor', bool(t.motor_ligado)) +
-      kpi('badge','Operador', t.operador_autorizado == null ? '–' : (t.operador_autorizado ? 'Autorizado' : 'Sem crachá')) +
-      kpi('thermostat','Temp. escape', (t.temp_escape ?? '–')+' °C') +
-      kpi('device_thermostat','Temp. ambiente', (t.temp_ambiente ?? '–')+' °C') +
-      kpi('water_drop','Umidade', (t.umidade_ar ?? '–')+' %') +
-      kpi('vibration','Vibração', (t.vibracao ?? '–')+' g') +
-      kpi('car_crash','Capô', bool(t.capo_aberto)) +
-      kpi('propane_tank','Tanque', bool(t.tanque_aberto)) +
-      kpi('local_fire_department','Chama', bool(t.chama_detectada));
+    if(!kpisAoVivo) renderizarKpis(t);
 
     leiturasCache = [...linhas].reverse();   // antigas -> recentes
     renderizarGraficoLeituras();
@@ -3163,6 +3210,50 @@ function fmtRelativo(iso){
 const PONTO = cor => `<span class="w-2 h-2 rounded-full shrink-0" style="background:${cor}"></span>`;
 const maquinaAtual = () => maquinasCache.find(m => String(m.id_equipamento) === String(equipamentoSelecionado));
 
+// Os 10 quadradinhos de "Telemetria atual". Atualiza no lugar (sem recriar) para o
+// modo ao vivo piscar so o valor que mudou; as cores de alerta so aparecem no ao vivo (CSS).
+const simNao = v => v ? 'Sim' : 'Não';
+const KPIS_TELEMETRIA = [
+  ['risco','shield','Nível de risco', t => t.nivel_risco ?? '–'],
+  ['motor','settings','Motor', t => simNao(t.motor_ligado)],
+  ['operador','badge','Operador', t => t.operador_autorizado == null ? '–' : (t.operador_autorizado ? 'Autorizado' : 'Sem crachá')],
+  ['escape','thermostat','Temp. escape', t => (t.temp_escape ?? '–')+' °C'],
+  ['ambiente','device_thermostat','Temp. ambiente', t => (t.temp_ambiente ?? '–')+' °C'],
+  ['umidade','water_drop','Umidade', t => (t.umidade_ar ?? '–')+' %'],
+  ['vibracao','vibration','Vibração', t => (t.vibracao ?? '–')+' g'],
+  ['capo','car_crash','Capô', t => simNao(t.capo_aberto)],
+  ['tanque','propane_tank','Tanque', t => simNao(t.tanque_aberto)],
+  ['chama','local_fire_department','Chama', t => simNao(t.chama_detectada)],
+];
+const ESCAPE_ATENCAO = 450;   // TEMP_ESCAPE_ATENCAO do firmware
+function alertaKpi(chave, t){
+  const semCracha = t.motor_ligado && t.operador_autorizado === false;
+  if(chave === 'chama' && t.chama_detectada) return 'av-alerta';
+  if(chave === 'escape' && Number(t.temp_escape) >= ESCAPE_ATENCAO) return 'av-alerta';
+  if(chave === 'risco' && t.nivel_risco === 'CRITICO') return 'av-alerta';
+  if(chave === 'risco' && t.nivel_risco === 'ATENCAO') return 'av-azul';
+  if((chave === 'capo' && t.capo_aberto) || (chave === 'tanque' && t.tanque_aberto)) return 'av-azul';
+  if((chave === 'motor' || chave === 'operador') && semCracha) return 'av-azul';
+  return '';
+}
+function renderizarKpis(t){
+  const el = $('kpis');
+  if(!el.querySelector('[data-kpi]')){
+    el.innerHTML = KPIS_TELEMETRIA.map(([chave, icon, rotulo]) => `<div data-kpi="${chave}" class="rounded-lg border border-outline-variant p-3">
+      <div class="text-xs text-on-surface-variant flex items-center gap-1.5"><span class="material-symbols-outlined text-[16px]">${icon}</span>${rotulo}</div>
+      <div class="kpi-v text-base font-semibold mt-1 tabular"></div></div>`).join('');
+  }
+  for(const [chave, , , valor] of KPIS_TELEMETRIA){
+    const tile = el.querySelector(`[data-kpi="${chave}"]`), v = tile.querySelector('.kpi-v'), novo = valor(t);
+    if(v.textContent !== novo){
+      const antes = v.textContent; v.textContent = novo;
+      if(antes && aoVivo.ligado && !MENOS_MOVIMENTO){ v.classList.remove('av-pisca'); void v.offsetWidth; v.classList.add('av-pisca'); }
+    }
+    tile.classList.remove('av-alerta', 'av-azul');
+    const cls = alertaKpi(chave, t); if(cls) tile.classList.add(cls);
+  }
+}
+
 function renderizarStatusAgora(){
   const el = $('statusAgora');
   const t = leiturasCache[leiturasCache.length - 1];
@@ -3347,6 +3438,135 @@ const NOME_SENSOR = {
   ky026:'Sensor de chama (KY-026)', reed_capo:'Reed do capô', reed_tanque:'Reed do tanque',
   mpu6050:'Acelerômetro (MPU-6050)', rc522:'Leitor RFID (RC522)'
 };
+
+/* ---------- Modo ao vivo (secao Telemetria atual) ---------- */
+const AO_VIVO_MS = 2000, AO_VIVO_FALHAS_AVISO = 3, AO_VIVO_LINHAS = 9;
+const EIXO_INCENDIO = new Set(['chama_detectada','escape_critico','escape_atencao','fumaca_detectada']);
+const aoVivo = {ligado:false, ate:null, cursor:null, vistos:new Set(), tick:null, relogio:null, falhas:0, ultimaOcorrida:null, faixaT:null, emVoo:false};
+
+function aoVivoAtivo(m){ return !!(m && m.ao_vivo_ate && Date.parse(m.ao_vivo_ate) > Date.now()); }
+function mostrarBotaoAoVivo(){ const m = maquinaAtual(); $('btnAoVivo').hidden = !(m && m.dispositivo_id); }
+function ligarAoVivo(ate){
+  aoVivo.ate = ate;
+  if(aoVivo.ligado) return;
+  Object.assign(aoVivo, {ligado:true, cursor:null, vistos:new Set(), falhas:0, ultimaOcorrida:null});
+  $('aoVivoTerminal').innerHTML = '';
+  $('secTelemetria').classList.add('ao-vivo');
+  $('txtAoVivo').textContent = 'Desligar';
+  $('telemetriaSub').textContent = 'Atualizando a cada 2 s · cada linha aparece depois de gravada no banco';
+  $('aoVivoAguarda').hidden = false; $('aoVivoAviso').hidden = true;
+  contarAoVivo(); aoVivo.relogio = setInterval(contarAoVivo, 1000);
+  aoVivo.tick = setInterval(tickAoVivo, AO_VIVO_MS); tickAoVivo();
+}
+function desligarAoVivo(){
+  clearInterval(aoVivo.tick); clearInterval(aoVivo.relogio); clearTimeout(aoVivo.faixaT);
+  Object.assign(aoVivo, {ligado:false, ate:null, tick:null, relogio:null});
+  $('secTelemetria').classList.remove('ao-vivo');
+  $('txtAoVivo').textContent = 'Ao vivo';
+  $('telemetriaSub').textContent = 'Sensores da leitura mais recente';
+  $('aoVivoAguarda').hidden = true; $('aoVivoAviso').hidden = true;
+  $('aoVivoFaixa').className = 'av-faixa'; $('aoVivoTerminal').innerHTML = '';
+  $('kpis').querySelectorAll('.av-pisca').forEach(v => v.classList.remove('av-pisca'));
+  if(document.fullscreenElement === $('secTelemetria')) document.exitFullscreen().catch(() => {});
+}
+function contarAoVivo(){
+  const s = Math.max(0, Math.floor((Date.parse(aoVivo.ate) - Date.now()) / 1000));
+  if(!s){ desligarAoVivo(); return; }
+  $('aoVivoCont').textContent = `${Math.floor(s/3600)}:${String(Math.floor(s%3600/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+}
+async function alternarAoVivo(){
+  const m = maquinaAtual(); if(!m) return;
+  const ligar = !aoVivo.ligado;
+  $('btnAoVivo').disabled = true;
+  try{
+    const r = await fetch(`/equipamentos/${encodeURIComponent(m.id_equipamento)}/ao-vivo`, {method:'POST',
+      headers:{'Content-Type':'application/json', Accept:'application/json'}, body: JSON.stringify({ligar})});
+    const d = await r.json().catch(() => ({}));
+    if(!r.ok) throw new Error(d.erro || String(r.status));
+    m.ao_vivo_ate = d.ao_vivo_ate;
+    if(String(m.id_equipamento) !== String(equipamentoSelecionado)) return;   // trocou de maquina no meio
+    if(aoVivoAtivo(m)) ligarAoVivo(d.ao_vivo_ate); else desligarAoVivo();
+  }catch(e){
+    $('aoVivoAviso').textContent = `não deu para ${ligar ? 'ligar' : 'desligar'} o ao vivo`;
+    $('aoVivoAviso').hidden = false;
+  }finally{ $('btnAoVivo').disabled = false; }
+}
+async function tickAoVivo(){
+  if(!aoVivo.ligado || aoVivo.emVoo || pausa || viewAtual !== 'visao' || !equipamentoSelecionado) return;
+  const eq = equipamentoSelecionado;
+  aoVivo.emVoo = true;
+  try{
+    const d = await getJSON(`/ao-vivo?equipamento=${encodeURIComponent(eq)}` + (aoVivo.cursor ? `&desde=${encodeURIComponent(aoVivo.cursor)}` : ''));
+    if(!aoVivo.ligado || eq !== equipamentoSelecionado) return;
+    aoVivo.falhas = 0; $('aoVivoAviso').hidden = true;
+    aoVivo.cursor = d.cursor;
+    receberAoVivo(d);
+    if(!(d.ao_vivo_ate && Date.parse(d.ao_vivo_ate) > Date.now())){ desligarAoVivo(); return; }
+    aoVivo.ate = d.ao_vivo_ate;
+  }catch(e){
+    if(e.obsoleto || !aoVivo.ligado) return;
+    if(++aoVivo.falhas >= AO_VIVO_FALHAS_AVISO){ $('aoVivoAviso').textContent = 'sem conexão com o servidor'; $('aoVivoAviso').hidden = false; }
+  }finally{ aoVivo.emVoo = false; }
+}
+function novoAoVivo(r){ if(!r.registro_id || aoVivo.vistos.has(r.registro_id)) return false; aoVivo.vistos.add(r.registro_id); return true; }
+function receberAoVivo(d){
+  const itens = [
+    ...(d.telemetria || []).filter(novoAoVivo).map(r => ['telemetria', r]),
+    ...(d.eventos || []).filter(novoAoVivo).map(r => ['eventos', r]),
+    ...(d.operacoes || []).filter(novoAoVivo).map(r => ['operacoes', r]),
+  ].sort((a, b) => Date.parse(a[1].recebido_em) - Date.parse(b[1].recebido_em));
+  let ultimaLeitura = null;
+  for(const [tipo, r] of itens){
+    if(tipo === 'telemetria'){
+      ultimaLeitura = r;
+      leiturasCache.push(r);
+      const ocorrida = Date.parse(r.ocorrido_em || r.criado_em);
+      if(aoVivo.ultimaOcorrida && ocorrida - aoVivo.ultimaOcorrida <= 3000) $('aoVivoAguarda').hidden = true;
+      aoVivo.ultimaOcorrida = ocorrida;
+      linhaAoVivo(r, resumoLeitura(r), '');
+    }else if(tipo === 'eventos'){
+      const titulo = TITULO_TIPO[r.tipo] || r.tipo, fogo = EIXO_INCENDIO.has(r.tipo);
+      linhaAoVivo(r, `${fogo ? '🔥' : '🚨'} ${titulo.toUpperCase()} · alerta de ${fogo ? 'incêndio' : 'furto'} criado`, fogo ? 'av-fogo' : 'av-furto');
+      faixaAoVivo(`${fogo ? '🔥 Alerta de incêndio' : '🚨 Alerta de furto'} · ${titulo}`, fogo ? 'av-fogo' : 'av-furto');
+    }else{
+      const quem = r.operador_nome || 'Operador não identificado';
+      const txt = r.tipo === 'inicio' ? `${quem} iniciou o turno` : r.tipo === 'fim' ? `${quem} encerrou o turno` : 'crachá recusado';
+      linhaAoVivo(r, `🪪 Crachá ${r.uid || ''} · ${txt}`, 'av-cracha');
+    }
+  }
+  if(ultimaLeitura){
+    if(leiturasCache.length > 500) leiturasCache.splice(0, leiturasCache.length - 500);
+    renderizarKpis(ultimaLeitura); renderizarStatusAgora(); renderizarGraficoLeituras();
+  }
+}
+function resumoLeitura(t){
+  const n = (v, c = 1) => v == null ? '–' : Number(v).toFixed(c).replace('.', ',');
+  const inteiro = v => v == null ? '–' : Math.round(v);
+  return `escape ${inteiro(t.temp_escape)} °C · amb ${n(t.temp_ambiente)} °C · umid ${inteiro(t.umidade_ar)} % · vib ${n(t.vibracao, 2)} g · `
+    + `chama ${t.chama_detectada ? 'SIM' : 'não'} · capô ${t.capo_aberto ? 'aberto' : 'fechado'} · tanque ${t.tanque_aberto ? 'aberto' : 'fechado'} · motor ${t.motor_ligado ? 'ligado' : 'desligado'}`;
+}
+function selagemAoVivo(r){
+  const ms = Date.parse(r.recebido_em) - Date.parse(r.ocorrido_em);
+  // Relogio da placa sem NTP ou adiantado: sem latencia inventada.
+  return Number.isFinite(ms) && ms >= 0 && ms <= 60000 ? `✓ gravado · chegou em ${(ms/1000).toFixed(1).replace('.', ',')} s` : '✓ gravado';
+}
+function linhaAoVivo(r, texto, cls){
+  const term = $('aoVivoTerminal'), d = document.createElement('div');
+  d.className = 'av-ln' + (cls ? ' ' + cls : '');
+  d.innerHTML = `<span class="av-h">${escapar(new Date(r.ocorrido_em || r.recebido_em).toLocaleTimeString('pt-BR'))}</span><span class="av-txt">${escapar(texto)}</span><span class="av-ok">${escapar(selagemAoVivo(r))}</span>`;
+  term.appendChild(d);
+  while(term.children.length > AO_VIVO_LINHAS) term.firstChild.remove();
+}
+function faixaAoVivo(texto, cls){
+  const f = $('aoVivoFaixa'); f.textContent = texto; f.className = `av-faixa av-mostra ${cls}`;
+  clearTimeout(aoVivo.faixaT); aoVivo.faixaT = setTimeout(() => f.className = 'av-faixa', 6000);
+}
+$('btnAoVivo').addEventListener('click', alternarAoVivo);
+$('btnTelaCheia').addEventListener('click', () => {
+  const s = $('secTelemetria');
+  if(document.fullscreenElement === s) document.exitFullscreen().catch(() => {});
+  else if(s.requestFullscreen) s.requestFullscreen().catch(() => {});
+});
 // A0 do KY-026 cai em direção a 0 quanto mais forte/perto o fogo -> vira uma "intensidade" %.
 const intensidadeChama = a0 => Math.max(0, Math.min(100, Math.round((4095 - Number(a0)) / 4095 * 100)));
 // Escapa rotulo e valor aqui: detalhes vem do banco (nomes, detalhes do ESP32) e nunca viram HTML.
@@ -3834,6 +4054,8 @@ async function selecionarMaquina(id, view = 'visao'){
   if(!m) return;
   limparMaquina();
   equipamentoSelecionado = m.id_equipamento;
+  mostrarBotaoAoVivo();
+  if(aoVivoAtivo(m)) ligarAoVivo(m.ao_vivo_ate);
   dispositivo = m.dispositivo_id || '';
   $('dispositivo').value = dispositivo;
   $('equipamentoSel').value = String(id);
