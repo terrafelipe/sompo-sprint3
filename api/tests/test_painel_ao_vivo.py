@@ -124,6 +124,19 @@ def test_relogio_da_placa_errado_mostra_so_gravado(painel):
     pw.expect(page.locator('#aoVivoTerminal .av-ln .av-ok').last).to_have_text('✓ gravado', timeout=5000)
 
 
+def test_leitura_cabe_no_terminal_do_celular(painel):
+    """No celular o selo comprido ("gravado · chegou em") empurrava a leitura para fora da tela."""
+    page, _ = painel
+    st = _servidor(page, ligado_ate=agora(3600))
+    _ja_ligada(page)
+    _abrir(page)
+    st['fila'].append(leitura(1))
+    linha = page.locator('#aoVivoTerminal .av-ln').last
+    pw.expect(linha.locator('.av-ok')).to_have_text('✓ gravado · chegou em 0,8 s', timeout=5000)
+    largura = linha.locator('.av-txt').evaluate('e => e.getBoundingClientRect().width')
+    assert largura >= 140, f'leitura espremida: {largura:.0f}px'
+
+
 def test_tres_falhas_seguidas_avisam(painel):
     page, _ = painel
     st = _servidor(page, ligado_ate=agora(3600))
