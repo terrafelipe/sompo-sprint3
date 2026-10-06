@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Modo ao vivo — v2</title>
+<style>
+  :root{--v-fundo:#f4f4f5;--v-card:#fff;--v-hover:#f4f4f5;--v-borda:#e4e4e7;--v-texto:#09090b;--v-texto2:#71717a;--v-texto-sec:#52525b;--s-furto:#2a78d6;--s-incendio:#b70100}
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.45 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--v-fundo);color:var(--v-texto);padding:20px;max-width:1100px;margin:auto}
+  h1{font-size:20px;margin:0 0 4px}.sub{color:var(--v-texto2);margin:0 0 14px}
+  .sim{position:sticky;top:0;z-index:5;display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:#fff;border:1px dashed #a1a1aa;border-radius:12px;padding:8px 12px;margin-bottom:16px}
+  .sim b{font-size:11px;color:var(--v-texto2);text-transform:uppercase;letter-spacing:.04em}
+  button{font:inherit;cursor:pointer;border:1px solid var(--v-borda);background:#fff;color:inherit;border-radius:8px;height:32px;padding:0 10px;transition:background .15s,transform .1s,border-color .3s,color .3s}
+  button:hover{background:var(--v-hover)}button:active{transform:scale(.97)}
+  .fake{height:44px;border-radius:12px;background:#fff;border:1px solid var(--v-borda);color:var(--v-texto2);font-size:12px;display:flex;align-items:center;padding:0 14px;margin-bottom:12px}
+  /* seção */
+  .sec{background:var(--v-card);border:1px solid var(--v-borda);border-radius:12px;padding:22px;transition:background .5s,border-color .5s,color .5s}
+  .cab{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+  .cab h2{margin:0;font-size:16px}.cab p{margin:0;color:var(--v-texto2);font-size:13px;transition:color .5s}
+  .acoes{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .btnVivo{display:inline-flex;align-items:center;gap:6px;font-weight:600}
+  .btnVivo .dot{width:8px;height:8px;border-radius:50%;background:#a1a1aa;position:relative}
+  .pill{display:none;align-items:center;gap:6px;font-size:12px;font-weight:600;border-radius:999px;padding:3px 9px;color:#fca5a5;border:1px solid #7f1d1d;background:rgba(127,29,29,.35)}
+  .pill .dot,.on .btnVivo .dot{background:#e5484d}
+  .pill .dot::after,.on .btnVivo .dot::after{content:"";position:absolute;inset:0;border-radius:50%;background:#e5484d;animation:pulso 1.4s ease-out infinite}
+  .dot{width:8px;height:8px;border-radius:50%;position:relative;display:inline-block}
+  @keyframes pulso{from{transform:scale(1);opacity:.7}to{transform:scale(2.8);opacity:0}}
+  .cont{display:none;font-size:12px;color:#a1a1aa}
+  .aguarda{display:none;font-size:12px;color:#fbbf24}
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+  @media(min-width:760px){.grid{grid-template-columns:repeat(5,1fr)}}
+  .kpi{border:1px solid var(--v-borda);border-radius:10px;padding:12px;transition:all .45s cubic-bezier(.2,.8,.2,1)}
+  .kpi .k{font-size:12px;color:var(--v-texto2);display:flex;gap:6px;align-items:center;transition:color .45s}
+  .kpi .v{font-size:16px;font-weight:600;margin-top:4px;font-variant-numeric:tabular-nums;transition:font-size .45s,color .3s}
+  .kpi .v.pisca{animation:pisca .6s}
+  @keyframes pisca{0%{opacity:.35}100%{opacity:1}}
+  .banner{max-height:0;overflow:hidden;opacity:0;border-radius:10px;font-weight:600;transition:all .35s;padding:0 14px}
+  .banner.show{max-height:60px;opacity:1;padding:11px 14px;margin-bottom:12px}
+  .banner.fogo{background:#b70100;color:#fff}.banner.furto{background:#2a78d6;color:#fff}
+  .term{max-height:0;opacity:0;overflow:hidden;transition:all .5s;background:#0b0d10;border:1px solid #26282e;border-radius:10px;font:12.5px/1.6 ui-monospace,"Cascadia Mono",Consolas,monospace;color:#d4d4d8;display:flex;flex-direction:column;justify-content:flex-end;padding:0 12px}
+  .ln{display:flex;gap:10px;white-space:nowrap;animation:entra .35s cubic-bezier(.2,.8,.2,1)}
+  @keyframes entra{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .ln .h{color:#71717a}.ln .txt{flex:1;overflow:hidden;text-overflow:ellipsis}.ln .ok{color:#71717a}.ln .ok.g{color:#4ade80}
+  .ln.fogo{background:rgba(229,72,77,.16);color:#fecaca;border-radius:4px}.ln.furto{background:rgba(57,135,229,.18);color:#bfdbfe;border-radius:4px}.ln.cracha{color:#fde68a}
+  .grafico{margin-top:16px;border-top:1px solid var(--v-borda);padding-top:14px;color:var(--v-texto2);font-size:12px;transition:border-color .5s}
+  .grafico svg{width:100%;height:70px;display:block}
+  /* LIGADO: visual B */
+  .sec.on{background:#0b0d10;border-color:#26282e;color:#e4e4e7}
+  .sec.on .cab p{color:#a1a1aa}
+  .sec.on button{background:#16181d;border-color:#33363d;color:#e4e4e7}
+  .sec.on .btnVivo{border-color:#7f1d1d;color:#fca5a5}
+  .sec.on .pill,.sec.on .cont{display:inline-flex}
+  .sec.on .kpi{background:#16181d;border-color:#26282e}
+  .sec.on .kpi .k{color:#a1a1aa;text-transform:uppercase;letter-spacing:.04em;font-size:11px}
+  .sec.on .kpi .v{font-size:24px}
+  .sec.on .kpi.alerta{background:rgba(229,72,77,.18);border-color:#e5484d}.sec.on .kpi.alerta .v{color:#fca5a5}
+  .sec.on .kpi.azul{background:rgba(57,135,229,.18);border-color:#3987e5}.sec.on .kpi.azul .v{color:#93c5fd}
+  .kpi.alerta .v{color:#b70100}.kpi.azul .v{color:#2a78d6}
+  .sec.on .term{max-height:200px;height:200px;opacity:1;margin-top:14px;padding:10px 12px}
+  .sec.on .grafico{border-color:#26282e}
+  .sec.full{position:fixed;inset:0;z-index:50;border-radius:0;overflow:auto;padding:28px}
+  .nota{margin-top:16px;color:var(--v-texto-sec);font-size:13px}
+  .nota li{margin:3px 0}
+</style>
+</head>
+<body>
+<h1>"Telemetria atual" com botão Ao vivo</h1>
+<p class="sub">É a seção que já existe no Painel da máquina. Clique em <b>Ao vivo</b>: ela ganha o visual B, os números passam a mudar a cada 2 s e o terminal aparece embaixo. <b>Tela cheia</b> serve para o projetor (Esc sai).</p>
+
+<div class="sim"><b>Simular na placa</b>
+  <button onclick="ev('fogo')">🔥 Chama</button><button onclick="ev('capo')">🚪 Capô</button><button onclick="ev('tanque')">⛽ Tanque</button>
+  <button onclick="ev('motor')">⚙️ Motor sem crachá</button><button onclick="ev('cracha')">🪪 Crachá</button><button onclick="ev('calma')">✅ Normal</button>
+</div>
+
+<div class="fake">Status agora · Máquina · Última comunicação · Operador · Sensores em alerta</div>
+<div class="fake">Nível de risco · Alertas · Score de furto · Score de incêndio</div>
+
+<section class="sec" id="sec">
+  <div class="cab">
+    <div><h2>Telemetria atual</h2><p id="subt">Sensores da leitura mais recente</p></div>
+    <div class="acoes">
+      <span class="aguarda" id="aguarda">aguardando a placa acelerar…</span>
+      <span class="pill"><span class="dot"></span>AO VIVO</span>
+      <span class="cont">desliga em <span id="cont">2:00:00</span></span>
+      <button class="btnVivo" id="btnVivo" onclick="alterna()"><span class="dot"></span><span id="txtVivo">Ao vivo</span></button>
+      <button id="btnFull" onclick="tela()" style="display:none">⛶ Tela cheia</button>
+    </div>
+  </div>
+  <div class="banner" id="banner"></div>
+  <div class="grid" id="grid"></div>
+  <div class="term" id="term"></div>
+  <div class="grafico">Temp. escape · últimas leituras<svg id="spark" viewBox="0 0 300 70" preserveAspectRatio="none"><polyline id="pl" fill="none" stroke="#b70100" stroke-width="2" points=""/></svg></div>
+</section>
+
+<div class="fake" style="margin-top:12px">Atividade de alertas · Linha do tempo · Análise de risco… (continuam como hoje, a cada 5 s)</div>
+
+<ul class="nota">
+  <li>Desligado: a seção fica <b>igual à de hoje</b> (atualiza a cada 5 s, quando a placa manda a cada 10 s).</li>
+  <li>Ligado: a placa passa a mandar a cada 2 s (leva até ~15 s para acelerar) e só esta seção + o "Status agora" consultam a cada 1–2 s.</li>
+  <li>Desliga sozinho em 2 h ou no botão. Quem estiver olhando a mesma máquina também vê ao vivo.</li>
+</ul>
+
+<script>
+const est={risco:'Seguro',motor:false,op:null,esc:31,amb:27.3,umi:58,vib:0.02,capo:false,tanque:false,chama:false};
+let vivo=false,hist=[],timer=null,acelerou=false;
+const fmt=(n,c=1)=>n.toFixed(c).replace('.',',');
+const KPIS=[['risco','🛡️','Nível de risco',()=>est.risco],['motor','⚙️','Motor',()=>est.motor?'Sim':'Não'],['op','🪪','Operador',()=>est.op?est.op:(est.motor?'Sem crachá':'–')],
+ ['esc','🌡️','Temp. escape',()=>Math.round(est.esc)+' °C'],['amb','🌤️','Temp. ambiente',()=>fmt(est.amb)+' °C'],['umi','💧','Umidade',()=>Math.round(est.umi)+' %'],
+ ['vib','📳','Vibração',()=>fmt(est.vib,2)+' g'],['capo','🚜','Capô',()=>est.capo?'Sim':'Não'],['tanque','⛽','Tanque',()=>est.tanque?'Sim':'Não'],['chama','🔥','Chama',()=>est.chama?'Sim':'Não']];
+grid.innerHTML=KPIS.map(([id,ic,k])=>`<div class="kpi" id="k_${id}"><div class="k">${ic} ${k}</div><div class="v" id="v_${id}"></div></div>`).join('');
+function pintar(){
+  est.risco=est.chama||est.esc>80?'Crítico':(est.capo||est.tanque||(est.motor&&!est.op))?'Alto':'Seguro';
+  for(const [id,,,f] of KPIS){const v=document.getElementById('v_'+id),n=f();if(v.textContent!==n){v.textContent=n;v.classList.remove('pisca');void v.offsetWidth;v.classList.add('pisca');}}
+  const cls=(id,c,on)=>document.getElementById('k_'+id).classList.toggle(c,on);
+  cls('chama','alerta',est.chama);cls('esc','alerta',est.esc>80);cls('risco','alerta',est.risco==='Crítico');cls('risco','azul',est.risco==='Alto');
+  cls('capo','azul',est.capo);cls('tanque','azul',est.tanque);cls('motor','azul',est.motor&&!est.op);cls('op','azul',est.motor&&!est.op);
+  hist.push(est.esc);if(hist.length>40)hist.shift();const mx=Math.max(60,...hist);
+  pl.setAttribute('points',hist.map((v,i)=>`${i*(300/39)},${68-(v/mx)*64}`).join(' '));
+}
+function linha(txt,c){if(!vivo)return;const d=document.createElement('div');d.className='ln'+(c?' '+c:'');
+  d.innerHTML=`<span class="h">${new Date().toLocaleTimeString('pt-BR')}</span><span class="txt">${txt}</span><span class="ok">gravando…</span>`;term.appendChild(d);
+  setTimeout(()=>{const o=d.querySelector('.ok');o.textContent='✓ gravado';o.classList.add('g')},350+Math.random()*400);while(term.children.length>9)term.firstChild.remove();}
+function leitura(){
+  est.amb+=(Math.random()-.5)*.2;est.umi+=(Math.random()-.5)*.6;est.vib=est.motor?0.3+Math.random()*.2:Math.random()*.04;
+  est.esc=est.chama?Math.min(est.esc+9+Math.random()*4,180):est.esc+(31-est.esc)*.25+(Math.random()-.5);
+  pintar();
+  linha(`escape ${Math.round(est.esc)} °C · amb ${fmt(est.amb)} °C · umid ${Math.round(est.umi)} % · vib ${fmt(est.vib,2)} g · chama ${est.chama?'SIM':'não'} · capô ${est.capo?'aberto':'fechado'}`);
+}
+function agenda(){clearInterval(timer);timer=setInterval(leitura,vivo&&acelerou?2000:10000);}
+function alterna(){
+  vivo=!vivo;sec.classList.toggle('on',vivo);txtVivo.textContent=vivo?'Desligar':'Ao vivo';btnFull.style.display=vivo?'':'none';
+  subt.textContent=vivo?'Atualizando a cada 2 s · cada linha aparece depois de gravada no banco':'Sensores da leitura mais recente';
+  if(vivo){acelerou=false;aguarda.style.display='inline';term.innerHTML='';
+    setTimeout(()=>{if(!vivo)return;acelerou=true;aguarda.style.display='none';linha('placa em modo rápido · telemetria a cada 2 s');agenda();leitura();},2500);
+  }else{aguarda.style.display='none';sec.classList.remove('full');banner.className='banner';acelerou=false;}
+  agenda();
+}
+function tela(){sec.classList.toggle('full');}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')sec.classList.remove('full')});
+function avisa(t,c){banner.className='banner show '+c;banner.textContent=t;clearTimeout(avisa.t);avisa.t=setTimeout(()=>banner.className='banner',6000);}
+function ev(t){
+  if(t==='fogo'){est.chama=true;linha('🔥 CHAMA DETECTADA · alerta de incêndio criado','fogo');vivo&&avisa('🔥 Alerta de incêndio · chama detectada agora','fogo');}
+  if(t==='capo'){est.capo=true;linha('🚜 CAPÔ ABERTO · alerta de furto criado','furto');vivo&&avisa('🚜 Alerta de furto · capô aberto','furto');}
+  if(t==='tanque'){est.tanque=true;linha('⛽ TANQUE ABERTO · alerta de furto criado','furto');vivo&&avisa('⛽ Alerta de furto · tanque aberto','furto');}
+  if(t==='motor'){est.motor=true;linha('⚙️ MOTOR LIGADO SEM CRACHÁ · alerta de furto criado','furto');vivo&&avisa('⚙️ Alerta de furto · motor ligado sem crachá','furto');}
+  if(t==='cracha'){est.op='Ana Souza';linha('🪪 Crachá 04A1B2C3 · Ana Souza iniciou o turno','cracha');}
+  if(t==='calma'){Object.assign(est,{chama:false,capo:false,tanque:false,motor:false,op:null});linha('✅ sensores normalizados');banner.className='banner';}
+  if(!vivo)return; pintar();
+}
+let seg=7200;setInterval(()=>{if(!vivo)return;seg--;cont.textContent=`${Math.floor(seg/3600)}:${String(Math.floor(seg%3600/60)).padStart(2,'0')}:${String(seg%60).padStart(2,'0')}`},1000);
+for(let i=0;i<20;i++){hist.push(31+(Math.random()-.5)*2)}pintar();agenda();
+</script>
+</body>
+</html>
