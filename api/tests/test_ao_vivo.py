@@ -120,3 +120,91 @@ def test_falha_no_banco_vira_502_sem_detalhe(banco, monkeypatch):
     monkeypatch.setattr(db, 'atualizar_tabela', quebra)
     r = cliente().post('/equipamentos/1/ao-vivo', json={'ligar': True})
     assert r.status_code == 502 and r.json == {'erro': 'falha_na_consulta'}
+
+
+# ---------- GET /ao-vivo ----------
+
+def leitura(seg, **extra):
+    t = AGORA - timedelta(seconds=seg)
+    return {'registro_id': f'r-{seg}', 'equipamento_id': 1, 'ocorrido_em': iso(t - timedelta(seconds=0.8)),
+            'recebido_em': iso(t), 'criado_em': iso(t), 'temp_escape': 31, 'operador_id': None, **extra}
+
+
+def test_exige_maquina(banco):
+    r = cliente().get('/ao-vivo')
+    assert r.status_code == 400 and r.json['erro'] == 'equipamento_obrigatorio'
+
+
+def test_gestor_de_outra_fazenda_403(banco):
+    assert gestor(1).get('/ao-vivo?equipamento=3').status_code == 403
+
+
+@pytest.mark.parametrize('desde', ['ontem', '2026-10-06T12:00:00',              # sem fuso
+                                   iso(AGORA + timedelta(minutes=1)),          # futuro
+                                   iso(AGORA - timedelta(minutes=11))])        # antigo demais
+def test_desde_invalido(banco, desde):
+    r = cliente().get('/ao-vivo', query_string={'equipamento': 1, 'desde': desde})
+    assert r.status_code == 400 and r.json['erro'] == 'desde_invalido'
+
+
+def test_desde_com_mais_virado_espaco_e_aceito(banco):
+    cru = iso(AGORA - timedelta(seconds=20)).replace('+00:00', ' 00:00')   # '+' sem encode vira espaco
+    assert cliente().get(f'/ao-vivo?equipamento=1&desde={cru}').status_code == 200
+
+
+def test_filtra_pela_maquina_e_pelo_recebido_em(banco):
+    banco['telemetria'] += [leitura(40), leitura(10), {**leitura(5), 'registro_id': 'outra', 'equipamento_id': 3}]
+    r = cliente().get('/ao-vivo', query_string={'equipamento': 1, 'desde': iso(AGORA - timedelta(seconds=30))})
+    assert r.status_code == 200
+    assert [x['registro_id'] for x in r.json['telemetria']] == ['r-10']
+    consulta = next(c for c in banco['_chamadas'] if c['tabela'] == 'telemetria')
+    assert consulta['filtros']['equipamento_id'] == 'eq.1'
+    assert consulta['filtros']['recebido_em'].startswith('gt.')
+
+
+def test_mais_novas_no_banco_e_crescente_na_resposta(banco):
+    banco['telemetria'] += [leitura(s) for s in range(1, 60)]   # 59 leituras no ultimo minuto
+    r = cliente().get('/ao-vivo', query_string={'equipamento': 1, 'desde': iso(AGORA - timedelta(minutes=2))})
+    ids = [x['registro_id'] for x in r.json['telemetria']]
+    assert len(ids) == 30 and ids[0] == 'r-30' and ids[-1] == 'r-1'
+
+
+def test_sem_desde_olha_os_ultimos_30_segundos(banco):
+    banco['telemetria'] += [leitura(45), leitura(20)]
+    r = cliente().get('/ao-vivo?equipamento=1')
+    assert [x['registro_id'] for x in r.json['telemetria']] == ['r-20']
+
+
+def test_cursor_nunca_envelhece_e_acompanha_a_ultima_linha(banco):
+    r = cliente().get('/ao-vivo', query_string={'equipamento': 1, 'desde': iso(AGORA - timedelta(minutes=9))})
+    cursor = datetime.fromisoformat(r.json['cursor'])
+    assert datetime.now(timezone.utc) - cursor <= timedelta(seconds=6)    # placa parada: cursor nao envelhece
+    banco['telemetria'].append(leitura(-2))   # recebida um pouco "no futuro" do relogio do teste
+    r = cliente().get('/ao-vivo', query_string={'equipamento': 1, 'desde': r.json['cursor']})
+    assert datetime.fromisoformat(r.json['cursor']) >= datetime.fromisoformat(r.json['telemetria'][-1]['recebido_em'])
+
+
+def test_eventos_e_operacoes_com_nome(banco):
+    banco['eventos'].append({**leitura(3), 'registro_id': 'e-1', 'tipo': 'chama_detectada', 'severidade': 4})
+    banco['registros_operacao'].append({**leitura(2), 'registro_id': 'o-1', 'tipo': 'inicio', 'uid': '04A1B2C3', 'operador_id': 7})
+    r = cliente().get('/ao-vivo?equipamento=1')
+    assert r.json['eventos'][0]['tipo'] == 'chama_detectada'
+    assert r.json['operacoes'][0]['operador_nome'] == 'Ana Souza'
+
+
+def test_devolve_estado_da_maquina_e_nao_cacheia(banco):
+    banco['equipamentos'][0]['ao_vivo_ate'] = iso(AGORA + timedelta(hours=1))
+    r = cliente().get('/ao-vivo?equipamento=1')
+    assert r.json['ao_vivo_ate'] == banco['equipamentos'][0]['ao_vivo_ate']
+    assert 'no-store' in r.headers['Cache-Control']
+
+
+def test_falha_na_consulta_502_sem_detalhe(banco, monkeypatch):
+    original = db.consultar_tabela
+    def quebra(tabela, **k):
+        if tabela == 'telemetria':
+            raise db.SupabaseError(500, 'XX000')
+        return original(tabela, **k)
+    monkeypatch.setattr(db, 'consultar_tabela', quebra)
+    r = cliente().get('/ao-vivo?equipamento=1')
+    assert r.status_code == 502 and r.json == {'erro': 'falha_na_consulta'}
