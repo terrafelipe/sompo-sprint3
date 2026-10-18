@@ -9,7 +9,7 @@
 // Vive fora dos namespaces de sensor porque risco, telemetria e Serial leem
 // tudo; com o sensor desligado o valor fica neutro e o campo some do JSON.
 // ---------------------------------------------------------------------------
-namespace Estado {
+struct EstadoGeral {
   float baselineAccel = GRAVIDADE;    // magnitude media parada (calibrada)
   float magnitudeAccel = GRAVIDADE;
   float vibracaoG = 0.0;              // desvio sobre o repouso, em g
@@ -26,7 +26,7 @@ namespace Estado {
 
   int severidade = 0;
   const char* nivelRisco = "SEGURO";
-}
+} Estado;
 
 // Monta JSON respeitando o limite do buffer. snprintf devolve o tamanho que
 // TERIA sido escrito; sem o clamp o cursor passa do fim e o "cap - n" seguinte

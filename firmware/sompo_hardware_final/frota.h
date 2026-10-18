@@ -257,7 +257,7 @@ namespace Frota {
     operadorAtual = operador;
     strncpy(uidAtual, uid, sizeof(uidAtual) - 1);
     strncpy(sessaoAtual, sessao, sizeof(sessaoAtual) - 1);
-    Estado::operadorAutorizado = true;
+    Estado.operadorAutorizado = true;
     return true;
   }
 
@@ -266,7 +266,7 @@ namespace Frota {
     if (!registrarOperacao("fim", motivo, uidAtual, operadorAtual, sessaoAtual)) return false;
     LittleFS.remove(ARQ_SESSAO);
     operadorAtual = 0; uidAtual[0] = '\0'; sessaoAtual[0] = '\0';
-    Estado::operadorAutorizado = false;
+    Estado.operadorAutorizado = false;
     return true;
   }
 

@@ -32,7 +32,7 @@ namespace Telemetria {
     Motor::telemetria(j);
     Reed::telemetria(j);
     Rfid::telemetria(j);
-    j.add(",\"nivel_risco\":\"%s\"}", Estado::nivelRisco);
+    j.add(",\"nivel_risco\":\"%s\"}", Estado.nivelRisco);
   }
 
   void enviar() {
@@ -71,7 +71,7 @@ namespace Evento {
     j.add("{");
     Frota::metadados(j);
     j.add(",\"tipo\":\"%s\",\"severidade\":%d", tipo, sev);
-    if (Termopar::ok) j.add(",\"temp_escape\":%.1f", Estado::tempEscape);
+    if (Termopar::ok) j.add(",\"temp_escape\":%.1f", Estado.tempEscape);
     j.add(",\"detalhes\":%s}", detalhes);
     if (!Frota::anexarDuravel("eventos", j.txt))
       Serial.println("[EVENTO] falha ao persistir evidencia");

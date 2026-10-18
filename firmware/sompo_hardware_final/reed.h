@@ -22,43 +22,43 @@ namespace Reed {
   }
   void ler() {
 #if USAR_REED_CAPO
-    Estado::capoAberto = digitalRead(REED_CAPO) == HIGH;    // HIGH = contato aberto
+    Estado.capoAberto = digitalRead(REED_CAPO) == HIGH;    // HIGH = contato aberto
     // Bipe curto a cada troca de estado (ima encostado/retirado no reed do capo).
-    if (Estado::capoAberto != capoBeepAnt) { Alarme::bipeToque(); capoBeepAnt = Estado::capoAberto; }
+    if (Estado.capoAberto != capoBeepAnt) { Alarme::bipeToque(); capoBeepAnt = Estado.capoAberto; }
 #endif
 #if USAR_REED_TANQUE
-    Estado::tanqueAberto = digitalRead(REED_TANQUE) == HIGH;
-    if (Estado::tanqueAberto != tanqueBeepAnt) { Alarme::bipeToque(); tanqueBeepAnt = Estado::tanqueAberto; }
+    Estado.tanqueAberto = digitalRead(REED_TANQUE) == HIGH;
+    if (Estado.tanqueAberto != tanqueBeepAnt) { Alarme::bipeToque(); tanqueBeepAnt = Estado.tanqueAberto; }
 #endif
   }
   void eventos() {
 #if USAR_REED_CAPO
-    if (Estado::capoAberto && !capoAnterior && !Estado::motorLigado && !Estado::operadorAutorizado)
+    if (Estado.capoAberto && !capoAnterior && !Estado.motorLigado && !Estado.operadorAutorizado)
       Evento::disparar("AVISO", "capo aberto com a maquina desligada",
                        "furto_capo", 2, "{\"sensor\":\"reed_capo\"}");
-    capoAnterior = Estado::capoAberto;
+    capoAnterior = Estado.capoAberto;
 #endif
 #if USAR_REED_TANQUE
-    if (Estado::tanqueAberto && !tanqueAnterior && !Estado::motorLigado && !Estado::operadorAutorizado)
+    if (Estado.tanqueAberto && !tanqueAnterior && !Estado.motorLigado && !Estado.operadorAutorizado)
       Evento::disparar("AVISO", "tanque aberto com a maquina desligada",
                        "furto_tanque", 3, "{\"sensor\":\"reed_tanque\"}");
-    tanqueAnterior = Estado::tanqueAberto;
+    tanqueAnterior = Estado.tanqueAberto;
 #endif
   }
   void imprimir() {
 #if USAR_REED_CAPO
-    Serial.printf("Capo: %s\n", Estado::capoAberto ? "ABERTO" : "fechado");
+    Serial.printf("Capo: %s\n", Estado.capoAberto ? "ABERTO" : "fechado");
 #endif
 #if USAR_REED_TANQUE
-    Serial.printf("Tanque: %s\n", Estado::tanqueAberto ? "ABERTO" : "fechado");
+    Serial.printf("Tanque: %s\n", Estado.tanqueAberto ? "ABERTO" : "fechado");
 #endif
   }
   void telemetria(Json &j) {
 #if USAR_REED_CAPO
-    j.add(",\"capo_aberto\":%s", Estado::capoAberto ? "true" : "false");
+    j.add(",\"capo_aberto\":%s", Estado.capoAberto ? "true" : "false");
 #endif
 #if USAR_REED_TANQUE
-    j.add(",\"tanque_aberto\":%s", Estado::tanqueAberto ? "true" : "false");
+    j.add(",\"tanque_aberto\":%s", Estado.tanqueAberto ? "true" : "false");
 #endif
   }
 #else

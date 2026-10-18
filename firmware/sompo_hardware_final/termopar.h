@@ -16,13 +16,13 @@ namespace Termopar {
   void iniciar() { dev.begin(); Serial.println("MAX6675 iniciado"); }
 
   void ler() {
-    if (dev.read() == STATUS_OK) { Estado::tempEscape = dev.getCelsius(); ok = true; }
+    if (dev.read() == STATUS_OK) { Estado.tempEscape = dev.getCelsius(); ok = true; }
     else                         { ok = false; }   // mantem o ultimo valor valido
   }
 
   void eventos() {
-    bool critico = Estado::tempEscape >= TEMP_ESCAPE_CRITICO;
-    bool atencao = Estado::tempEscape >= TEMP_ESCAPE_ATENCAO;
+    bool critico = Estado.tempEscape >= TEMP_ESCAPE_CRITICO;
+    bool atencao = Estado.tempEscape >= TEMP_ESCAPE_ATENCAO;
     char det[64];
     if (critico && !criticoAnterior) {
       snprintf(det, sizeof(det), "{\"limiar_c\":%.0f}", (float)TEMP_ESCAPE_CRITICO);
@@ -36,10 +36,10 @@ namespace Termopar {
   }
 
   void imprimir() {
-    if (ok) Serial.printf("Termopar: %.1f C\n", Estado::tempEscape);
+    if (ok) Serial.printf("Termopar: %.1f C\n", Estado.tempEscape);
     else    Serial.println("Termopar: erro de leitura (confira fiacao/CS)");
   }
-  void telemetria(Json &j) { if (ok) j.add(",\"temp_escape\":%.1f", Estado::tempEscape); }
+  void telemetria(Json &j) { if (ok) j.add(",\"temp_escape\":%.1f", Estado.tempEscape); }
 #else
   const bool ok = false;
   inline void iniciar() {}

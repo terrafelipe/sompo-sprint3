@@ -17,16 +17,16 @@ namespace Aht {
     if (!ok) return;
     sensors_event_t umid, temp;
     dev.getEvent(&umid, &temp);
-    Estado::umidadeAr = umid.relative_humidity;
-    Estado::tempAmbiente = temp.temperature;
+    Estado.umidadeAr = umid.relative_humidity;
+    Estado.tempAmbiente = temp.temperature;
   }
   void imprimir() {
     if (!ok) { Serial.println("AHT10 indisponivel (falhou no setup)"); return; }
-    Serial.printf("Ambiente: %.1f C | %.1f %% UR\n", Estado::tempAmbiente, Estado::umidadeAr);
+    Serial.printf("Ambiente: %.1f C | %.1f %% UR\n", Estado.tempAmbiente, Estado.umidadeAr);
   }
   void telemetria(Json &j) {
     if (!ok) return;
-    j.add(",\"temp_ambiente\":%.1f,\"umidade_ar\":%.1f", Estado::tempAmbiente, Estado::umidadeAr);
+    j.add(",\"temp_ambiente\":%.1f,\"umidade_ar\":%.1f", Estado.tempAmbiente, Estado.umidadeAr);
   }
 #else
   inline void iniciar() {}

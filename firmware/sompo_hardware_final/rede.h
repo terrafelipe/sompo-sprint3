@@ -27,7 +27,7 @@ namespace Rede {
     char json[TAM_PAYLOAD];
   };
   QueueHandle_t caixaTelemetria = NULL;
-  unsigned long ok = 0, falha = 0, perdidos = 0;
+  unsigned long ok = 0, falha = 0;
   unsigned long ultimaTentativa = 0;
   unsigned long ultimaSincronia = 0;
   bool estavaConectado = false;
@@ -50,17 +50,6 @@ BBSATNbrdP9JNqPV2Py1PsVq8JQdjDAKBggqhkjOPQQDAwNpADBmAjEA6ED/g94D
 p/SgguMh1YQdc4acLa/KNJvxn7kjNuK8YAOdgLOaVsjh4rsUecrNIdSUtUlD
 -----END CERTIFICATE-----
 )CERT";
-
-  // Retorna false enquanto o NTP nao sincronizou - ai criado_em e omitido e o
-  // default do banco (now()) assume, que e o melhor disponivel.
-  bool carimboISO(char* txt, size_t n) {
-    struct tm t;
-    if (!getLocalTime(&t, 5)) return false;
-    snprintf(txt, n, "%04d-%02d-%02dT%02d:%02d:%02d%+03d:00",
-             t.tm_year + 1900, t.tm_mon + 1, t.tm_mday,
-             t.tm_hour, t.tm_min, t.tm_sec, GMT_OFFSET_SEC / 3600);
-    return true;
-  }
 
   // Resultado do envio: ENVIADO; FALHOU (rede, 5xx, token... tenta de novo depois);
   // RECUSADO = o servidor recusou ESTE registro em definitivo e reenviar nunca vai passar.

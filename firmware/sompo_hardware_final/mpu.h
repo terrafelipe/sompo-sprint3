@@ -23,10 +23,10 @@ namespace Mpu {
                    a.acceleration.z * a.acceleration.z);
       delay(10);
     }
-    Estado::baselineAccel = soma / AMOSTRAS_BASELINE;
-    Estado::magnitudeAccel = Estado::baselineAccel;
+    Estado.baselineAccel = soma / AMOSTRAS_BASELINE;
+    Estado.magnitudeAccel = Estado.baselineAccel;
     Serial.printf("MPU-6050 baseline de repouso: %.2f m/s2 (limiar: %.2f)\n",
-                  Estado::baselineAccel, (float)LIMIAR_VIBRACAO);
+                  Estado.baselineAccel, (float)LIMIAR_VIBRACAO);
   }
 
   void iniciar() {
@@ -46,19 +46,19 @@ namespace Mpu {
     if (!ok) return;
     sensors_event_t a, g, t;
     dev.getEvent(&a, &g, &t);
-    Estado::magnitudeAccel = sqrt(a.acceleration.x * a.acceleration.x +
+    Estado.magnitudeAccel = sqrt(a.acceleration.x * a.acceleration.x +
                                   a.acceleration.y * a.acceleration.y +
                                   a.acceleration.z * a.acceleration.z);
-    float desvio = fabs(Estado::magnitudeAccel - Estado::baselineAccel);
+    float desvio = fabs(Estado.magnitudeAccel - Estado.baselineAccel);
 
     // A coluna 'vibracao' guarda g - o historico foi gravado assim. Sem esta
     // conversao a media do resumo_diario misturaria m/s2 com g.
-    Estado::vibracaoG = desvio / GRAVIDADE;
+    Estado.vibracaoG = desvio / GRAVIDADE;
 
     // Uma leitura isolada acima do limiar e ruido; N seguidas e vibracao.
     if (desvio > LIMIAR_VIBRACAO) { if (amostrasAcima < AMOSTRAS_VIBRACAO) amostrasAcima++; }
     else                          { amostrasAcima = 0; }
-    Estado::vibracaoConfirmada = (amostrasAcima >= AMOSTRAS_VIBRACAO);
+    Estado.vibracaoConfirmada = (amostrasAcima >= AMOSTRAS_VIBRACAO);
   }
 
   // Parada a maquina, o MPU e o unico sensor de adulteracao. Se ele sumir, a
@@ -69,9 +69,9 @@ namespace Mpu {
     bool presente = (Wire.endTransmission() == 0);
     if (!presente && ok) {
       ok = false;
-      Estado::vibracaoG = 0.0;
+      Estado.vibracaoG = 0.0;
       amostrasAcima = 0;
-      Estado::vibracaoConfirmada = false;
+      Estado.vibracaoConfirmada = false;
       Evento::disparar("FURTO", "MPU-6050 sumiu do barramento - sensor cortado ou solto",
                        "sensor_falha", 3, "{\"sensor\":\"mpu6050\"}");
     }
@@ -88,12 +88,12 @@ namespace Mpu {
     // alguem esta mexendo na maquina.
     unsigned long agora = millis();
     // Desarmado (cracha passado) = operador legitimo mexendo: nao e furto.
-    if (!Estado::vibracaoConfirmada || Estado::motorLigado || Estado::operadorAutorizado) return;
+    if (!Estado.vibracaoConfirmada || Estado.motorLigado || Estado.operadorAutorizado) return;
     if (agora - ultimoEvento <= TRAVA_EVENTO_MS) return;
     ultimoEvento = agora;
     char det[96];
     snprintf(det, sizeof(det), "{\"vibracao_g\":%.3f,\"limiar_ms2\":%.2f}",
-             Estado::vibracaoG, (float)LIMIAR_VIBRACAO);
+             Estado.vibracaoG, (float)LIMIAR_VIBRACAO);
     Evento::disparar("FURTO", "vibracao detectada com a maquina desligada",
                      "furto_adulteracao", 4, det);
   }
@@ -108,13 +108,13 @@ namespace Mpu {
     // Linha usada para calibrar LIMIAR_VIBRACAO: parado o desvio fica perto de
     // 0; batendo na mesa ele sobe.
     Serial.printf("|a|=%.2f m/s2 (desvio %.2f, limiar %.2f | %.3f g)%s\n",
-                  Estado::magnitudeAccel,
-                  fabs(Estado::magnitudeAccel - Estado::baselineAccel),
-                  (float)LIMIAR_VIBRACAO, Estado::vibracaoG,
-                  Estado::vibracaoConfirmada ? "  <-- VIBRACAO" : "");
+                  Estado.magnitudeAccel,
+                  fabs(Estado.magnitudeAccel - Estado.baselineAccel),
+                  (float)LIMIAR_VIBRACAO, Estado.vibracaoG,
+                  Estado.vibracaoConfirmada ? "  <-- VIBRACAO" : "");
   }
 
-  void telemetria(Json &j) { if (ok) j.add(",\"vibracao\":%.3f", Estado::vibracaoG); }
+  void telemetria(Json &j) { if (ok) j.add(",\"vibracao\":%.3f", Estado.vibracaoG); }
 #else
   inline void iniciar() {}
   inline void ler() {}

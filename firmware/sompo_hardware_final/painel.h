@@ -44,9 +44,9 @@ namespace Painel {
     Reed::imprimir();
     Chama::imprimir();
     Motor::imprimir();
-    if (!Estado::motorLigado && Estado::vibracaoConfirmada)
+    if (!Estado.motorLigado && Estado.vibracaoConfirmada)
       Serial.println("!!! ALERTA: vibracao detectada com motor desligado !!!");
-    Serial.printf("Risco: %s (severidade %d)\n", Estado::nivelRisco, Estado::severidade);
+    Serial.printf("Risco: %s (severidade %d)\n", Estado.nivelRisco, Estado.severidade);
     Rede::imprimir();
     Serial.println("--------------------------------------");
   }

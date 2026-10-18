@@ -41,7 +41,7 @@ namespace Rfid {
     dev.PICC_HaltA();
   }
   void telemetria(Json &j) {
-    j.add(",\"operador_autorizado\":%s", Estado::operadorAutorizado ? "true" : "false");
+    j.add(",\"operador_autorizado\":%s", Estado.operadorAutorizado ? "true" : "false");
   }
 #else
   inline void iniciar() {}
