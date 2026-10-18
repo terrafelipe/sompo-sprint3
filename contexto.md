@@ -156,7 +156,10 @@ sompo-sprint3/
 │   ├── arduino-cli.yaml       # Config do arduino-cli portátil do repo
 │   ├── tools/                 # instalar-arduino-cli.ps1 (+ o CLI baixado)
 │   ├── sompo_hardware_final/
-│   │   ├── sompo_hardware_final.ino   # Sketch principal (~1070 linhas)
+│   │   ├── sompo_hardware_final.ino   # Sketch principal: setup() e loop() (~160 linhas)
+│   │   ├── config.h                   # Flags USAR_* (um sensor por vez), pinos e parâmetros
+│   │   ├── *.h                        # Um arquivo por assunto: estado, frota, rede, registro,
+│   │   │                              #   risco, alarme, painel e um por sensor (mpu, aht, gps...)
 │   │   ├── segredos.h / .exemplo.h    # Wi-Fi + chave publishable (gitignorado)
 │   │   └── .vscode/                   # Config da extensão Arduino (É entregável)
 │   └── sql/                    # Scripts do Supabase (rodar no SQL Editor)
@@ -175,7 +178,8 @@ sompo-sprint3/
 
 ## 4. Firmware (ESP32)
 
-**Arquivo:** `firmware/sompo_hardware_final/sompo_hardware_final.ino`
+**Arquivos:** `firmware/sompo_hardware_final/sompo_hardware_final.ino` (setup/loop) e os `.h` da mesma pasta
+(o mapa de arquivos está no comentário do topo do `.ino`; as flags `USAR_*` ficam em `config.h`).
 **Placa:** ESP32 DevKit V1 · **FQBN** `esp32:esp32:esp32` · Monitor Serial **115200**.
 
 ### 4.1 Filosofia do código

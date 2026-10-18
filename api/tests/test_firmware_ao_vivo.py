@@ -12,7 +12,9 @@ pytestmark = pytest.mark.skipif(not INO.exists(), reason='firmware/ ausente (ima
 
 
 def _ino():
-    return INO.read_text(encoding='utf-8', errors='replace')
+    """O sketch inteiro: o .ino mais os .h da pasta (o firmware foi dividido em arquivos)."""
+    arquivos = [INO] + sorted(p for p in INO.parent.glob('*.h') if not p.name.startswith('segredos'))
+    return '\n'.join(p.read_text(encoding='utf-8', errors='replace') for p in arquivos)
 
 
 def _define(nome):

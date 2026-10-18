@@ -29,7 +29,9 @@ pytestmark = pytest.mark.skipif(
 
 
 def _ino() -> str:
-    return INO.read_text(encoding='utf-8', errors='replace')
+    """O sketch inteiro: o .ino mais os .h da pasta (o firmware foi dividido em arquivos)."""
+    arquivos = [INO] + sorted(p for p in INO.parent.glob('*.h') if not p.name.startswith('segredos'))
+    return '\n'.join(p.read_text(encoding='utf-8', errors='replace') for p in arquivos)
 
 
 def _colunas(tabela: str) -> set[str]:
