@@ -15,9 +15,11 @@ Antes de publicar a API atualizada, aplique também `firmware/sql/exclusoes.sql`
 3. `mapa_ocorrencias.sql`
 4. `esp32_por_maquina.sql` (ID do ESP32 editável; o histórico passa a seguir a máquina)
 5. `clientes_logo.sql` (logo opcional do cliente)
+6. `ao_vivo.sql` (modo ao vivo: coluna `equipamentos.ao_vivo_ate` e `telemetria_ms` na resposta do `registrar_dispositivo`)
 
 > Publicar a API antes do `esp32_por_maquina.sql` quebra o Início, o resumo da fazenda e `/resumo` (502): a API já lê as views `*_maquina`.
-> Se `frota.sql` for executado de novo depois, ele reinstala a trava "O dispositivo não pode ser remanejado": **reaplique `esp32_por_maquina.sql` em seguida** (é repetível).
+> Publicar a API antes do `ao_vivo.sql` deixa o botão "Ao vivo" sem funcionar (o `POST /equipamentos/<id>/ao-vivo` falha por falta da coluna); o resto do painel segue normal.
+> Se `frota.sql` for executado de novo depois, ele reinstala a trava "O dispositivo não pode ser remanejado": **reaplique `esp32_por_maquina.sql` em seguida** (é repetível). Ele também reinstala o `registrar_dispositivo` sem `telemetria_ms`: **reaplique `ao_vivo.sql` por último**, senão o botão liga mas a placa continua mandando a cada 10 s.
 
 ## 2. Cadastrar e provisionar cada máquina
 

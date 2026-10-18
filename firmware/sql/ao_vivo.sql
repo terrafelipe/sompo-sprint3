@@ -1,4 +1,5 @@
--- Apply after esp32_por_maquina.sql. Modo ao vivo: o painel grava ate quando a
+-- Apply after esp32_por_maquina.sql, and again after any re-run of frota.sql (it reinstalls
+-- registrar_dispositivo without telemetria_ms). Modo ao vivo: o painel grava ate quando a
 -- placa deve mandar telemetria a cada 2 s; a placa le o intervalo na resposta de
 -- registrar_dispositivo. Idempotente.
 begin;

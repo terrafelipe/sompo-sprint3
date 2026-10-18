@@ -25,7 +25,8 @@
 - Migrações existentes, nesta ordem: `firmware/sql/frota.sql`, `exclusoes.sql`, `mapa_ocorrencias.sql`
   (coordenadas das fazendas + tabela `ocorrencias`), `esp32_por_maquina.sql` (ID do ESP32 editável,
   histórico por máquina; rodar ANTES da API nova e reaplicar se `frota.sql` rodar de novo) e
-  `clientes_logo.sql`, todas aditivas e idempotentes. Não executar `preparar_supabase.sql` em banco existente. A finalização
+  `clientes_logo.sql` e `ao_vivo.sql` (modo ao vivo; rodar por último e reaplicar se `frota.sql` rodar de novo,
+  porque ele reinstala o `registrar_dispositivo` sem `telemetria_ms`), todas aditivas e idempotentes. Não executar `preparar_supabase.sql` em banco existente. A finalização
   `concluir_migracao_dispositivos()` só ocorre após provisionar e sincronizar todas as placas;
   ver [Ativar frota](docs/ATIVAR_FROTA.md). A compatibilidade legada não equivale a token universal.
 - Máquinas cadastradas são editáveis pelo botão "Editar" do card (ou pelo modal de
@@ -276,7 +277,8 @@ TinyGPSPlus 1.0.3 (Mikal Hart), MFRC522 1.4.12, **MAX6675 0.3.4 do RobTillaart**
 
 Scripts em `firmware/sql/`, rodados no **SQL Editor** do Supabase. Ordem:
 `preparar_supabase.sql` → `dados_exemplo.sql` → `fazenda.sql` → `usuarios.sql` → `frota.sql` →
-`exclusoes.sql` → `mapa_ocorrencias.sql`. Todos **idempotentes** (os testes em
+`exclusoes.sql` → `mapa_ocorrencias.sql` → `esp32_por_maquina.sql` → `clientes_logo.sql` → `ao_vivo.sql`.
+Todos **idempotentes** (os testes em
 `firmware/sql/tests/run.mjs` aplicam cada migração duas vezes no PGlite).
 
 ### 5.1 Tabelas do sensor (escritas pelo ESP32, lidas pela API)

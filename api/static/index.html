@@ -1737,13 +1737,20 @@ async function carregarTelemetria(){
       return;
     }
 
-    $('kpiRisco').textContent = t.nivel_risco ?? '–';
-    $('kpiRisco').style.color = nivelCor(t.nivel_risco);
-    $('cardRisco').dataset.risco = estadoRisco(t.nivel_risco);   // aciona o border-beam
+    // Ao vivo: esta consulta pode ter comecado antes de chegarem leituras novas. As mais novas que a
+    // resposta (que o ao vivo ja pintou) ficam no fim do cache e valem para risco e KPIs.
+    const aoVivoNovas = aoVivo.ligado
+      ? leiturasCache.filter(x => Date.parse(x.criado_em) > Date.parse(t.criado_em) && !linhas.some(l => l.registro_id && l.registro_id === x.registro_id))
+      : [];
+    const atual = aoVivoNovas.length ? aoVivoNovas[aoVivoNovas.length - 1] : t;
 
-    if(!kpisAoVivo) renderizarKpis(t);
+    $('kpiRisco').textContent = atual.nivel_risco ?? '–';
+    $('kpiRisco').style.color = nivelCor(atual.nivel_risco);
+    $('cardRisco').dataset.risco = estadoRisco(atual.nivel_risco);   // aciona o border-beam
 
-    leiturasCache = [...linhas].reverse();   // antigas -> recentes
+    if(!kpisAoVivo) renderizarKpis(atual);
+
+    leiturasCache = [...linhas].reverse().concat(aoVivoNovas);   // antigas -> recentes
     renderizarGraficoLeituras();
     renderizarStatusAgora(); renderizarSaude();
 

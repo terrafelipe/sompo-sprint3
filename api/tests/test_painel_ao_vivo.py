@@ -167,6 +167,34 @@ def test_cursor_vencido_apos_pausa_longa_volta_a_janela_padrao(painel):
     assert st['desdes'][st['indice_400'] + 1] is None   # o pedido seguinte ao 400 vai sem `desde`
 
 
+def test_carga_de_5s_com_leitura_antiga_nao_desfaz_o_ao_vivo(painel):
+    """/telemetria iniciado antes da leitura ao vivo responde so com a antiga: o cache e o risco ficam na nova."""
+    page, _ = painel
+    st = _servidor(page, ligado_ate=agora(3600))
+    _ja_ligada(page)
+    chamadas = []
+    antiga = dict(registro_id='antiga', criado_em=agora(-30), ocorrido_em=agora(-30), recebido_em=agora(-30),
+                  temp_escape=20, nivel_risco='ALTO', chama_detectada=False, capo_aberto=False, tanque_aberto=False,
+                  motor_ligado=False, vibracao=0.01, umidade_ar=50, temp_ambiente=25)
+
+    def telemetria(r):
+        chamadas.append(1)
+        r.fulfill(json={'dados': [antiga]})
+    page.route(re.compile(r'.*/telemetria(\?.*)?$'), telemetria)
+    _abrir(page)
+    st['fila'].append(leitura(1))   # SEGURO, criado_em agora
+    pw.expect(page.locator('#aoVivoTerminal .av-ln').last).to_contain_text('escape 31 °C', timeout=8000)
+    base = len(chamadas)
+    for _ in range(40):   # espera a proxima carga de 5 s processar a resposta com a leitura antiga
+        if len(chamadas) > base:
+            break
+        page.wait_for_timeout(250)
+    assert len(chamadas) > base, 'a carga de 5 s nao pediu a telemetria de novo'
+    page.wait_for_timeout(600)
+    assert page.evaluate("() => leiturasCache.at(-1).registro_id") == 't1'
+    pw.expect(page.locator('#kpiRisco')).to_have_text('SEGURO')
+
+
 def test_desligado_nao_mostra_terminal_nem_tela_cheia(painel):
     page, _ = painel
     _servidor(page)
