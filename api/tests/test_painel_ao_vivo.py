@@ -2,6 +2,7 @@
 from datetime import datetime, timedelta, timezone
 import json
 import re
+from urllib.parse import parse_qs, urlparse
 
 from tests.test_painel import painel, pw  # noqa: F401
 
@@ -12,13 +13,20 @@ def agora(seg=0):
 
 def _servidor(page, ligado_ate=None):
     """Finge o /ao-vivo: cada GET entrega e esvazia a fila; POST liga/desliga."""
-    st = dict(ate=ligado_ate, fila=[], posts=[], falhar=False)
+    st = dict(ate=ligado_ate, fila=[], posts=[], falhar=False, desdes=[], vencer_cursor=False)
 
     def ao_vivo(r):
         if r.request.method == 'POST':
             st['posts'].append(r.request.post_data_json)
             st['ate'] = agora(7200) if r.request.post_data_json['ligar'] else None
             r.fulfill(json={'ok': True, 'ao_vivo_ate': st['ate']})
+            return
+        desde = parse_qs(urlparse(r.request.url).query).get('desde', [None])[0]
+        st['desdes'].append(desde)
+        if st['vencer_cursor'] and desde:   # cursor mais velho que a janela de 10 min: o servidor recusa uma vez
+            st['vencer_cursor'] = False
+            st['indice_400'] = len(st['desdes']) - 1
+            r.fulfill(status=400, json={'erro': 'desde_invalido'})
             return
         if st['falhar']:
             r.fulfill(status=502, json={'erro': 'falha_na_consulta'})
@@ -144,6 +152,19 @@ def test_tres_falhas_seguidas_avisam(painel):
     _ja_ligada(page)
     _abrir(page)
     pw.expect(page.locator('#aoVivoAviso')).to_have_text('sem conexão com o servidor', timeout=15000)
+
+
+def test_cursor_vencido_apos_pausa_longa_volta_a_janela_padrao(painel):
+    """Aba escondida por mais de 10 min: o servidor recusa o cursor velho (400) e o painel recomeca sem ele."""
+    page, _ = painel
+    st = _servidor(page, ligado_ate=agora(3600))
+    _ja_ligada(page)
+    _abrir(page)
+    page.wait_for_function("() => !!aoVivo.cursor", timeout=8000)
+    st['vencer_cursor'] = True
+    st['fila'].append(leitura(1))
+    pw.expect(page.locator('#aoVivoTerminal .av-ln').last).to_contain_text('escape 31 °C', timeout=10000)
+    assert st['desdes'][st['indice_400'] + 1] is None   # o pedido seguinte ao 400 vai sem `desde`
 
 
 def test_desligado_nao_mostra_terminal_nem_tela_cheia(painel):

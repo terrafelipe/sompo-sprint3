@@ -79,8 +79,9 @@ def ao_vivo():
     telemetria = frota.identificar_registros(_depois('telemetria', eq['id_equipamento'], desde))
     eventos = _depois('eventos', eq['id_equipamento'], desde)
     operacoes = frota.identificar_registros(_depois('registros_operacao', eq['id_equipamento'], desde))
-    recebidos = [_instante(r['recebido_em']) for r in (*telemetria, *eventos, *operacoes) if r.get('recebido_em')]
-    cursor = max([agora - RECUO_CURSOR, *recebidos])
+    # O cursor recua sempre: as 3 consultas nao sao atomicas, e saltar ate a linha mais nova perderia
+    # uma linha de recebido_em anterior confirmada depois. O painel deduplica pelo registro_id.
+    cursor = agora - RECUO_CURSOR
     resposta = jsonify(telemetria=telemetria, eventos=eventos, operacoes=operacoes,
                        ao_vivo_ate=eq.get('ao_vivo_ate'), cursor=cursor.isoformat(), agora=agora.isoformat())
     resposta.headers['Cache-Control'] = 'no-store'

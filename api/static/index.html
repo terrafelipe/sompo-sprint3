@@ -3505,6 +3505,9 @@ async function tickAoVivo(){
     aoVivo.ate = d.ao_vivo_ate;
   }catch(e){
     if(e.obsoleto || !aoVivo.ligado) return;
+    // Cursor mais velho que a janela do servidor (aba escondida por mais de 10 min): sem ele, o
+    // servidor olha os ultimos 30 s; o que ja foi pintado nao repete (vistos).
+    if(e.message === 'HTTP 400') aoVivo.cursor = null;
     if(++aoVivo.falhas >= AO_VIVO_FALHAS_AVISO){ $('aoVivoAviso').textContent = 'sem conexão com o servidor'; $('aoVivoAviso').hidden = false; }
   }finally{ aoVivo.emVoo = false; }
 }

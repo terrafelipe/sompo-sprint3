@@ -175,13 +175,25 @@ def test_sem_desde_olha_os_ultimos_30_segundos(banco):
     assert [x['registro_id'] for x in r.json['telemetria']] == ['r-20']
 
 
-def test_cursor_nunca_envelhece_e_acompanha_a_ultima_linha(banco):
+def test_cursor_nunca_envelhece_e_recua_5s_mesmo_com_linha_nova(banco):
     r = cliente().get('/ao-vivo', query_string={'equipamento': 1, 'desde': iso(AGORA - timedelta(minutes=9))})
     cursor = datetime.fromisoformat(r.json['cursor'])
     assert datetime.now(timezone.utc) - cursor <= timedelta(seconds=6)    # placa parada: cursor nao envelhece
-    banco['telemetria'].append(leitura(-2))   # recebida um pouco "no futuro" do relogio do teste
+    banco['telemetria'].append(leitura(1))   # recebida ha 1 s
     r = cliente().get('/ao-vivo', query_string={'equipamento': 1, 'desde': r.json['cursor']})
-    assert datetime.fromisoformat(r.json['cursor']) >= datetime.fromisoformat(r.json['telemetria'][-1]['recebido_em'])
+    # O cursor nao salta ate a linha mais nova: uma linha confirmada (commit) depois dela, mas com
+    # recebido_em anterior, ficaria para tras. O cliente deduplica pelo registro_id.
+    assert timedelta(seconds=4) <= datetime.now(timezone.utc) - datetime.fromisoformat(r.json['cursor']) <= timedelta(seconds=6)
+    r = cliente().get('/ao-vivo', query_string={'equipamento': 1, 'desde': r.json['cursor']})
+    assert [x['registro_id'] for x in r.json['telemetria']] == ['r-1']   # ainda dentro da janela do proximo pedido
+
+
+def test_linha_confirmada_depois_de_outra_mais_nova_nao_se_perde(banco):
+    banco['eventos'].append({**leitura(1), 'registro_id': 'e-1', 'tipo': 'chama_detectada', 'severidade': 4})   # o mais novo, ja visto
+    r = cliente().get('/ao-vivo', query_string={'equipamento': 1, 'desde': iso(AGORA - timedelta(seconds=30))})
+    banco['telemetria'].append(leitura(2))   # recebida antes do evento, confirmada so agora
+    r = cliente().get('/ao-vivo', query_string={'equipamento': 1, 'desde': r.json['cursor']})
+    assert [x['registro_id'] for x in r.json['telemetria']] == ['r-2']
 
 
 def test_eventos_e_operacoes_com_nome(banco):
