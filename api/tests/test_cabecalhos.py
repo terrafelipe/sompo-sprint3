@@ -12,7 +12,9 @@ def test_cabecalhos_em_toda_resposta(rota):
         h = app.app.test_client().get(rota).headers
     assert h['X-Frame-Options'] == 'DENY'
     assert h['X-Content-Type-Options'] == 'nosniff'
-    assert h['Referrer-Policy'] == 'same-origin'
+    # same-origin tirava o Referer dos tiles do OpenStreetMap (403 "Access blocked"):
+    # entre origens diferentes vai so a origem (sem caminho nem query)
+    assert h['Referrer-Policy'] == 'strict-origin-when-cross-origin'
     assert 'geolocation=()' in h['Permissions-Policy']
     csp = h['Content-Security-Policy']
     for diretiva in ["default-src 'self'", "frame-ancestors 'none'", "object-src 'none'", "base-uri 'self'",

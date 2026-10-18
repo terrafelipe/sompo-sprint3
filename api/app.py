@@ -97,7 +97,7 @@ CABECALHOS_SEGURANCA = {
     'Content-Security-Policy': _CSP,
     'X-Frame-Options': 'DENY',
     'X-Content-Type-Options': 'nosniff',
-    'Referrer-Policy': 'same-origin',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',   # o OSM exige Referer nos tiles
     'Permissions-Policy': 'geolocation=(), camera=(), microphone=(), payment=(), usb=()',
 }
 
