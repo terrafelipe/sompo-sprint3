@@ -1248,6 +1248,8 @@ let envioMaquina = 0;        // versão do formMaquina: respostas de um envio an
 let operadoresCache = [];
 
 const RISCO = {ALTO:'#ba1a1a', MEDIO:'#f59e0b', BAIXO:'#10b981'};
+// A chave da classe segue sem acento (cores, faixas, API); so o texto mostrado ao usuario leva acento.
+const nomeClasse = c => c === 'MEDIO' ? 'MÉDIO' : c;
 const corRisco = c => RISCO[c] || RISCO.BAIXO;
 const sevCor = s => s >= 4 ? '#ba1a1a' : s >= 3 ? '#f59e0b' : '#545f73';
 const fmtHora = iso => { if(!iso) return ''; const d = new Date(iso); return isNaN(d) ? String(iso) : d.toLocaleString('pt-BR'); };
@@ -1674,7 +1676,7 @@ async function carregarRisco(novo){
     const cf = d.classificacao_furto || 'BAIXO', ci = d.classificacao_incendio || 'BAIXO';
     if(animarAgora('kpiScores')){ contarAoAparecer($('kpiFurto'), sf); contarAoAparecer($('kpiIncendio'), si); }
     else { $('kpiFurto').textContent = sf; $('kpiIncendio').textContent = si; }
-    const pilula = (el, c) => { const cor=corRisco(c); el.textContent=c; el.style.background=cor+'14'; el.style.color=cor; el.style.borderColor=cor+'33'; };
+    const pilula = (el, c) => { const cor=corRisco(c); el.textContent=nomeClasse(c); el.style.background=cor+'14'; el.style.color=cor; el.style.borderColor=cor+'33'; };
     pilula($('kpiFurtoPill'), cf); pilula($('kpiIncendioPill'), ci);
     variacao($('kpiFurtoSub'), sf, d.anterior?.score_furto, `${periodo} dias`, 'Capô, tanque, vibração e crachá', true);
     variacao($('kpiIncendioSub'), si, d.anterior?.score_incendio, `${periodo} dias`, 'Chama e temperatura de escape', true);
@@ -2617,7 +2619,7 @@ const semResultado = cols => `<tr data-sem-resultado hidden><td colspan="${cols}
 const tabelaHTML = (cabecalho, linhas, cols) =>
   `<div class="moldura" data-render><table class="tabela"><thead><tr>${cabecalho.map(c => `<th${c.startsWith('>') ? ' class="text-right"' : ''}>${c.replace(/^>/, '')}</th>`).join('')}</tr></thead><tbody>${linhas}${semResultado(cols)}</tbody></table></div>`;
 const vazioHTML = txt => `<div class="text-on-surface-variant italic text-sm py-4" data-render>${txt}</div>`;
-const selo = (txt, cor) => `<span class="selo"${cor ? ` style="border-color:${cor}40;color:${cor}"` : ''}>${cor ? `<i style="background:${cor}"></i>` : ''}${txt}</span>`;
+const selo = (txt, cor) => `<span class="selo"${cor ? ` style="border-color:${cor}40;color:${cor}"` : ''}>${cor ? `<i style="background:${cor}"></i>` : ''}${nomeClasse(txt)}</span>`;
 const ic = nome => `<span class="material-symbols-outlined" aria-hidden="true">${nome}</span>`;
 // Menu ⋯ (popover nativo): itens sao os mesmos botoes de antes (mesmos data-*).
 function menuAcoes(id, rotulo, itens){

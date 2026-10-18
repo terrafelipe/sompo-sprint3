@@ -49,7 +49,7 @@ def test_medidores_antes_da_ia_e_texto_da_ia_sem_redesenhar(painel):
     page.select_option('#equipamentoSel', '1')
     # (a) medidores e pilulas chegam pelo ia=0 enquanto a IA ainda nao respondeu.
     page.wait_for_selector('#gaugeFurto .arco-valor')
-    pw.expect(page.locator('#kpiFurtoPill')).to_have_text('MEDIO')
+    pw.expect(page.locator('#kpiFurtoPill')).to_have_text('MÉDIO')   # a chave 'MEDIO' fica na logica; a tela acentua
     pw.expect(page.locator('#classifIncendio')).to_have_text('ALTO')
     pw.expect(page.locator('#riscoResumo')).to_have_text('Gerando explicação da IA…')
     pw.expect(page.locator('#justFurto')).to_have_text('Justificativa de template.')
@@ -127,3 +127,11 @@ def test_ia_de_outro_periodo_e_descartada_e_falha_fica_no_template(painel):
     pw.expect(page.locator('#secRisco')).not_to_contain_text('indisponível')
     pw.expect(page.locator('#gaugeFurto .arco-valor')).to_have_count(1)
     assert not state['errors']
+
+
+def test_selo_de_classe_acentua_so_o_medio(painel):
+    page, _ = painel
+    assert page.evaluate("() => selo('MEDIO', '#f59e0b')").count('MÉDIO') == 1
+    assert page.evaluate("() => [selo('ALTO'), selo('BAIXO'), selo('Online')].join('')").count('MÉDIO') == 0
+    # A cor e a logica continuam pela chave sem acento.
+    assert page.evaluate("() => [corRisco('MEDIO'), nivelCor('MEDIO'), estadoRisco('MEDIO')]") == ['#f59e0b', '#f59e0b', 'atencao']
