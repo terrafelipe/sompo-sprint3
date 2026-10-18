@@ -39,3 +39,20 @@ def test_cadastros_carregam_ao_abrir_a_tela(painel):
     nav(page, 'operadores')
     pw.expect(page.locator('#listaOperadores [data-linha]')).to_have_count(1)
     assert not state['errors']
+
+
+def test_saude_nao_e_consultada_a_cada_atualizacao_de_5s(painel):
+    # /saude custa uma ida ao banco e uma invocacao da Lambda: o status muda pouco, entao
+    # vai 1 vez a cada 30 s e nao junto de todo refresh.
+    page, state = painel
+    pedidos = []
+    page.on('request', lambda r: pedidos.append(r.url) if 'painel.test' in r.url else None)
+    page.reload()
+    pw.expect(page.locator('#listaInicio .fazenda-card')).to_have_count(2)
+    page.evaluate("async () => { await carregarTudo(); await carregarTudo(); await carregarTudo(); }")
+    assert _caminhos(pedidos).count('/saude') == 1, _caminhos(pedidos)
+    # Passados os 30 s (simulado), a proxima atualizacao volta a consultar.
+    page.evaluate("() => { saudeEm = 0; }")
+    page.evaluate("async () => { await carregarTudo(); }")
+    assert _caminhos(pedidos).count('/saude') == 2, _caminhos(pedidos)
+    assert not state['errors']

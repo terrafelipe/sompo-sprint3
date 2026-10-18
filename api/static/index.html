@@ -1498,14 +1498,19 @@ function graficoTemp(rows){
   </svg>`;
 }
 
+// /saude custa uma ida ao banco e uma invocacao da Lambda; o status muda pouco: 1 vez a cada
+// 30 s, nao junto de todo refresh de 5 s. Falhou? Tenta de novo no refresh seguinte.
+let saudeEm = 0;
 async function carregarSaude(){
+  if(Date.now() - saudeEm < 30000) return;
+  saudeEm = Date.now();
   try{
     const s = await getJSON('/saude');
     const ok = s.banco === 'ok';
     $('saudeDot').className = 'absolute -right-0.5 -bottom-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-surface ' + (ok ? 'bg-ok' : 'bg-error');
     $('saudeTxt').textContent = ok ? 'API e banco OK' : 'Banco indisponível';
     $('fonteBanco').textContent = ok ? 'Fonte: Supabase conectado.' : 'Fonte: Supabase indisponível.';
-  }catch(e){ if(e.obsoleto) return;
+  }catch(e){ saudeEm = 0; if(e.obsoleto) return;
     $('saudeDot').className = 'absolute -right-0.5 -bottom-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-surface bg-error';
     $('saudeTxt').textContent = 'API offline';
   }
