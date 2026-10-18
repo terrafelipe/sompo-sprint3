@@ -1249,7 +1249,8 @@ let operadoresCache = [];
 
 const RISCO = {ALTO:'#ba1a1a', MEDIO:'#f59e0b', BAIXO:'#10b981'};
 // A chave da classe segue sem acento (cores, faixas, API); so o texto mostrado ao usuario leva acento.
-const nomeClasse = c => c === 'MEDIO' ? 'MÉDIO' : c;
+const NOME_CLASSE = {MEDIO:'MÉDIO', ATENCAO:'ATENÇÃO', CRITICO:'CRÍTICO'};   // classes do score e níveis do firmware
+const nomeClasse = c => NOME_CLASSE[c] ?? c;
 const corRisco = c => RISCO[c] || RISCO.BAIXO;
 const sevCor = s => s >= 4 ? '#ba1a1a' : s >= 3 ? '#f59e0b' : '#545f73';
 const fmtHora = iso => { if(!iso) return ''; const d = new Date(iso); return isNaN(d) ? String(iso) : d.toLocaleString('pt-BR'); };
@@ -1746,7 +1747,7 @@ async function carregarTelemetria(){
       : [];
     const atual = aoVivoNovas.length ? aoVivoNovas[aoVivoNovas.length - 1] : t;
 
-    $('kpiRisco').textContent = atual.nivel_risco ?? '–';
+    $('kpiRisco').textContent = nomeClasse(atual.nivel_risco) ?? '–';
     $('kpiRisco').style.color = nivelCor(atual.nivel_risco);
     $('cardRisco').dataset.risco = estadoRisco(atual.nivel_risco);   // aciona o border-beam
 
@@ -2607,10 +2608,10 @@ function rotularTabelas(el){
 }
 function aplicarBusca(id){
   const inp = document.querySelector(`[data-busca="${id}"]`);
-  const q = (inp?.value || '').trim().toLowerCase();
+  const q = semAcento((inp?.value || '').trim());   // "medio" acha "MÉDIO"
   const linhas = $(id).querySelectorAll('[data-linha]');
   let vis = 0;
-  linhas.forEach(tr => { const ok = !q || tr.textContent.toLowerCase().includes(q); tr.hidden = !ok; if(ok) vis++; });
+  linhas.forEach(tr => { const ok = !q || semAcento(tr.textContent).includes(q); tr.hidden = !ok; if(ok) vis++; });
   const vazio = $(id).querySelector('[data-sem-resultado]');
   if(vazio) vazio.hidden = vis > 0 || !linhas.length;
 }
@@ -3427,7 +3428,7 @@ function desenharLinhaTempo(){
     const hm = t => new Date(t).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
     tipMostrar(ev, `${hm(a)} às ${hm(b)}`, [
       [f.leituras ? (f.motor_ligado ? '#10b981' : '#a1a1aa') : '#d4d4d8', 'Máquina', f.leituras ? (f.motor_ligado ? 'Motor ligado' : 'Motor parado') : 'Sem leituras'],
-      [corRiscoFaixa(f.risco) || '#d4d4d8', 'Risco', f.risco || '–'],
+      [corRiscoFaixa(f.risco) || '#d4d4d8', 'Risco', nomeClasse(f.risco) || '–'],
       [COR.furto, 'Crachá', sessao ? (sessao.s.operador_nome || 'Sessão ativa') : 'Nenhuma sessão'],
       [COR.incendio, 'Alertas', noIntervalo.length ? noIntervalo.length + ' (' + [...new Set(noIntervalo.map(x => nomeTipo(x.e.tipo)))].slice(0, 2).join(', ') + ')' : '0'],
     ]);
@@ -4190,8 +4191,8 @@ function fmtDuracao(ms){
 const quandoExcluido = v => { const d = new Date(v); return `${d.toLocaleDateString('pt-BR')} às ${d.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'})}`; };
 function renderHistorico(){
   if(!historicoCache.length){ $('contaHistorico').textContent = ''; renderLista('listaHistorico', vazioHTML('Nenhuma sessão no período.')); return; }
-  const q = ($('buscaHistorico').value || '').trim().toLowerCase();
-  const rows = historicoCache.filter(s => !q || `${s.equipamento_nome||''} ${s.operador_nome||''}`.toLowerCase().includes(q));
+  const q = semAcento(($('buscaHistorico').value || '').trim());
+  const rows = historicoCache.filter(s => !q || semAcento(`${s.equipamento_nome||''} ${s.operador_nome||''}`).includes(q));
   $('contaHistorico').textContent = historicoCache.length;
   const paginas = Math.max(1, Math.ceil(rows.length / POR_PAGINA));
   historicoPagina = Math.min(historicoPagina, paginas - 1);
