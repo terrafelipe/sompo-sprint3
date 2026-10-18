@@ -40,6 +40,7 @@ def ligar_ao_vivo(value):
         raise frota.FrotaErro('equipamento_sem_dispositivo', 409)
     ate = (datetime.now(timezone.utc) + DURACAO).isoformat() if ligar else None
     db.atualizar_tabela('equipamentos', {'id_equipamento': f'eq.{value}'}, {'ao_vivo_ate': ate})
+    frota.limpar_cache()
     return jsonify(ok=True, ao_vivo_ate=ate)
 
 
@@ -70,7 +71,7 @@ def _depois(tabela, equipamento_id, desde):
 
 @bp.get('/ao-vivo')
 def ao_vivo():
-    frota.resolver_equipamento()
+    frota.resolver_equipamento(fresco=True)   # ao_vivo_ate nao pode vir do cache de 20 s
     eq = getattr(g, 'equipamento', None)
     if not eq:   # Sompo consultando ID legado sem maquina: o ao vivo e por maquina
         raise frota.FrotaErro('equipamento_obrigatorio')

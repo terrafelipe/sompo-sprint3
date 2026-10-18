@@ -231,3 +231,16 @@ def test_falha_na_consulta_502_sem_detalhe(banco, monkeypatch):
     monkeypatch.setattr(db, 'consultar_tabela', quebra)
     r = cliente().get('/ao-vivo?equipamento=1')
     assert r.status_code == 502 and r.json == {'erro': 'falha_na_consulta'}
+
+
+def test_ligar_logo_depois_de_ler_aparece_no_ao_vivo_sem_esperar_o_cache(banco):
+    # Achado da revisao do Codex: a maquina fica 20 s em cache nas leituras, mas o /ao-vivo
+    # decide ligar/desligar o terminal pelo ao_vivo_ate: tem de ler fresco. A escrita abaixo
+    # simula o POST atendido por OUTRA instancia da Lambda (que nao limpa o cache desta).
+    c = cliente()
+    assert c.get('/ao-vivo?equipamento=1').json['ao_vivo_ate'] is None
+    c.get('/telemetria?equipamento=1')           # esquenta o cache da maquina
+    banco['equipamentos'][0]['ao_vivo_ate'] = iso(AGORA + timedelta(hours=1))
+    assert c.get('/ao-vivo?equipamento=1').json['ao_vivo_ate'] == banco['equipamentos'][0]['ao_vivo_ate']
+    banco['equipamentos'][0]['ao_vivo_ate'] = None
+    assert c.get('/ao-vivo?equipamento=1').json['ao_vivo_ate'] is None

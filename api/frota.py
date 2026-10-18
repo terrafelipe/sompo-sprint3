@@ -68,9 +68,12 @@ def autorizar_fazenda(fazenda_id):
 # limpam o cache; em outra instancia da Lambda a linha velha vale ate 20 s (como a sessao).
 _CACHE_SEGUNDOS = 20
 _cache = {}
+_geracao = 0   # sobe a cada limpeza: uma leitura iniciada antes dela nao pode repovoar o cache
 
 
 def limpar_cache():
+    global _geracao
+    _geracao += 1
     _cache.clear()
 
 
@@ -80,10 +83,11 @@ def obter(tabela, pk, value, cache=False):
         guardado = _cache.get(chave)
         if guardado and guardado[0] > time.time():
             return dict(guardado[1])
+    geracao = _geracao
     rows = db.consultar_tabela(tabela, filtros={pk: f'eq.{chave[2]}'}, limite=1)
     if not rows:
         raise FrotaErro('nao_encontrado', 404)
-    if cache:
+    if cache and geracao == _geracao:
         if len(_cache) > 500:
             _cache.clear()
         _cache[chave] = (time.time() + _CACHE_SEGUNDOS, rows[0])
@@ -301,14 +305,16 @@ def criar_credencial(value):
     return response, 201
 
 
-def resolver_equipamento():
-    """Autoriza antes de qualquer consulta de telemetria ou relatório."""
+def resolver_equipamento(fresco=False):
+    """Autoriza antes de qualquer consulta de telemetria ou relatório.
+
+    fresco=True ignora o cache de 20 s da maquina (o /ao-vivo decide pelo ao_vivo_ate)."""
     papel()
     eid, dev = request.args.get('equipamento'), request.args.get('dispositivo')
     if not eid and not dev:
         raise FrotaErro('equipamento_obrigatorio')
     if eid:
-        eq = equipamento(eid, historico=True, cache=True)
+        eq = equipamento(eid, historico=True, cache=not fresco)
         if dev and dev != eq.get('dispositivo_id'):
             raise FrotaErro('seletores_incompativeis')
     else:

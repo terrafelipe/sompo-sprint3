@@ -235,7 +235,7 @@ cópia). Preencha:
 Wi-Fi: conectando em "MeuHotspot" (precisa ser 2.4 GHz)
 Tarefa de envio ao Supabase ativa
 [SISTEMA] Wi-Fi conectado, IP 192.168.x.x
-Rede: conectado | envios ok=3 falha=0 | eventos perdidos=0
+Rede: conectado | envios ok=3 falha=0
 ```
 
 **Esperado:** uma linha nova em `telemetria` a cada ~30 s no Table Editor do Supabase.
