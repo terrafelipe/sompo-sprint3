@@ -1308,7 +1308,7 @@ function atualizarFiltroMaquina(){
 function setView(view){
   if(restrita(view)) view = 'maquinas';
   const mudou = viewAtual !== view;
-  if(mudou) novaEntrada();
+  if(mudou) novaEntrada(true);
   if(mudou && typeof assinaturas !== 'undefined') ['leituras','eventos','tempdia'].forEach(k => assinaturas.delete(k));
   viewAtual = view;
   const cfg = VIEWS[view] || VIEWS.visao;
@@ -1350,6 +1350,18 @@ function setView(view){
   $('btnBaixar').setAttribute('aria-describedby', 'relatorioAjuda');
   $('relatorioAjuda').hidden = !!equipamentoSelecionado || !dependeMaquina(view);
   if(mudou) window.scrollTo({top:0, behavior:'smooth'});
+  // Voltando a uma aba ja desenhada, os dados antigos estao na tela: a entrada toca JA, sem esperar a
+  // rede, e as animacoes por elemento (que so existiriam depois da resposta) contam como ja tocadas.
+  // (O Inicio da Sompo e a Exposicao fazem o equivalente por conta propria.)
+  if(mudou && viewsVistas.has(view)){
+    const gestorInicio = view === 'inicio' && perfilRole === 'gestor_fazenda';
+    const alvos = view === 'visao' ? [...document.querySelectorAll('[data-section]')].filter(el => el.style.display !== 'none')
+                : gestorInicio ? [$('inicioGestor')] : [];
+    if(alvos.length){
+      (gestorInicio ? ['inicio'] : CHAVES_VISAO).forEach(k => animados.add(k));
+      fade(alvos, {dur: 320, sobe: 8, atraso: 40});
+    }
+  }
 }
 
 // Tempo limite: uma requisicao travada nao pode segurar o painel (o carregarTudo reaproveita
@@ -2766,7 +2778,11 @@ let animados = new Set();
 // Durante a 1a carga de uma entrada o layout ainda muda (partes vazias crescem): as
 // animacoes esperam numa fila e so decidem o que esta visivel quando a carga termina.
 let filaEntrada = null;
-const novaEntrada = () => { animados = new Set(); filaEntrada = []; };
+// Abas ja desenhadas neste contexto (maquina, fazenda, periodo). Voltar a uma delas mostra os
+// dados antigos na hora; trocar o contexto (novaEntrada sem `troca`) esquece tudo.
+const viewsVistas = new Set();
+const CHAVES_VISAO = ['kpiScores','medidores','kpiAlertas','atividade','tipos','tempdia','leituras','statusAgora','saude','frota','linhaTempo'];
+const novaEntrada = troca => { animados = new Set(); filaEntrada = []; if(!troca) viewsVistas.clear(); };
 function liberarFilaEntrada(){
   if(!filaEntrada) return;
   const fila = filaEntrada; filaEntrada = null;
@@ -4323,7 +4339,8 @@ async function carregarTudo(){
   // O periodo entra na chave: trocar 7/30/90 nunca reaproveita a carga do periodo anterior.
   const chave = `${contextoVersao}:${viewAtual}:${periodo}`;
   if(atualizacoes.has(chave)) return atualizacoes.get(chave);
-  const tarefa = atualizarView().finally(()=>{ atualizacoes.delete(chave); liberarFilaEntrada(); });
+  const aba = viewAtual;
+  const tarefa = atualizarView().finally(()=>{ atualizacoes.delete(chave); liberarFilaEntrada(); if(aba === viewAtual) viewsVistas.add(aba); });
   atualizacoes.set(chave, tarefa);
   return tarefa;
 }
