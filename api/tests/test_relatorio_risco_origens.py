@@ -84,7 +84,7 @@ def test_llm_com_campo_vazio_e_complementado_pelo_sistema():
     data = _get_com(EVENTOS_DOIS_EIXOS, lambda _p: fake).get_json()
     assert data['origem_da_analise'] == 'llm'
     assert data['justificativa_furto'] == 'texto do llm'
-    assert 'incendio' in data['justificativa_incendio'].lower()
+    assert 'incêndio' in data['justificativa_incendio'].lower()
     assert data['recomendacoes']
     assert data['resumo']
     assert set(data['complementado_pelo_sistema']) >= {'justificativa_incendio', 'recomendacoes', 'resumo'}

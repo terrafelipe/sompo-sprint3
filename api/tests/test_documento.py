@@ -64,6 +64,21 @@ def test_pdf_troca_nomes_tecnicos_e_caracteres_fora_do_latin1(pdf_aberto):
     assert 'Adulteração/vibração' in t and 'furto_adulteracao' not in t
 
 
+def test_pdf_do_texto_de_template_traz_os_acentos(pdf_aberto):
+    from relatorios import montar_relatorio_risco
+    eventos = [{'tipo': 'furto_capo', 'severidade': 2}] * 3
+    resumo = [{'dia': '2026-09-20', 'amostras': 10, 'temp_escape_max': 180}]
+    r = montar_relatorio_risco('SOMPO-ESP32', 7, resumo, eventos, usar_ia=False)
+    campos = ('resumo', 'justificativa_furto', 'justificativa_incendio', 'recomendacoes', 'limitacoes', 'detalhamento',
+              'pontos_acumulados', 'score_furto', 'classificacao_furto', 'score_incendio', 'classificacao_incendio')
+    t = texto(documento.montar_pdf({**RELATORIO, **{c: r[c] for c in campos}}, [EVENTO]))
+    # O PDF escapa os parenteses e quebra a linha: confere trechos sem "(s)" e dentro de uma linha.
+    for esperado in ['últimos 7 dia', 'incêndio', 'Período curto', 'Análise gerada por template',
+                     'números são determinísticos', '3x capô aberto']:
+        assert esperado in t, esperado
+    assert 'ultimos' not in t and 'Periodo' not in t and 'incendio' not in t.replace('Incendio', '')
+
+
 def test_pdf_sem_eventos_avisa(pdf_aberto):
     t = texto(documento.montar_pdf(RELATORIO, []))
     assert 'Nenhum evento registrado no período.' in t

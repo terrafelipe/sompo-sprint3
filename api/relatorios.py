@@ -166,26 +166,40 @@ def montar_prompt(dispositivo: str, dias: int, scores: Dict[str, Any], eventos: 
 # Narrativa por template (fallback deterministico a partir dos scores)
 # ---------------------------------------------------------------------------
 
+# Chaves de logica ('MEDIO', 'incendio') nao mudam; so o que o cliente le leva acento.
+_NOME_EIXO = {'incendio': 'incêndio'}
+_NOME_CLASSE = {'MEDIO': 'MÉDIO'}
+
+
+def _eixo(nome: str) -> str:
+    return _NOME_EIXO.get(nome, nome)
+
+
+def _classe(classificacao: str) -> str:
+    return _NOME_CLASSE.get(classificacao, classificacao)
+
+
 def _recomendacoes_por_classificacao(classificacao: str, eixo: str) -> List[str]:
+    eixo = _eixo(eixo)
     if classificacao == 'ALTO':
-        return [f'Risco de {eixo} ALTO: acionar verificacao imediata e revisar a apolice.']
+        return [f'Risco de {eixo} ALTO: acionar verificação imediata e revisar a apólice.']
     if classificacao == 'MEDIO':
-        return [f'Risco de {eixo} MEDIO: monitorar de perto nas proximas leituras.']
+        return [f'Risco de {eixo} MÉDIO: monitorar de perto nas próximas leituras.']
     return [f'Risco de {eixo} BAIXO: manter o monitoramento de rotina.']
 
 
 # Rotulos legiveis por tipo de evento (para a quebra na narrativa do fallback).
 _ROTULO_TIPO = {
-    'furto_adulteracao': 'adulteracao/vibracao',
+    'furto_adulteracao': 'adulteração/vibração',
     'furto_cerca': 'cerca virtual',
-    'furto_capo': 'capo aberto',
+    'furto_capo': 'capô aberto',
     'furto_tanque': 'tanque aberto',
-    'operador_nao_autorizado': 'partida sem cracha',
-    'sensor_falha': 'sensor de adulteracao removido',
+    'operador_nao_autorizado': 'partida sem crachá',
+    'sensor_falha': 'sensor de adulteração removido',
     'chama_detectada': 'chama detectada',
-    'escape_critico': 'escape critico',
-    'escape_atencao': 'escape em atencao',
-    'fumaca_detectada': 'fumaca',
+    'escape_critico': 'escape crítico',
+    'escape_atencao': 'escape em atenção',
+    'fumaca_detectada': 'fumaça',
 }
 
 
@@ -206,13 +220,13 @@ def _recomendacoes_do_periodo(scores: Dict[str, Any], resumo_por_dia: List[Dict[
     if detalhamento:
         # detalhamento vem ordenado por tipo: no empate fica o primeiro (deterministico).
         tipo, linha = max(detalhamento.items(), key=lambda item: item[1]['quantidade'])
-        recs.append(f"Tipo mais frequente nos ultimos {dias} dia(s): {linha['quantidade']}x "
+        recs.append(f"Tipo mais frequente nos últimos {dias} dia(s): {linha['quantidade']}x "
                     f"{_ROTULO_TIPO.get(tipo, tipo)}; tratar essa causa primeiro.")
     n_escape = sum(detalhamento.get(t, {}).get('quantidade', 0) for t in _TIPOS_ESCAPE)
     if n_escape:
         temps = [float(r['temp_escape_max']) for r in resumo_por_dia or [] if r.get('temp_escape_max') is not None]
-        maxima = f", maxima vista de {max(temps):g} °C" if temps else ''
-        recs.append(f"Revisar o escape: {n_escape} alerta(s) de temperatura no periodo{maxima}.")
+        maxima = f", máxima vista de {max(temps):g} °C" if temps else ''
+        recs.append(f"Revisar o escape: {n_escape} alerta(s) de temperatura no período{maxima}.")
     if resumo_por_dia is not None:
         sem_leitura = dias - _dias_com_leitura(resumo_por_dia, dias)
         if sem_leitura:
@@ -223,15 +237,15 @@ def _recomendacoes_do_periodo(scores: Dict[str, Any], resumo_por_dia: List[Dict[
 def _limitacoes_do_periodo(scores: Dict[str, Any], resumo_por_dia: List[Dict[str, Any]] | None) -> str:
     dias = scores['periodo_dias']
     if dias <= PERIODO_CURTO:
-        partes = [f"Periodo curto ({dias} dias): amostra pequena, poucos eventos mudam muito o score."]
+        partes = [f"Período curto ({dias} dias): amostra pequena, poucos eventos mudam muito o score."]
     else:
         partes = [f"Janela de {dias} dias: eventos antigos pesam o mesmo que os recentes no score."]
     if resumo_por_dia is not None:
         com_leitura = _dias_com_leitura(resumo_por_dia, dias)
         if com_leitura:
-            partes.append(f"Leituras em {com_leitura} de {dias} dia(s) do periodo.")
+            partes.append(f"Leituras em {com_leitura} de {dias} dia(s) do período.")
         else:
-            partes.append(f"Nenhuma leitura de telemetria nos ultimos {dias} dia(s): o score usa so os eventos.")
+            partes.append(f"Nenhuma leitura de telemetria nos últimos {dias} dia(s): o score usa só os eventos.")
     return ' ' + ' '.join(partes)
 
 
@@ -240,24 +254,25 @@ def _quebra_por_tipo(detalhamento: Dict[str, Any], eixo: str) -> str:
     if not itens:
         return ''
     partes = [f"{q}x {_ROTULO_TIPO.get(t, t)}" for t, q in itens]
-    return ' Ocorrencias: ' + ', '.join(partes) + '.'
+    return ' Ocorrências: ' + ', '.join(partes) + '.'
 
 
 def _frase_eixo(nome: str, score: int, classif: str, n: int, dias: int,
                 detalhamento: Dict[str, Any], eixo: str) -> str:
+    nome, classif = _eixo(nome), _classe(classif)
     if n == 0:
         return (f"Risco de {nome} {classif} (score {score}/100): nenhum evento de {nome} "
-                f"registrado nos ultimos {dias} dia(s).")
+                f"registrado nos últimos {dias} dia(s).")
     return (f"Risco de {nome} {classif} (score {score}/100), a partir de {n} evento(s) de {nome} "
-            f"nos ultimos {dias} dia(s).{_quebra_por_tipo(detalhamento, eixo)}")
+            f"nos últimos {dias} dia(s).{_quebra_por_tipo(detalhamento, eixo)}")
 
 
 def _resumo_padrao(scores: Dict[str, Any]) -> str:
     n = scores['eventos_considerados']
-    return (f"Risco de furto {scores['classificacao_furto']} ({scores['score_furto']}/100) e de incendio "
-            f"{scores['classificacao_incendio']} ({scores['score_incendio']}/100) nos ultimos "
+    return (f"Risco de furto {_classe(scores['classificacao_furto'])} ({scores['score_furto']}/100) e de incêndio "
+            f"{_classe(scores['classificacao_incendio'])} ({scores['score_incendio']}/100) nos últimos "
             f"{scores['periodo_dias']} dia(s), com {n['furto']} evento(s) de furto e "
-            f"{n['incendio']} de incendio.")
+            f"{n['incendio']} de incêndio.")
 
 
 def montar_fallback(scores: Dict[str, Any], erro: str | None = None,
@@ -267,15 +282,15 @@ def montar_fallback(scores: Dict[str, Any], erro: str | None = None,
     dias = scores['periodo_dias']
     detalhamento = scores.get('detalhamento', {})
 
-    limitacoes = ('Analise gerada por template (sem IA): os numeros sao deterministicos e o '
-                  'texto e padronizado.')
+    limitacoes = ('Análise gerada por template (sem IA): os números são determinísticos e o '
+                  'texto é padronizado.')
     limitacoes += _limitacoes_do_periodo(scores, resumo_por_dia)
     if erro:
         e = str(erro)
         if '429' in e or 'Too Many Requests' in e:
             limitacoes += ' Limite de uso da IA atingido temporariamente; tente novamente em instantes.'
         else:
-            limitacoes += f' Provedor de IA indisponivel: {e}'
+            limitacoes += f' Provedor de IA indisponível: {e}'
 
     return {
         'resumo': _resumo_padrao(scores),
