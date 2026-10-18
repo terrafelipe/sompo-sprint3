@@ -21,10 +21,13 @@ def _postgrest_offline():
 def _limpar_cache_de_revalidacao():
     # A revalidacao da sessao fica 20 s em cache por usuario: um teste nao herda a do outro.
     import app as app_mod
+    import frota
+    frota.limpar_cache()            # cache de 20 s da maquina/fazenda: um teste nao herda o do outro
     app_mod._revalidados.clear()
     app_mod._falhas_login.clear()   # limite de tentativas do /login: um teste nao herda o do outro
     app_mod._falhas_ip.clear()
     yield
+    frota.limpar_cache()
     app_mod._revalidados.clear()
     app_mod._falhas_login.clear()
     app_mod._falhas_ip.clear()

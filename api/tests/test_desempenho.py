@@ -70,3 +70,57 @@ def test_carteira_traz_todas_as_fazendas_com_o_mesmo_resumo_da_rota_individual(b
 
 def test_carteira_e_so_da_sompo(banco):
     assert gestor().get('/carteira').status_code == 403
+
+
+# ---- cache curto da maquina e da fazenda (as 2 consultas de permissao de cada endpoint) ----
+
+def _contar_consultas():
+    """Conta as chamadas de consultar_tabela por tabela, sem trocar o que ela devolve."""
+    import supabase_client as db
+    contagem = {}
+    original = db.consultar_tabela
+
+    def espiao(tabela, **kw):
+        contagem[tabela] = contagem.get(tabela, 0) + 1
+        return original(tabela, **kw)
+    return contagem, patch.object(db, 'consultar_tabela', espiao)
+
+
+def test_maquina_e_fazenda_nao_sao_buscadas_de_novo_em_20s(banco):
+    contagem, espiao = _contar_consultas()
+    with espiao:
+        cliente = gestor()
+        for _ in range(3):
+            assert cliente.get('/telemetria?equipamento=1').status_code == 200
+    # antes: 3 chamadas de cada (uma por requisicao); agora so a primeira vai ao banco
+    assert contagem['equipamentos'] == 1
+    assert contagem['fazenda'] == 1
+
+
+def test_cache_nao_vaza_permissao_entre_fazendas(banco):
+    # A Sompo le a maquina 1 (fica no cache); o gestor da fazenda 2 continua barrado.
+    sompo = app.test_client()
+    assert sompo.get('/telemetria?equipamento=1').status_code == 200
+    assert gestor(2).get('/telemetria?equipamento=1').status_code == 403
+    assert gestor(1).get('/telemetria?equipamento=1').status_code == 200
+
+
+def test_cache_expira_depois_de_20s(banco):
+    contagem, espiao = _contar_consultas()
+    with espiao:
+        cliente = gestor()
+        cliente.get('/telemetria?equipamento=1')
+        with patch('frota.time.time', return_value=time.time() + 21):
+            cliente.get('/telemetria?equipamento=1')
+    assert contagem['equipamentos'] == 2
+
+
+def test_editar_a_maquina_limpa_o_cache(banco):
+    contagem, espiao = _contar_consultas()
+    with espiao:
+        cliente = gestor()
+        cliente.get('/telemetria?equipamento=1')
+        assert cliente.patch('/equipamentos/1', json={'nome': 'Trator Novo'}).status_code == 200
+        antes = contagem['equipamentos']
+        cliente.get('/telemetria?equipamento=1')
+    assert contagem['equipamentos'] > antes   # a leitura depois da edicao foi ao banco

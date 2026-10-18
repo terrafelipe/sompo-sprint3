@@ -5,6 +5,7 @@ from decimal import Decimal, InvalidOperation
 import hashlib
 import re
 import secrets
+import time
 
 from flask import Blueprint, current_app, g, jsonify, request, session
 import supabase_client as db
@@ -61,16 +62,37 @@ def autorizar_fazenda(fazenda_id):
         raise FrotaErro('proibido', 403)
 
 
-def obter(tabela, pk, value):
-    rows = db.consultar_tabela(tabela, filtros={pk: f'eq.{inteiro(value)}'}, limite=1)
+# Cache curto da linha da maquina e da fazenda. Cada endpoint de leitura fazia 2 consultas so
+# para autorizar e rotular a resposta, e cada ida da Lambda (EUA) ao Supabase (SP) custa ~0,3 s.
+# Guarda so a LINHA: o papel e a fazenda do usuario sao conferidos a cada requisicao. Escritas
+# limpam o cache; em outra instancia da Lambda a linha velha vale ate 20 s (como a sessao).
+_CACHE_SEGUNDOS = 20
+_cache = {}
+
+
+def limpar_cache():
+    _cache.clear()
+
+
+def obter(tabela, pk, value, cache=False):
+    chave = (tabela, pk, inteiro(value))
+    if cache:
+        guardado = _cache.get(chave)
+        if guardado and guardado[0] > time.time():
+            return dict(guardado[1])
+    rows = db.consultar_tabela(tabela, filtros={pk: f'eq.{chave[2]}'}, limite=1)
     if not rows:
         raise FrotaErro('nao_encontrado', 404)
+    if cache:
+        if len(_cache) > 500:
+            _cache.clear()
+        _cache[chave] = (time.time() + _CACHE_SEGUNDOS, rows[0])
     return rows[0]
 
 
-def equipamento(value, historico=False):
+def equipamento(value, historico=False, cache=False):
     papel()
-    row = obter('equipamentos', 'id_equipamento', value)
+    row = obter('equipamentos', 'id_equipamento', value, cache=cache)
     autorizar_fazenda(row.get('fk_fazenda_id_fazenda'))
     if row.get('excluido_em') and not historico:
         raise FrotaErro('nao_encontrado', 404)
@@ -198,6 +220,7 @@ def listar_equipamentos():
 def criar_equipamento():
     papel()
     row = db.inserir_tabela('equipamentos', dados_equipamento(corpo_json()))
+    limpar_cache()
     return jsonify(ok=True, equipamento=row), 201
 
 
@@ -211,6 +234,7 @@ def editar_equipamento(value):
     anterior = equipamento(value)
     dados = dados_equipamento(corpo_json(), anterior)
     row = db.atualizar_tabela('equipamentos', {'id_equipamento': f'eq.{value}'}, dados)
+    limpar_cache()
     return jsonify(ok=True, equipamento=row)
 
 
@@ -284,7 +308,7 @@ def resolver_equipamento():
     if not eid and not dev:
         raise FrotaErro('equipamento_obrigatorio')
     if eid:
-        eq = equipamento(eid, historico=True)
+        eq = equipamento(eid, historico=True, cache=True)
         if dev and dev != eq.get('dispositivo_id'):
             raise FrotaErro('seletores_incompativeis')
     else:
@@ -312,7 +336,7 @@ def contexto():
     eq = getattr(g, 'equipamento', None)
     if not eq:
         return {}
-    faz = obter('fazenda', 'id_fazenda', eq['fk_fazenda_id_fazenda']) if eq.get('fk_fazenda_id_fazenda') else None
+    faz = obter('fazenda', 'id_fazenda', eq['fk_fazenda_id_fazenda'], cache=True) if eq.get('fk_fazenda_id_fazenda') else None
     return {'equipamento': eq, 'fazenda': faz}
 
 

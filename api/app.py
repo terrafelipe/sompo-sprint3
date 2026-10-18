@@ -861,6 +861,7 @@ def fazendas_editar(value):
         return _erro('falha_ao_editar_fazenda', exc, 502)
     if not atualizada:
         return jsonify({'erro': 'nao_encontrado'}), 404
+    frota.limpar_cache()
     return jsonify({'ok': True, 'fazenda': atualizada}), 200
 
 
@@ -1027,6 +1028,7 @@ def cadastro_excluir(tipo, value):
         codigo = resultado.get('erro')
         status = 404 if codigo == 'nao_encontrado' else (409 if codigo else 200)
         if status == 200:
+            frota.limpar_cache()
             _revalidados.clear()   # uma exclusao pode revogar logins: sem esperar os 20 s do cache
         return jsonify(resultado), status
     except frota.FrotaErro:
