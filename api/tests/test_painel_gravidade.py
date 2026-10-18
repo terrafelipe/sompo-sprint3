@@ -1,5 +1,6 @@
 """Cores das gravidades 1..5: cada uma diferente (cinza, verde, amarela, laranja, vermelha) nos dois temas."""
 import os
+from datetime import datetime
 from pathlib import Path
 
 from tests.test_painel import painel, pw, nav  # noqa: F401
@@ -56,4 +57,24 @@ def test_gravidades_tem_cores_distintas_nos_dois_temas(painel):
     assert _cores(page) == CORES['escuro']
     assert len(set(CORES['escuro'])) == 5
     _print(page, 'escuro')
+    assert not state['errors']
+
+
+def test_barras_do_score_nao_sao_redesenhadas_pelo_refresh_de_5s(painel):
+    """Dados iguais no refresh: as barras de "De onde vem o score" ficam como estao (sem refazer o DOM)."""
+    page, state = painel
+    page.route('**/relatorio/risco*', lambda r: r.fulfill(json=dict(
+        score_furto=100, score_incendio=0, classificacao_furto='ALTO', classificacao_incendio='BAIXO',
+        gerado_em=datetime.now().isoformat(), detalhamento=DETALHAMENTO)))
+    nav(page, 'visao')
+    page.select_option('#equipamentoSel', '1')
+    pw.expect(page.locator('#detFurto [data-evidencia]')).to_have_count(5)
+    page.wait_for_load_state('networkidle')
+    page.evaluate("""() => {
+      window._mudancasBarras = 0;
+      new MutationObserver(m => { window._mudancasBarras += m.length; })
+        .observe(document.getElementById('detFurto'), {childList: true, subtree: true});
+    }""")
+    page.wait_for_timeout(11500)   # dois refreshes de 5 s
+    assert page.evaluate("() => window._mudancasBarras") == 0
     assert not state['errors']
