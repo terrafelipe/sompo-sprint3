@@ -425,6 +425,10 @@ def _resumo_de(faz, maquinas, leituras, eventos, operadores, dias):
         if t and dev:
             estado = 'atrasada'
             try:
+                # O historico segue a maquina: logo apos trocar o ID, a ultima leitura ainda e da placa
+                # antiga. So a placa vinculada agora prova que a maquina esta falando.
+                if t.get('dispositivo_id') != dev:
+                    raise ValueError('leitura de outra placa')
                 # O instante de captura evita exibir backlog recém recebido como presença atual.
                 captura = t.get('ocorrido_em') if t.get('registro_id') else t.get('criado_em')
                 stamp = datetime.fromisoformat(captura.replace('Z', '+00:00'))

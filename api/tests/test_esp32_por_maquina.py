@@ -79,3 +79,28 @@ def test_resumo_da_fazenda_liga_leituras_e_alertas_pela_maquina(banco):
     assert maquinas[1]['scores']['eventos_considerados']['total'] == 1
     assert maquinas[2]['scores']['eventos_considerados']['total'] == 0
     assert maquinas[1]['comunicacao'] == 'sem_dispositivo'
+
+
+def _leitura_agora(dispositivo, equipamento=1):
+    from datetime import datetime, timezone
+    t = datetime.now(timezone.utc).isoformat()
+    return {'equipamento_id': equipamento, 'dispositivo_id': dispositivo, 'criado_em': t, 'ocorrido_em': t, 'registro_id': 1}
+
+
+def _comunicacao(banco, leitura):
+    banco['ultima_telemetria_maquina'] = [leitura]
+    with patch('supabase_client.consultar_periodo', return_value=[]):
+        r = gestor().get('/fazendas/1/resumo?dias=7')
+    assert r.status_code == 200
+    return {m['id_equipamento']: m for m in r.json['equipamentos']}[1]['comunicacao']
+
+
+def test_leitura_recente_da_placa_atual_e_recente(banco):
+    assert _comunicacao(banco, _leitura_agora('ESP-A')) == 'recente'
+
+
+def test_leitura_recente_da_placa_antiga_nao_vale_como_recente(banco):
+    # O ESP-A foi trocado por ESP-NOVO agora ha pouco: a ultima leitura da maquina ainda e da placa
+    # antiga (o historico segue a maquina), mas a placa nova nao falou, entao nao esta "recente".
+    banco['equipamentos'][0]['dispositivo_id'] = 'ESP-NOVO'
+    assert _comunicacao(banco, _leitura_agora('ESP-A')) == 'atrasada'

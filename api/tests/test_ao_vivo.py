@@ -125,7 +125,16 @@ def test_falha_no_banco_vira_502_sem_detalhe(banco, monkeypatch):
 # ---------- GET /ao-vivo ----------
 
 def leitura(seg, **extra):
-    t = AGORA - timedelta(seconds=seg)
+    return _linha(AGORA, seg, **extra)
+
+
+def fresca(seg, **extra):
+    """Como `leitura`, mas com o relogio de agora: AGORA e fixado na importacao e envelhece numa suite longa."""
+    return _linha(datetime.now(timezone.utc), seg, **extra)
+
+
+def _linha(base, seg, **extra):
+    t = base - timedelta(seconds=seg)
     return {'registro_id': f'r-{seg}', 'equipamento_id': 1, 'ocorrido_em': iso(t - timedelta(seconds=0.8)),
             'recebido_em': iso(t), 'criado_em': iso(t), 'temp_escape': 31, 'operador_id': None, **extra}
 
@@ -176,22 +185,24 @@ def test_sem_desde_olha_os_ultimos_30_segundos(banco):
 
 
 def test_cursor_nunca_envelhece_e_recua_5s_mesmo_com_linha_nova(banco):
-    r = cliente().get('/ao-vivo', query_string={'equipamento': 1, 'desde': iso(AGORA - timedelta(minutes=9))})
+    desde = iso(datetime.now(timezone.utc) - timedelta(minutes=9))
+    r = cliente().get('/ao-vivo', query_string={'equipamento': 1, 'desde': desde})
     cursor = datetime.fromisoformat(r.json['cursor'])
     assert datetime.now(timezone.utc) - cursor <= timedelta(seconds=6)    # placa parada: cursor nao envelhece
-    banco['telemetria'].append(leitura(1))   # recebida ha 1 s
+    banco['telemetria'].append(fresca(1))   # recebida ha 1 s
     r = cliente().get('/ao-vivo', query_string={'equipamento': 1, 'desde': r.json['cursor']})
     # O cursor nao salta ate a linha mais nova: uma linha confirmada (commit) depois dela, mas com
     # recebido_em anterior, ficaria para tras. O cliente deduplica pelo registro_id.
-    assert timedelta(seconds=4) <= datetime.now(timezone.utc) - datetime.fromisoformat(r.json['cursor']) <= timedelta(seconds=6)
+    folga = datetime.now(timezone.utc) - datetime.fromisoformat(r.json['cursor'])
+    assert timedelta(seconds=4) <= folga <= timedelta(seconds=6)
     r = cliente().get('/ao-vivo', query_string={'equipamento': 1, 'desde': r.json['cursor']})
     assert [x['registro_id'] for x in r.json['telemetria']] == ['r-1']   # ainda dentro da janela do proximo pedido
 
 
 def test_linha_confirmada_depois_de_outra_mais_nova_nao_se_perde(banco):
-    banco['eventos'].append({**leitura(1), 'registro_id': 'e-1', 'tipo': 'chama_detectada', 'severidade': 4})   # o mais novo, ja visto
-    r = cliente().get('/ao-vivo', query_string={'equipamento': 1, 'desde': iso(AGORA - timedelta(seconds=30))})
-    banco['telemetria'].append(leitura(2))   # recebida antes do evento, confirmada so agora
+    banco['eventos'].append({**fresca(1), 'registro_id': 'e-1', 'tipo': 'chama_detectada', 'severidade': 4})   # o mais novo, ja visto
+    r = cliente().get('/ao-vivo', query_string={'equipamento': 1, 'desde': iso(datetime.now(timezone.utc) - timedelta(seconds=30))})
+    banco['telemetria'].append(fresca(2))   # recebida antes do evento, confirmada so agora
     r = cliente().get('/ao-vivo', query_string={'equipamento': 1, 'desde': r.json['cursor']})
     assert [x['registro_id'] for x in r.json['telemetria']] == ['r-2']
 
