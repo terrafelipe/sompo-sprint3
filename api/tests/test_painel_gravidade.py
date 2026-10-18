@@ -63,9 +63,14 @@ def test_gravidades_tem_cores_distintas_nos_dois_temas(painel):
 def test_barras_do_score_nao_sao_redesenhadas_pelo_refresh_de_5s(painel):
     """Dados iguais no refresh: as barras de "De onde vem o score" ficam como estao (sem refazer o DOM)."""
     page, state = painel
-    page.route('**/relatorio/risco*', lambda r: r.fulfill(json=dict(
-        score_furto=100, score_incendio=0, classificacao_furto='ALTO', classificacao_incendio='BAIXO',
-        gerado_em=datetime.now().isoformat(), detalhamento=DETALHAMENTO)))
+    respostas = []
+
+    def risco(r):
+        respostas.append(1)
+        r.fulfill(json=dict(score_furto=100, score_incendio=0, classificacao_furto='ALTO',
+                            classificacao_incendio='BAIXO', gerado_em=datetime.now().isoformat(),
+                            detalhamento=DETALHAMENTO))
+    page.route('**/relatorio/risco*', risco)
     nav(page, 'visao')
     page.select_option('#equipamentoSel', '1')
     pw.expect(page.locator('#detFurto [data-evidencia]')).to_have_count(5)
@@ -75,6 +80,12 @@ def test_barras_do_score_nao_sao_redesenhadas_pelo_refresh_de_5s(painel):
       new MutationObserver(m => { window._mudancasBarras += m.length; })
         .observe(document.getElementById('detFurto'), {childList: true, subtree: true});
     }""")
-    page.wait_for_timeout(11500)   # dois refreshes de 5 s
+    base = len(respostas)
+    for _ in range(80):   # ate 20 s esperando dois refreshes de 5 s de verdade (o teste nao pode passar com o refresh parado)
+        if len(respostas) - base >= 2:
+            break
+        page.wait_for_timeout(250)
+    assert len(respostas) - base >= 2, 'o auto-refresh nao pediu o risco duas vezes'
+    page.wait_for_timeout(500)   # deixa a resposta ser processada
     assert page.evaluate("() => window._mudancasBarras") == 0
     assert not state['errors']
