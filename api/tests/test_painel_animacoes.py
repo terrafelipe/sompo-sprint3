@@ -178,3 +178,30 @@ def test_menos_movimento_so_fade(painel):
         page.wait_for_timeout(300)
         assert _fechado(page, nome), nome
     assert not state['errors']
+
+
+ANIMANDO_CARTOES = "() => document.getAnimations().filter(a => a.effect?.target?.classList?.contains('fazenda-card')).length"
+
+
+def test_inicio_anima_na_hora_ao_voltar_sem_esperar_a_rede(painel):
+    # Voltando ao Inicio os cartoes antigos ja estao no HTML: a animacao tocava so depois da
+    # resposta do /carteira (parados ~0,5 s e depois piscavam). Tem de tocar ja, e a resposta
+    # tardia nao pode repeti-la.
+    page, state = painel
+    pw.expect(page.locator('#listaInicio .fazenda-card')).to_have_count(2)
+    carteira = page.evaluate("fetch('/carteira?dias=7').then(r => r.json())")
+    page.wait_for_function("() => !document.getAnimations().some(a => a.effect?.target?.classList?.contains('fazenda-card'))")
+    nav(page, 'operadores')
+    state['hold'] = '/carteira'
+    nav(page, 'inicio')
+    page.wait_for_timeout(120)
+    assert state['held'], 'a rede devia estar segurada'
+    assert page.evaluate(ANIMANDO_CARTOES) == 2          # animando sem a rede ter respondido
+    page.wait_for_function("() => !document.getAnimations().some(a => a.effect?.target?.classList?.contains('fazenda-card'))")
+    state['hold'] = None
+    for r in state['held']:
+        r.fulfill(json=carteira)
+    page.wait_for_timeout(250)
+    assert page.evaluate(ANIMANDO_CARTOES) == 0          # a resposta nao repete a animacao
+    pw.expect(page.locator('#listaInicio .fazenda-card')).to_have_count(2)
+    assert not state['errors']

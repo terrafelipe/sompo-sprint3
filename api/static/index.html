@@ -2527,8 +2527,25 @@ async function desenharMapaFazenda(container, fazenda, maquinas, opcoes = {}){
 }
 
 /* ---------- Inicio: carteira de fazendas ---------- */
+// Entrada dos cartoes do Inicio. `agora` = os cartoes ja estao na tela (voltou de outra aba):
+// toca na hora, sem a fila que espera a carga terminar; senao espera a carga e o layout.
+function animarCartoesInicio(cs, agora){
+  const contadores = [];
+  cs.forEach(c => c.querySelectorAll('dd').forEach(dd => { const v = dd.textContent.trim(); if(/^\d+$/.test(v)) contadores.push([dd, v]); }));
+  if(agora){
+    fade(cs, {atraso: 55, sobe: 8, dur: 380});
+    contadores.forEach(([dd, v]) => { dd.textContent = '0'; contar(dd, v, 700); });
+    return;
+  }
+  entrar($('listaInicio'), () => fade(cs, {atraso: 55, sobe: 8, dur: 380}));
+  contadores.forEach(([dd, v]) => contarAoAparecer(dd, v, 700));
+}
 async function carregarInicio(){
   if(perfilRole === 'gestor_fazenda') return carregarInicioGestor();
+  // Voltando ao Inicio os cartoes antigos ja estao na tela: anima ja, sem esperar o /carteira.
+  // A resposta nao repete a animacao (a chave 'inicio' ja foi usada nesta entrada).
+  const jaNaTela = $('listaInicio').querySelectorAll('.fazenda-card');
+  if(jaNaTela.length && animarAgora('inicio')) animarCartoesInicio(jaNaTela, true);
   if(!$('listaInicio').firstChild) $('listaInicio').innerHTML = '<div class="col-span-full text-sm text-on-surface-variant py-6">Carregando fazendas…</div>';
   try{
     const {fazendas: fs, resumos} = await carregarCarteira();
@@ -2578,11 +2595,7 @@ async function carregarInicio(){
       + (emAlto ? ` · ${emAlto} com risco alto` : '');
     renderLista('listaInicio', '<div class="contents" data-render></div>' + cards
       + '<div data-sem-resultado hidden class="col-span-full text-sm text-on-surface-variant italic py-6">Nenhuma fazenda encontrada para essa busca.</div>');
-    if(animarAgora('inicio')){
-      const cs = $('listaInicio').querySelectorAll('.fazenda-card');
-      entrar($('listaInicio'), () => fade(cs, {atraso: 55, sobe: 8, dur: 380}));
-      cs.forEach(c => c.querySelectorAll('dd').forEach(dd => { const v = dd.textContent.trim(); if(/^\d+$/.test(v)) contarAoAparecer(dd, v, 700); }));
-    }
+    if(animarAgora('inicio')) animarCartoesInicio($('listaInicio').querySelectorAll('.fazenda-card'), false);
   }catch(e){ if(e.obsoleto) return; $('listaInicio').innerHTML = erroLista('Fazendas indisponíveis.'); }
 }
 function abrirFazendaDoInicio(id){
