@@ -131,11 +131,11 @@ def test_todo_evento_do_firmware_pontua_no_score():
     )
 
 
-def test_dispositivo_id_bate_com_o_default_da_api():
-    # api/app.py usa 'SOMPO-ESP32' como default de todas as rotas; outro id
-    # grava no banco e a API nao acha.
-    m = re.search(r'#define DISPOSITIVO_ID "([^"]+)"', _ino())
-    assert m and m.group(1) == 'SOMPO-ESP32'
+def test_dispositivo_id_tem_o_formato_aceito_pela_frota():
+    # O id e cadastrado por maquina no painel (frota.py aceita [A-Za-z0-9_-]{1,64});
+    # a API resolve o equipamento por ele, entao um id fora do formato nunca casa.
+    m = re.search(r'#define DISPOSITIVO_ID "([^"]*)"', _ino())
+    assert m and re.fullmatch(r'[A-Za-z0-9_-]{1,64}', m.group(1))
 
 
 def test_colunas_do_hc_sr04_sumiram_do_painel():

@@ -62,7 +62,7 @@
 #define BUZZER_FREQ_CHAMA   2000         // Hz - alarme de incendio (fogo/temperatura)
 #define BUZZER_FREQ_FURTO   3000         // Hz - alarme de furto (vibracao/capo/tanque/partida)
 
-#define DISPOSITIVO_ID "ESP-3036EN"     // TEM de bater com o default da API
+#define DISPOSITIVO_ID "ESP-3036EN"     // TEM de ser o ID cadastrado na maquina (painel > Frota)
 #define TAM_PAYLOAD    1024              // registro com identidade, sessao e dados do sensor
 
 #if USAR_WIFI
