@@ -178,3 +178,71 @@ def test_menos_movimento_so_fade(painel):
         page.wait_for_timeout(300)
         assert _fechado(page, nome), nome
     assert not state['errors']
+
+
+ANIMANDO_CARTOES = "() => document.getAnimations().filter(a => a.effect?.target?.classList?.contains('fazenda-card')).length"
+
+
+def test_inicio_anima_na_hora_ao_voltar_sem_esperar_a_rede(painel):
+    # Voltando ao Inicio os cartoes antigos ja estao no HTML: a animacao tocava so depois da
+    # resposta do /carteira (parados ~0,5 s e depois piscavam). Tem de tocar ja, e a resposta
+    # tardia nao pode repeti-la.
+    page, state = painel
+    pw.expect(page.locator('#listaInicio .fazenda-card')).to_have_count(2)
+    carteira = page.evaluate("fetch('/carteira?dias=7').then(r => r.json())")
+    page.wait_for_function("() => !document.getAnimations().some(a => a.effect?.target?.classList?.contains('fazenda-card'))")
+    nav(page, 'operadores')
+    state['hold'] = '/carteira'
+    nav(page, 'inicio')
+    page.wait_for_timeout(120)
+    assert state['held'], 'a rede devia estar segurada'
+    assert page.evaluate(ANIMANDO_CARTOES) == 2          # animando sem a rede ter respondido
+    page.wait_for_function("() => !document.getAnimations().some(a => a.effect?.target?.classList?.contains('fazenda-card'))")
+    state['hold'] = None
+    for r in state['held']:
+        r.fulfill(json=carteira)
+    page.wait_for_timeout(250)
+    assert page.evaluate(ANIMANDO_CARTOES) == 0          # a resposta nao repete a animacao
+    pw.expect(page.locator('#listaInicio .fazenda-card')).to_have_count(2)
+    assert not state['errors']
+
+
+def test_painel_da_maquina_entra_na_hora_ao_voltar_e_nao_refaz_os_graficos(painel):
+    # Voltando a uma aba ja desenhada, as secoes entram na hora (fade curto) com os dados antigos;
+    # os efeitos por elemento (linhas, medidores, barras: todos passam por entrar()) nao repetem
+    # quando a resposta chega.
+    page, state = painel
+    page.evaluate("""() => { window.__entrar = 0; const o = window.entrar;
+        window.entrar = function(...a){ window.__entrar++; return o.apply(this, a); }; }""")
+    page.select_option('#equipamentoSel', '1')
+    pw.expect(page.locator('#tituloView')).to_have_text('Painel da máquina')
+    page.wait_for_timeout(2500)
+    assert page.evaluate('window.__entrar') > 0          # 1a visita: os efeitos por elemento tocam
+    nav(page, 'operadores')
+    page.wait_for_timeout(300)
+    page.evaluate('window.__entrar = 0')
+    nav(page, 'visao')
+    page.wait_for_timeout(100)
+    na_hora = page.evaluate("() => document.getAnimations().filter(a => a.effect?.target?.hasAttribute?.('data-section')).length")
+    assert na_hora >= 1                                  # as secoes ja estao entrando
+    page.wait_for_timeout(1500)
+    assert page.evaluate('window.__entrar') == 0         # e a resposta nao refez os efeitos
+    assert not state['errors']
+
+
+def test_trocar_o_periodo_continua_animando_os_efeitos(painel):
+    # A entrada rapida vale so para a VOLTA a uma aba; trocar o periodo (ou a maquina) e entrada nova.
+    page, state = painel
+    page.evaluate("""() => { window.__entrar = 0; const o = window.entrar;
+        window.entrar = function(...a){ window.__entrar++; return o.apply(this, a); }; }""")
+    page.select_option('#equipamentoSel', '1')
+    pw.expect(page.locator('#tituloView')).to_have_text('Painel da máquina')
+    page.wait_for_timeout(2000)
+    nav(page, 'operadores')
+    nav(page, 'visao')
+    page.wait_for_timeout(500)
+    page.evaluate('window.__entrar = 0')
+    page.evaluate("document.querySelector('[data-periodo=\"30\"]').click()")
+    page.wait_for_timeout(2000)
+    assert page.evaluate('window.__entrar') > 0
+    assert not state['errors']

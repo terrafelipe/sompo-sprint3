@@ -1308,7 +1308,7 @@ function atualizarFiltroMaquina(){
 function setView(view){
   if(restrita(view)) view = 'maquinas';
   const mudou = viewAtual !== view;
-  if(mudou) novaEntrada();
+  if(mudou) novaEntrada(true);
   if(mudou && typeof assinaturas !== 'undefined') ['leituras','eventos','tempdia'].forEach(k => assinaturas.delete(k));
   viewAtual = view;
   const cfg = VIEWS[view] || VIEWS.visao;
@@ -1350,6 +1350,18 @@ function setView(view){
   $('btnBaixar').setAttribute('aria-describedby', 'relatorioAjuda');
   $('relatorioAjuda').hidden = !!equipamentoSelecionado || !dependeMaquina(view);
   if(mudou) window.scrollTo({top:0, behavior:'smooth'});
+  // Voltando a uma aba ja desenhada, os dados antigos estao na tela: a entrada toca JA, sem esperar a
+  // rede, e as animacoes por elemento (que so existiriam depois da resposta) contam como ja tocadas.
+  // (O Inicio da Sompo e a Exposicao fazem o equivalente por conta propria.)
+  if(mudou && viewsVistas.has(view)){
+    const gestorInicio = view === 'inicio' && perfilRole === 'gestor_fazenda';
+    const alvos = view === 'visao' ? [...document.querySelectorAll('[data-section]')].filter(el => el.style.display !== 'none')
+                : gestorInicio ? [$('inicioGestor')] : [];
+    if(alvos.length){
+      (gestorInicio ? ['inicio'] : CHAVES_VISAO).forEach(k => animados.add(k));
+      fade(alvos, {dur: 320, sobe: 8, atraso: 40});
+    }
+  }
 }
 
 // Tempo limite: uma requisicao travada nao pode segurar o painel (o carregarTudo reaproveita
@@ -2527,8 +2539,25 @@ async function desenharMapaFazenda(container, fazenda, maquinas, opcoes = {}){
 }
 
 /* ---------- Inicio: carteira de fazendas ---------- */
+// Entrada dos cartoes do Inicio. `agora` = os cartoes ja estao na tela (voltou de outra aba):
+// toca na hora, sem a fila que espera a carga terminar; senao espera a carga e o layout.
+function animarCartoesInicio(cs, agora){
+  const contadores = [];
+  cs.forEach(c => c.querySelectorAll('dd').forEach(dd => { const v = dd.textContent.trim(); if(/^\d+$/.test(v)) contadores.push([dd, v]); }));
+  if(agora){
+    fade(cs, {atraso: 55, sobe: 8, dur: 380});
+    contadores.forEach(([dd, v]) => { dd.textContent = '0'; contar(dd, v, 700); });
+    return;
+  }
+  entrar($('listaInicio'), () => fade(cs, {atraso: 55, sobe: 8, dur: 380}));
+  contadores.forEach(([dd, v]) => contarAoAparecer(dd, v, 700));
+}
 async function carregarInicio(){
   if(perfilRole === 'gestor_fazenda') return carregarInicioGestor();
+  // Voltando ao Inicio os cartoes antigos ja estao na tela: anima ja, sem esperar o /carteira.
+  // A resposta nao repete a animacao (a chave 'inicio' ja foi usada nesta entrada).
+  const jaNaTela = $('listaInicio').querySelectorAll('.fazenda-card');
+  if(jaNaTela.length && animarAgora('inicio')) animarCartoesInicio(jaNaTela, true);
   if(!$('listaInicio').firstChild) $('listaInicio').innerHTML = '<div class="col-span-full text-sm text-on-surface-variant py-6">Carregando fazendas…</div>';
   try{
     const {fazendas: fs, resumos} = await carregarCarteira();
@@ -2578,11 +2607,7 @@ async function carregarInicio(){
       + (emAlto ? ` · ${emAlto} com risco alto` : '');
     renderLista('listaInicio', '<div class="contents" data-render></div>' + cards
       + '<div data-sem-resultado hidden class="col-span-full text-sm text-on-surface-variant italic py-6">Nenhuma fazenda encontrada para essa busca.</div>');
-    if(animarAgora('inicio')){
-      const cs = $('listaInicio').querySelectorAll('.fazenda-card');
-      entrar($('listaInicio'), () => fade(cs, {atraso: 55, sobe: 8, dur: 380}));
-      cs.forEach(c => c.querySelectorAll('dd').forEach(dd => { const v = dd.textContent.trim(); if(/^\d+$/.test(v)) contarAoAparecer(dd, v, 700); }));
-    }
+    if(animarAgora('inicio')) animarCartoesInicio($('listaInicio').querySelectorAll('.fazenda-card'), false);
   }catch(e){ if(e.obsoleto) return; $('listaInicio').innerHTML = erroLista('Fazendas indisponíveis.'); }
 }
 function abrirFazendaDoInicio(id){
@@ -2753,7 +2778,11 @@ let animados = new Set();
 // Durante a 1a carga de uma entrada o layout ainda muda (partes vazias crescem): as
 // animacoes esperam numa fila e so decidem o que esta visivel quando a carga termina.
 let filaEntrada = null;
-const novaEntrada = () => { animados = new Set(); filaEntrada = []; };
+// Abas ja desenhadas neste contexto (maquina, fazenda, periodo). Voltar a uma delas mostra os
+// dados antigos na hora; trocar o contexto (novaEntrada sem `troca`) esquece tudo.
+const viewsVistas = new Set();
+const CHAVES_VISAO = ['kpiScores','medidores','kpiAlertas','atividade','tipos','tempdia','leituras','statusAgora','saude','frota','linhaTempo'];
+const novaEntrada = troca => { animados = new Set(); filaEntrada = []; if(!troca) viewsVistas.clear(); };
 function liberarFilaEntrada(){
   if(!filaEntrada) return;
   const fila = filaEntrada; filaEntrada = null;
@@ -4310,7 +4339,8 @@ async function carregarTudo(){
   // O periodo entra na chave: trocar 7/30/90 nunca reaproveita a carga do periodo anterior.
   const chave = `${contextoVersao}:${viewAtual}:${periodo}`;
   if(atualizacoes.has(chave)) return atualizacoes.get(chave);
-  const tarefa = atualizarView().finally(()=>{ atualizacoes.delete(chave); liberarFilaEntrada(); });
+  const aba = viewAtual;
+  const tarefa = atualizarView().finally(()=>{ atualizacoes.delete(chave); liberarFilaEntrada(); if(aba === viewAtual) viewsVistas.add(aba); });
   atualizacoes.set(chave, tarefa);
   return tarefa;
 }
