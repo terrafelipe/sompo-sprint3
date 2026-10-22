@@ -141,3 +141,74 @@ def test_sem_de_e_ate_o_comportamento_antigo_continua(banco):
     assert r.status_code == 200 and 'pagina' not in r.json
     antiga.assert_called_once()
     nova.assert_not_called()
+
+
+# ---------- total de leituras e de paginas (so na pagina 1) ----------
+
+from unittest.mock import MagicMock  # noqa: E402
+
+_REQUEST_JSON = db._request_json   # o conftest troca _request_json em todo teste; aqui queremos o original
+
+
+def _resposta_contagem(status, content_range, corpo='[{"id": 1}]'):
+    r = MagicMock(status_code=status, text=corpo, headers={'Content-Range': content_range})
+    r.json.return_value = [{'id': 1}]
+    return r
+
+
+def test_contar_le_o_total_do_content_range():
+    inicio, fim = datetime(2026, 9, 21, tzinfo=BRT), datetime(2026, 10, 2, tzinfo=BRT)
+    with patch.object(db, 'validate_supabase_config'), patch.object(db, '_request_json', _REQUEST_JSON), \
+         patch.object(db, 'get_supabase_headers', return_value={'apikey': 'k'}), \
+         patch.object(db._sessao, 'request', return_value=_resposta_contagem(206, '0-0/268000')) as req:
+        assert db.contar_telemetria_periodo('ESP-A', inicio, fim, equipamento=2) == 268000
+    kw = req.call_args.kwargs
+    assert kw['headers']['Prefer'] == 'count=exact' and kw['headers']['Range'] == '0-0'
+    assert kw['timeout'] == 3
+    assert kw['params']['equipamento_id'] == 'eq.2'
+    assert kw['params']['criado_em'] == f'gte.{inicio.isoformat()}'
+    assert kw['params']['and'] == f'(criado_em.lt.{fim.isoformat()})'
+
+
+def test_contar_sem_leituras_da_zero_em_200_e_em_416():
+    inicio, fim = datetime(2026, 9, 21, tzinfo=BRT), datetime(2026, 10, 2, tzinfo=BRT)
+    for status in (200, 416):
+        with patch.object(db, 'validate_supabase_config'), patch.object(db, '_request_json', _REQUEST_JSON), \
+             patch.object(db, 'get_supabase_headers', return_value={'apikey': 'k'}), \
+             patch.object(db._sessao, 'request', return_value=_resposta_contagem(status, '*/0', '[]')):
+            assert db.contar_telemetria_periodo('ESP-A', inicio, fim) == 0, status
+
+
+def test_pagina_1_traz_total_leituras_e_total_paginas(banco):
+    with patch('app.consultar_telemetria_periodo', return_value=[]), \
+         patch('app.contar_telemetria_periodo', return_value=8928) as contar:
+        r = gestor().get('/telemetria?equipamento=1&de=2026-09-21&ate=2026-10-01')
+    assert (r.json['total_leituras'], r.json['total_paginas']) == (8928, 179)
+    janela = contar.call_args.args
+    assert janela[1] == datetime(2026, 9, 21, tzinfo=BRT) and janela[2] == datetime(2026, 10, 2, tzinfo=BRT)
+    assert contar.call_args.kwargs['equipamento'] == 1
+
+
+def test_periodo_sem_leituras_tem_uma_pagina(banco):
+    with patch('app.consultar_telemetria_periodo', return_value=[]), patch('app.contar_telemetria_periodo', return_value=0):
+        r = gestor().get('/telemetria?equipamento=1&de=2026-09-21&ate=2026-10-01')
+    assert (r.json['total_leituras'], r.json['total_paginas']) == (0, 1)
+
+
+def test_pagina_2_nao_conta_nem_traz_totais(banco):
+    with patch('app.consultar_telemetria_periodo', return_value=[]), \
+         patch('app.contar_telemetria_periodo') as contar:
+        r = gestor().get('/telemetria?equipamento=1&de=2026-09-21&ate=2026-10-01&pagina=2')
+    assert r.status_code == 200
+    assert 'total_leituras' not in r.json and 'total_paginas' not in r.json
+    contar.assert_not_called()
+
+
+def test_falha_da_contagem_vira_none_e_a_tabela_segue(banco):
+    linhas = [{'criado_em': '2026-10-01T00:00:00+00:00'}]
+    with patch('app.consultar_telemetria_periodo', return_value=linhas), \
+         patch('app.contar_telemetria_periodo', side_effect=RuntimeError('contagem demorou')):
+        r = gestor().get('/telemetria?equipamento=1&de=2026-09-21&ate=2026-10-01')
+    assert r.status_code == 200
+    assert len(r.json['dados']) == 1
+    assert (r.json['total_leituras'], r.json['total_paginas']) == (None, None)

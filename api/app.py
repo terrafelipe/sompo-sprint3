@@ -54,6 +54,7 @@ from supabase_client import (
     consultar_telemetria,
     consultar_telemetria_intervalo,
     consultar_telemetria_periodo,
+    contar_telemetria_periodo,
     consultar_usuario,
     consultar_usuarios,
     inserir_tabela,
@@ -523,10 +524,18 @@ def telemetria():
         try:
             linhas = consultar_telemetria_periodo(dispositivo, *periodo, pagina=pagina, por_pagina=_LEITURAS_POR_PAGINA, equipamento=eq)
             dados = frota.identificar_registros(linhas[:_LEITURAS_POR_PAGINA])
-            return jsonify({'total': len(dados), 'dados': dados, 'pagina': pagina, 'corte': periodo[1].isoformat(),
-                            'tem_mais': len(linhas) > _LEITURAS_POR_PAGINA, **frota.contexto()}), 200
+            resposta = {'total': len(dados), 'dados': dados, 'pagina': pagina, 'corte': periodo[1].isoformat(),
+                        'tem_mais': len(linhas) > _LEITURAS_POR_PAGINA, **frota.contexto()}
         except Exception as exc:
             return _erro('falha_na_consulta', exc, 502)
+        if pagina == 1:   # o painel guarda os totais; as outras paginas nao recontam
+            try:
+                total = contar_telemetria_periodo(dispositivo, *periodo, equipamento=eq)
+                resposta.update(total_leituras=total, total_paginas=max(1, math.ceil(total / _LEITURAS_POR_PAGINA)))
+            except Exception as exc:   # a contagem nunca derruba a tabela: sem total, so Anterior/Proxima
+                app.logger.warning('Contagem de leituras indisponivel: %s', exc)
+                resposta.update(total_leituras=None, total_paginas=None)
+        return jsonify(resposta), 200
 
     try:
         dados = frota.identificar_registros(consultar_telemetria(dispositivo, limite=limite, equipamento=eq) if dispositivo or eq else [])

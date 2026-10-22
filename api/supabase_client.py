@@ -23,20 +23,24 @@ class SupabaseError(RuntimeError):
         self.codigo = codigo
 
 
-def _request_json(method: str, table: str, params: Optional[Dict[str, str]] = None, payload: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+def _request_json(method: str, table: str, params: Optional[Dict[str, str]] = None, payload: Optional[Dict[str, Any]] = None, contar: bool = False) -> List[Dict[str, Any]]:
     validate_supabase_config()
     url = f'{BASE_URL}/{table}'
     headers = get_supabase_headers()
     if method in {'POST', 'PATCH'}:
         headers = {**headers, 'Prefer': 'return=representation'}
+    if contar:   # so o total (cabecalho Content-Range), de uma linha, com tempo limite curto: a contagem nunca segura a tela
+        headers = {**headers, 'Prefer': 'count=exact', 'Range-Unit': 'items', 'Range': '0-0'}
     response = _sessao.request(
         method=method,
         url=url,
         headers=headers,
         params=params or {},
         json=payload,
-        timeout=10,
+        timeout=3 if contar else 10,
     )
+    if contar and response.status_code in (200, 206, 416):   # 416: faixa 0-0 numa consulta sem linhas
+        return [{'total': int(response.headers['Content-Range'].rsplit('/', 1)[1])}]
     if response.status_code >= 400:
         try:
             codigo = response.json().get('code', '')
@@ -118,6 +122,17 @@ def consultar_telemetria_periodo(dispositivo, inicio: datetime, fim: datetime, p
         'criado_em': f'gte.{inicio.isoformat()}',
         'and': f'(criado_em.lt.{fim.isoformat()})',
     }, limite=por_pagina + 1, offset=(pagina - 1) * por_pagina, order='criado_em.desc,id.desc')
+
+
+def contar_telemetria_periodo(dispositivo, inicio: datetime, fim: datetime, equipamento=None) -> int:
+    # Total de leituras de [inicio, fim), o mesmo filtro de consultar_telemetria_periodo. Levanta em falha ou
+    # estouro de 3 s: quem chama decide mostrar a tabela sem o total.
+    linhas = _request_json('GET', 'telemetria', params={
+        'select': 'id', **_leituras_de(dispositivo, equipamento),
+        'criado_em': f'gte.{inicio.isoformat()}',
+        'and': f'(criado_em.lt.{fim.isoformat()})',
+    }, contar=True)
+    return linhas[0]['total']
 
 
 def consultar_telemetria_intervalo(dispositivo, inicio: datetime, fim: datetime, equipamento=None) -> List[Dict[str, Any]]:
