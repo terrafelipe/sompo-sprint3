@@ -141,7 +141,39 @@ def consultar_telemetria_intervalo(dispositivo, inicio: datetime, fim: datetime,
         **_leituras_de(dispositivo, equipamento),
         'criado_em': f'gte.{inicio.isoformat()}',
         'and': f'(criado_em.lte.{fim.isoformat()})',
-    }, select='criado_em,motor_ligado,nivel_risco', order='criado_em.asc')
+    }, select='criado_em,motor_ligado,nivel_risco,temp_escape', order='criado_em.asc')
+
+
+class FuncaoAusente(RuntimeError):
+    """A funcao SQL linha_do_tempo_faixas ainda nao foi instalada no Supabase."""
+
+
+def consultar_faixas(dispositivo, equipamento, inicio: datetime, fim: datetime, minutos: int) -> List[Dict[str, Any]]:
+    # Agregacao no banco (firmware/sql/linha_do_tempo.sql): 7 dias de leituras seriam ~60 paginas.
+    try:
+        return _request_json('POST', 'rpc/linha_do_tempo_faixas', payload={
+            'p_equipamento': equipamento, 'p_dispositivo': None if equipamento is not None else dispositivo,
+            'p_inicio': inicio.isoformat(), 'p_fim': fim.isoformat(), 'p_minutos': minutos})
+    except SupabaseError as exc:
+        if exc.codigo == 'PGRST202':   # funcao inexistente no cache do PostgREST
+            raise FuncaoAusente() from exc
+        raise
+
+
+def consultar_sessoes_janela(equipamento, inicio: datetime, fim: datetime) -> List[Dict[str, Any]]:
+    # Sessoes que comecaram (ate 1 dia antes) ou terminaram dentro da janela; aberta antiga nao pinta o periodo todo.
+    de, ate, antes = inicio.isoformat(), fim.isoformat(), (inicio - timedelta(days=1)).isoformat()
+    return consultar_todos('sessoes_operacao', filtros={
+        'equipamento_id': f'eq.{equipamento}',
+        'or': f'(and(inicio_em.gte.{antes},inicio_em.lte.{ate}),and(fim_em.gte.{de},fim_em.lte.{ate}))',
+    }, select='sessao_id,inicio_em,fim_em,operador_nome,status', order='recebido_em.asc,sessao_id.asc')
+
+
+def consultar_negadas(equipamento, inicio: datetime, fim: datetime) -> List[Dict[str, Any]]:
+    return consultar_todos('registros_operacao', filtros={
+        'equipamento_id': f'eq.{equipamento}', 'tipo': 'eq.tentativa_negada',
+        'recebido_em': f'gte.{inicio.isoformat()}', 'and': f'(recebido_em.lt.{fim.isoformat()})',
+    }, select='registro_id,ocorrido_em,recebido_em,uid,motivo', order='recebido_em.asc,registro_id.asc')
 
 
 def consultar_eventos(dispositivo, dias: int = 7, equipamento=None, janela=None) -> List[Dict[str, Any]]:

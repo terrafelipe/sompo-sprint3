@@ -1,0 +1,555 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>[hidden]{display:none!important}body{margin:0}</style>
+<title>Linha do tempo SOMPO</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..24,400,0..1,0&display=swap">
+<style>
+/* Layout: uma coluna como o Painel da maquina; resumo, faixa do periodo e lista de eventos no mesmo cartao. Tokens copiados do painel SOMPO. */
+:root{
+  --fundo:#fafafa; --card:#ffffff; --suave:#fafafa; --hover:#f4f4f5; --borda:#e4e4e7; --borda-forte:#d4d4d8;
+  --texto:#09090b; --texto2:#71717a; --texto3:#a1a1aa; --texto-sec:#52525b;
+  --furto:#2a78d6; --incendio:#b70100; --atencao:#d97706; --critico:#ba1a1a; --ok:#10b981;
+  --furto-bg:rgba(42,120,214,.10); --incendio-bg:rgba(183,1,0,.08); --atencao-bg:rgba(217,119,6,.12); --ok-bg:rgba(16,185,129,.12);
+  --sel:rgba(42,120,214,.08);
+  --fonte:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --fundo:#09090b; --card:#111113; --suave:#18181b; --hover:#27272a; --borda:#27272a; --borda-forte:#3f3f46;
+  --texto:#fafafa; --texto2:#a1a1aa; --texto3:#71717a; --texto-sec:#d4d4d8;
+  --furto:#3987e5; --incendio:#e5484d; --atencao:#e6a23c; --critico:#e5484d; --ok:#34d399;
+  --furto-bg:rgba(57,135,229,.16); --incendio-bg:rgba(229,72,77,.14); --atencao-bg:rgba(230,162,60,.16); --ok-bg:rgba(52,211,153,.14);
+  --sel:rgba(57,135,229,.12); color-scheme:dark }}
+:root[data-theme="dark"]{
+  --fundo:#09090b; --card:#111113; --suave:#18181b; --hover:#27272a; --borda:#27272a; --borda-forte:#3f3f46;
+  --texto:#fafafa; --texto2:#a1a1aa; --texto3:#71717a; --texto-sec:#d4d4d8;
+  --furto:#3987e5; --incendio:#e5484d; --atencao:#e6a23c; --critico:#e5484d; --ok:#34d399;
+  --furto-bg:rgba(57,135,229,.16); --incendio-bg:rgba(229,72,77,.14); --atencao-bg:rgba(230,162,60,.16); --ok-bg:rgba(52,211,153,.14);
+  --sel:rgba(57,135,229,.12); color-scheme:dark }
+*{box-sizing:border-box}
+body{background:var(--fundo);color:var(--texto);font-family:var(--fonte);font-size:14px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px}
+.ms{font-family:'Material Symbols Outlined';font-weight:normal;font-style:normal;font-size:20px;line-height:1;display:inline-block;
+  -webkit-font-feature-settings:'liga';font-feature-settings:'liga';font-variation-settings:'FILL' 0,'wght' 400,'opsz' 20;user-select:none}
+.pagina{max-width:960px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+.topo{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.olho{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--texto2)}
+h1{font-size:22px;font-weight:600;margin:2px 0 0;text-wrap:balance}
+.aviso{font-size:12px;color:var(--texto2);display:inline-flex;align-items:center;gap:6px;background:var(--hover);border-radius:999px;padding:4px 10px}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+button:focus-visible{outline:2px solid var(--furto);outline-offset:2px;border-radius:6px}
+.icone-btn{width:36px;height:36px;display:grid;place-items:center;border:1px solid var(--borda);border-radius:8px;background:var(--card);color:var(--texto2)}
+.card{background:var(--card);border:1px solid var(--borda);border-radius:12px;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+.cab{padding:18px 18px 6px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.cab h2{font-size:16px;font-weight:600;margin:0}
+.sub{font-size:13px;color:var(--texto2);margin:2px 0 0}
+.seg{display:inline-flex;height:34px;padding:2px;border-radius:8px;background:var(--hover);gap:2px;flex-wrap:nowrap;max-width:100%;overflow-x:auto}
+.seg button{display:inline-flex;align-items:center;gap:5px;height:100%;padding:0 11px;border-radius:6px;font-size:13px;font-weight:500;color:var(--texto2);white-space:nowrap;transition:background-color .15s,color .15s}
+.seg button[aria-pressed="true"]{background:var(--card);color:var(--texto);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.seg .ms{font-size:16px}
+/* resumo */
+.resumo{display:flex;gap:8px;flex-wrap:wrap;padding:10px 18px 4px}
+.chip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--borda);border-radius:999px;padding:5px 11px 5px 9px;font-size:13px;background:var(--card);transition:border-color .15s,background-color .15s,transform .15s}
+.chip b{font-weight:600;font-variant-numeric:tabular-nums}
+.chip .ms{font-size:17px}
+.chip[data-filtro]:hover{border-color:var(--borda-forte)}
+.chip[data-filtro]:active{transform:scale(.97)}
+.chip[aria-pressed="true"]{border-color:currentColor}
+.chip.incendio{color:var(--incendio)} .chip.furto{color:var(--furto)}
+.chip.neutro{color:var(--texto-sec);cursor:default}
+.chip span.t{color:var(--texto)}
+/* faixa */
+.faixa{padding:8px 18px 0;position:relative}
+.faixa svg{display:block;width:100%;height:auto;overflow:visible;touch-action:pan-y}
+.leitura{min-height:40px;margin:2px 18px 0;padding:8px 10px;border-radius:8px;background:var(--suave);font-size:12.5px;color:var(--texto2);display:flex;gap:4px 12px;flex-wrap:wrap;align-items:center;font-variant-numeric:tabular-nums}
+.leitura strong{color:var(--texto);font-weight:600}
+.leitura .p{display:inline-flex;align-items:center;gap:5px}
+.leitura .p i{width:8px;height:8px;border-radius:2px;display:inline-block}
+.legenda{display:flex;gap:4px 14px;flex-wrap:wrap;padding:8px 18px 0;font-size:12px;color:var(--texto2)}
+.legenda span{display:inline-flex;align-items:center;gap:6px}
+.legenda i{width:10px;height:10px;border-radius:2px;display:inline-block}
+/* filtros + lista */
+.barra{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:16px 18px 8px;border-top:1px solid var(--borda);margin-top:14px}
+.barra .cont{font-size:12.5px;color:var(--texto2);font-variant-numeric:tabular-nums}
+.lista{padding:0 8px 10px}
+.dia{position:sticky;top:env(safe-area-inset-top,0px);z-index:2;background:var(--card);font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--texto2);padding:12px 10px 6px;display:flex;justify-content:space-between;gap:8px}
+.dia em{font-style:normal;font-weight:500;letter-spacing:0;text-transform:none}
+.ev{display:grid;grid-template-columns:3.1rem 28px minmax(0,1fr) auto;gap:10px;align-items:start;padding:9px 10px;border-radius:8px;width:100%;text-align:left;position:relative;transition:background-color .2s}
+.ev:hover{background:var(--hover)}
+.ev.sel{background:var(--sel)}
+.ev.sel::before{content:"";position:absolute;left:0;top:8px;bottom:8px;width:3px;border-radius:3px;background:var(--furto)}
+.ev .h{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;padding-top:4px;color:var(--texto)}
+.ev .ico{width:28px;height:28px;border-radius:8px;display:grid;place-items:center}
+.ev .ico .ms{font-size:18px}
+.ev.incendio .ico{background:var(--incendio-bg);color:var(--incendio)}
+.ev.furto .ico{background:var(--furto-bg);color:var(--furto)}
+.ev.rotina .ico{background:var(--hover);color:var(--texto2)}
+.ev .tit{font-size:13.5px;font-weight:500;color:var(--texto);padding-top:4px}
+.ev.rotina .tit{color:var(--texto-sec);font-weight:400}
+.ev .det{font-size:12.5px;color:var(--texto2);margin-top:1px}
+.ev .det .calc{font-style:italic}
+.pill{font-size:11px;font-weight:600;border-radius:999px;padding:2px 8px;margin-top:4px;white-space:nowrap;display:inline-flex;align-items:center;gap:4px}
+.pill.critico{background:var(--incendio-bg);color:var(--critico)}
+.pill.atencao{background:var(--atencao-bg);color:var(--atencao)}
+.pill.rotina{color:var(--texto3);padding-inline:0}
+.pill .ms{font-size:14px}
+.grupo .seta{transition:transform .2s ease}
+.grupo[aria-expanded="true"] .seta{transform:rotate(180deg)}
+.filhos{display:grid;grid-template-rows:0fr;transition:grid-template-rows .25s ease}
+.filhos.aberto{grid-template-rows:1fr}
+.filhos>div{overflow:hidden}
+.filho{display:grid;grid-template-columns:3.1rem 28px minmax(0,1fr);gap:10px;padding:4px 10px;font-size:12.5px;color:var(--texto2);font-variant-numeric:tabular-nums}
+.filho b{color:var(--texto);font-weight:500}
+.vazio,.erro{padding:28px 18px 32px;text-align:center;color:var(--texto2);display:flex;flex-direction:column;align-items:center;gap:8px}
+.vazio .ms,.erro .ms{font-size:28px;color:var(--texto3)}
+.vazio strong,.erro strong{color:var(--texto);font-weight:600}
+.btn{border:1px solid var(--borda);background:var(--card);border-radius:8px;padding:7px 12px;font-size:13px;font-weight:500;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{background:var(--hover)}
+/* notas do mockup */
+.notas{padding:16px 18px;display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))}
+.notas h3{font-size:13px;font-weight:600;margin:0 0 6px}
+.notas ul{margin:0;padding-left:18px;color:var(--texto-sec);font-size:13px;display:grid;gap:4px}
+.notas .simular{display:flex;gap:6px;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translate(-50%,12px);opacity:0;pointer-events:none;background:var(--texto);color:var(--card);padding:9px 14px;border-radius:8px;font-size:13px;transition:opacity .2s,transform .2s;max-width:calc(100% - 32px);z-index:20}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+/* movimento */
+@keyframes entra{from{opacity:.25;transform:translateY(5px)}to{opacity:1;transform:none}}
+@keyframes pulso{from{transform:scale(1);opacity:.9}to{transform:scale(3);opacity:0}}
+@keyframes desenha{from{stroke-dashoffset:var(--len)}to{stroke-dashoffset:0}}
+.anim .ev,.anim .dia{animation:entra .32s cubic-bezier(.2,.7,.2,1) both;animation-delay:calc(var(--i,0) * 18ms)}
+.linha-temp{stroke-dasharray:var(--len);animation:desenha .7s ease-out both}
+.anel{animation:pulso 1.3s ease-out infinite;transform-box:fill-box;transform-origin:center}
+.marca{transition:opacity .2s}
+@media (prefers-reduced-motion: reduce){
+  .anim .ev,.anim .dia,.linha-temp,.anel{animation:none}
+  .filhos,.grupo .seta,.chip,.toast{transition:none}
+}
+@media (max-width:520px){
+  .ev{grid-template-columns:2.8rem 26px minmax(0,1fr);}
+  .ev .pill{grid-column:3;justify-self:start;margin-top:2px}
+  .filho{grid-template-columns:2.8rem 26px minmax(0,1fr)}
+}
+</style>
+
+<div class="pagina">
+  <div class="topo">
+    <div>
+      <div class="olho">Painel da máquina · Colheitadeira 01 · Fazenda Boa Vista</div>
+      <h1>Linha do tempo (proposta)</h1>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <span class="aviso"><span class="ms" style="font-size:15px">science</span>Mockup com dados de exemplo</span>
+      <button class="icone-btn" id="tema" aria-label="Trocar tema claro ou escuro"><span class="ms">dark_mode</span></button>
+    </div>
+  </div>
+
+  <section class="card" id="cartao" aria-labelledby="ttl">
+    <div class="cab">
+      <div>
+        <h2 id="ttl">Linha do tempo</h2>
+        <p class="sub" id="sub">24 horas até a última leitura</p>
+      </div>
+      <div class="seg" role="group" aria-label="Período">
+        <button id="p24" aria-pressed="true" data-per="24">24 h</button>
+        <button id="p7" aria-pressed="false" data-per="168">7 dias</button>
+        <button id="pLivre" aria-pressed="false" data-per="livre"><span class="ms">calendar_month</span>Período</button>
+      </div>
+    </div>
+
+    <div id="corpo">
+      <div class="resumo" id="resumo" aria-label="Resumo do período"></div>
+      <div class="legenda" aria-hidden="true">
+        <span><i style="background:var(--texto-sec);height:2px;border-radius:0"></i>Temperatura do escape</span>
+        <span><i style="background:var(--ok)"></i>Motor ligado</span>
+        <span><i style="background:var(--furto);opacity:.55"></i>Crachá</span>
+        <span><i style="background:repeating-linear-gradient(135deg,var(--borda-forte) 0 2px,transparent 2px 5px)"></i>Placa sem enviar</span>
+      </div>
+      <div class="faixa" id="faixa"></div>
+      <div class="leitura" id="leitura" aria-live="polite"></div>
+      <div class="barra">
+        <div class="seg" role="group" aria-label="Filtrar eventos" id="filtros">
+          <button aria-pressed="true" data-f="tudo">Tudo</button>
+          <button aria-pressed="false" data-f="alarmes">Só alarmes</button>
+          <button aria-pressed="false" data-f="incendio">Incêndio</button>
+          <button aria-pressed="false" data-f="furto">Furto</button>
+          <button aria-pressed="false" data-f="rotina">Rotina</button>
+        </div>
+        <span class="cont" id="cont"></span>
+      </div>
+      <div class="lista" id="lista"></div>
+    </div>
+  </section>
+
+  <section class="card" aria-label="Sobre este mockup">
+    <div class="notas">
+      <div>
+        <h3>Teste os estados</h3>
+        <div class="simular">
+          <button class="btn" data-estado="normal"><span class="ms" style="font-size:17px">check_circle</span>Normal</button>
+          <button class="btn" data-estado="vazio"><span class="ms" style="font-size:17px">event_busy</span>Sem eventos</button>
+          <button class="btn" data-estado="erro"><span class="ms" style="font-size:17px">cloud_off</span>Erro ao carregar</button>
+        </div>
+        <ul style="margin-top:10px">
+          <li>Toque num ponto da faixa para ir ao evento na lista.</li>
+          <li>Toque num evento para marcá-lo na faixa.</li>
+          <li>Arraste o dedo na faixa para ler qualquer horário.</li>
+          <li>Os chips do resumo também filtram.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>O que muda em relação à atual</h3>
+        <ul>
+          <li>A lista de eventos vem primeiro; as 4 faixas viram uma só.</li>
+          <li>A temperatura do escape entra no mesmo gráfico dos alarmes.</li>
+          <li>Repetições seguidas viram uma linha (“3 vezes entre…”).</li>
+          <li>Trechos contínuos em vez de 96 blocos de 15 min.</li>
+          <li>Segue o Período, como o resto do painel.</li>
+          <li>Funciona no toque, sem depender do mouse.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>O que é simulado aqui</h3>
+        <ul>
+          <li>Todos os dados (máquina, operadores, horários, temperaturas).</li>
+          <li>“Período” não abre o calendário; no painel abriria.</li>
+          <li>“Voltou ao normal” e motor/placa são calculados das leituras; o banco não grava esses eventos.</li>
+          <li>Nada é lido do Supabase nem gravado.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(() => {
+const MIN = 60000, H = 60 * MIN;
+// Horario de Brasilia (UTC-3) para os dados de exemplo.
+const T = (dia, h, m) => Date.UTC(2026, 9, dia, h + 3, m);
+const FMT_H = new Intl.DateTimeFormat('pt-BR', {hour:'2-digit', minute:'2-digit', timeZone:'America/Sao_Paulo'});
+const FMT_D = new Intl.DateTimeFormat('pt-BR', {weekday:'long', day:'numeric', month:'long', timeZone:'America/Sao_Paulo'});
+const FMT_DC = new Intl.DateTimeFormat('pt-BR', {day:'2-digit', month:'2-digit', timeZone:'America/Sao_Paulo'});
+const hora = t => FMT_H.format(t);
+const diaChave = t => FMT_DC.format(t);
+const dur = ms => { const m = Math.round(ms / MIN); return m >= 60 ? `${Math.floor(m/60)} h${m % 60 ? ' ' + String(m % 60).padStart(2,'0') : ''}` : `${m} min`; };
+const $ = id => document.getElementById(id);
+
+const TIPOS = {
+  chama_detectada: {nome:'Chama detectada', eixo:'incendio', sev:'critico', ico:'local_fire_department'},
+  escape_critico: {nome:'Escape crítico', eixo:'incendio', sev:'critico', ico:'device_thermostat'},
+  escape_atencao: {nome:'Escape em atenção', eixo:'incendio', sev:'atencao', ico:'device_thermostat'},
+  furto_capo: {nome:'Capô aberto', eixo:'furto', sev:'atencao', ico:'car_repair'},
+  furto_movimento: {nome:'Movimento suspeito', eixo:'furto', sev:'atencao', ico:'directions_run'},
+  operador_nao_autorizado: {nome:'Partida sem crachá', eixo:'furto', sev:'critico', ico:'no_accounts'},
+  cracha_negado: {nome:'Crachá recusado', eixo:'furto', sev:'atencao', ico:'badge'},
+  cracha_inicio: {nome:'Crachá aceito', eixo:'rotina', sev:'rotina', ico:'badge'},
+  cracha_fim: {nome:'Sessão encerrada', eixo:'rotina', sev:'rotina', ico:'logout'},
+  motor_ligou: {nome:'Motor ligou', eixo:'rotina', sev:'rotina', ico:'power_settings_new'},
+  motor_parou: {nome:'Motor parou', eixo:'rotina', sev:'rotina', ico:'power_off'},
+  temp_normal: {nome:'Temperatura voltou ao normal', eixo:'rotina', sev:'rotina', ico:'thermostat'},
+  envio_parou: {nome:'Placa parou de enviar', eixo:'rotina', sev:'atencao', ico:'wifi_off'},
+  envio_voltou: {nome:'Placa voltou a enviar', eixo:'rotina', sev:'rotina', ico:'wifi'},
+};
+
+// ---- dados de exemplo: um padrao por dia (15 a 22/10) ----
+const DIAS = {
+  22:{motor:[[7,1,11,40],[14,12,16,30]], cracha:[['João Silva',6,58,11,42],['Maria Souza',14,10,16,31]],
+      picos:[[9,33,63,16]], ev:[['furto_capo',2,14,'Sensor do capô · máquina desligada'],
+      ['escape_atencao',9,12,'44 °C'],['escape_atencao',9,18,'47 °C'],['escape_atencao',9,25,'53 °C'],
+      ['escape_critico',9,31,'61 °C'],['escape_critico',9,38,'63 °C'],
+      ['cracha_negado',13,4,'Cartão 4A:1F:9C:02 não cadastrado'],['operador_nao_autorizado',13,5,'Motor ligado sem sessão de crachá'],['furto_movimento',13,6,'Vibração 1,8 g']],
+      gap:[17,29,22,15], extraMotor:[[13,5,13,9]]},
+  21:{motor:[[7,20,12,0],[13,30,17,10]], cracha:[['João Silva',7,15,17,12]], picos:[[15,44,52,10]],
+      ev:[['escape_atencao',15,40,'45 °C'],['escape_atencao',15,47,'52 °C']]},
+  20:{motor:[[6,50,11,30]], cracha:[['Maria Souza',6,46,11,33]], picos:[[10,8,70,12]],
+      ev:[['chama_detectada',10,5,'Sensor de chama no motor'],['escape_critico',10,6,'64 °C'],['escape_critico',10,9,'70 °C'],['escape_critico',10,13,'66 °C']]},
+  19:{motor:[], cracha:[], picos:[], ev:[['cracha_negado',3,40,'Cartão 7B:22:E1:90 não cadastrado'],['furto_capo',3,41,'Sensor do capô · máquina desligada'],['furto_movimento',3,44,'Vibração 2,3 g']]},
+  18:{motor:[[7,0,16,0]], cracha:[['João Silva',6,55,16,4]], picos:[], ev:[]},
+  17:{motor:[[7,10,11,0]], cracha:[['João Silva',7,5,11,3]], picos:[], ev:[], gap:[11,30,14,0]},
+  16:{motor:[[7,0,15,0]], cracha:[['Maria Souza',6,52,15,6]], picos:[], ev:[]},
+  15:{motor:[[7,30,16,20]], cracha:[['João Silva',7,25,16,25]], picos:[], ev:[]},
+};
+const FIM = T(22, 22, 20);
+const motor = [], sessoes = [], picos = [], gaps = [], eventos = [];
+let nid = 0;
+const addEv = (tipo, t, det, extra) => eventos.push({id: ++nid, tipo, t, det, ...TIPOS[tipo], ...extra});
+for(const [d, p] of Object.entries(DIAS).map(([k, v]) => [+k, v])){
+  for(const [h1, m1, h2, m2] of p.motor) motor.push([T(d,h1,m1), T(d,h2,m2)]);
+  for(const [h1, m1, h2, m2] of p.extraMotor || []) motor.push([T(d,h1,m1), T(d,h2,m2)]);
+  for(const [nome, h1, m1, h2, m2] of p.cracha){
+    const a = T(d,h1,m1), b = T(d,h2,m2);
+    sessoes.push([a, b, nome]);
+    addEv('cracha_inicio', a, nome);
+    addEv('cracha_fim', b, `${nome} · ${dur(b - a)} de uso`);
+  }
+  for(const [h, m, pico, larg] of p.picos) picos.push([T(d,h,m), pico, larg * MIN]);
+  for(const [tipo, h, m, det] of p.ev) addEv(tipo, T(d,h,m), det);
+  if(p.gap){ const a = T(d,p.gap[0],p.gap[1]), b = T(d,p.gap[2],p.gap[3]); gaps.push([a,b]);
+    addEv('envio_parou', a, `Sem leituras por ${dur(b - a)}`); addEv('envio_voltou', b, 'Leituras normais de novo'); }
+}
+motor.sort((a,b)=>a[0]-b[0]);
+for(const [a, b] of motor){
+  const extra = !sessoes.some(([s1, s2]) => a >= s1 && a <= s2);
+  addEv('motor_ligou', a, extra ? 'Sem sessão de crachá aberta' : 'Partida com crachá', {});
+  addEv('motor_parou', b, `Ficou ${dur(b - a)} ligado`);
+}
+const semDado = t => gaps.some(([a, b]) => t > a && t < b);
+const motorEm = t => motor.some(([a, b]) => t >= a && t <= b);
+const sessaoEm = t => sessoes.find(([a, b]) => t >= a && t <= b);
+function temp(t){
+  if(semDado(t)) return null;
+  let v = 26 + 2.5 * Math.sin((t / H - 9) / 24 * 2 * Math.PI);
+  for(const [a, b] of motor){
+    if(t < a) continue;
+    const sub = 13 * (1 - Math.exp(-(Math.min(t, b) - a) / (35 * MIN)));
+    v += t <= b ? sub : sub * Math.exp(-(t - b) / (25 * MIN));
+  }
+  for(const [c, pico, l] of picos) v += (pico - 39) * Math.exp(-((t - c) ** 2) / (2 * l * l));
+  return v;
+}
+// "voltou ao normal": primeira leitura abaixo de 40 °C depois de cada pico
+for(const [c] of picos){
+  for(let t = c; t < c + 4 * H; t += 2 * MIN){ const v = temp(t); if(v !== null && v < 40){ addEv('temp_normal', t, `${Math.round(v)} °C · calculado das leituras`, {calc:true}); break; } }
+}
+eventos.sort((a, b) => a.t - b.t || a.id - b.id);
+
+// ---- estado ----
+let horas = 24, filtro = 'tudo', estado = 'normal', selId = null, abertos = new Set(), primeiraVez = true;
+const janela = () => [FIM - horas * H, FIM];
+const passa = e => filtro === 'tudo' || (filtro === 'alarmes' ? e.eixo !== 'rotina' : e.eixo === filtro);
+
+function grupos(lista){
+  const out = [];
+  for(const e of lista){
+    const g = out[out.length - 1];
+    if(g && g.tipo === e.tipo && e.eixo !== 'rotina' && e.t - g.itens[g.itens.length - 1].t <= 30 * MIN && diaChave(e.t) === diaChave(g.t)) g.itens.push(e);
+    else out.push({tipo: e.tipo, t: e.t, id: 'g' + e.id, itens: [e]});
+  }
+  return out;
+}
+
+function render(){
+  const [ini, fim] = janela();
+  $('sub').textContent = `${horas === 24 ? '24 horas' : '7 dias'} até a última leitura (${diaChave(fim)}, ${hora(fim)})`;
+  if(estado === 'erro'){
+    $('corpo').innerHTML = `<div class="erro"><span class="ms">cloud_off</span><strong>Não deu para carregar a linha do tempo.</strong><span>O servidor não respondeu. Confira a conexão e tente de novo.</span><button class="btn" id="tentar"><span class="ms" style="font-size:17px">refresh</span>Tentar de novo</button></div>`;
+    $('tentar').onclick = () => { estado = 'normal'; primeiraVez = true; render(); };
+    return;
+  }
+  const noPer = estado === 'vazio' ? [] : eventos.filter(e => e.t >= ini && e.t <= fim);
+  resumo(noPer, ini, fim);
+  faixa(noPer, ini, fim);
+  lista(noPer, ini, fim);
+}
+
+function resumo(noPer, ini, fim){
+  const inc = noPer.filter(e => e.eixo === 'incendio').length, fur = noPer.filter(e => e.eixo === 'furto').length;
+  const motorMs = estado === 'vazio' ? 0 : motor.reduce((s, [a, b]) => s + Math.max(0, Math.min(b, fim) - Math.max(a, ini)), 0);
+  const gapMs = estado === 'vazio' ? 0 : gaps.reduce((s, [a, b]) => s + Math.max(0, Math.min(b, fim) - Math.max(a, ini)), 0);
+  const chip = (cls, ico, n, txt, f) => `<button class="chip ${cls}" ${f ? `data-filtro="${f}" aria-pressed="${filtro === f}"` : 'disabled'}><span class="ms">${ico}</span><span class="t"><b>${n}</b> ${txt}</span></button>`;
+  $('resumo').innerHTML =
+    chip('incendio', 'local_fire_department', inc, inc === 1 ? 'alarme de incêndio' : 'alarmes de incêndio', 'incendio') +
+    chip('furto', 'shield', fur, fur === 1 ? 'alarme de furto' : 'alarmes de furto', 'furto') +
+    chip('neutro', 'power_settings_new', dur(motorMs), 'de motor ligado') +
+    (gapMs ? chip('neutro', 'wifi_off', dur(gapMs), 'sem enviar') : '');
+  $('resumo').querySelectorAll('[data-filtro]').forEach(b => b.onclick = () => setFiltro(filtro === b.dataset.filtro ? 'tudo' : b.dataset.filtro));
+}
+
+let geo = null;
+function faixa(noPer, ini, fim){
+  const box = $('faixa'), W = Math.max(300, box.clientWidth - 36), ML = 40, MR = 6, iw = W - ML - MR;
+  const Y0 = 16, Y1 = 96, YM = 106, YC = 120, AB = 9, HT = 152;
+  const X = t => ML + (t - ini) / (fim - ini) * iw;
+  const TMIN = 20, TMAX = 75, Yt = v => Y1 - (v - TMIN) / (TMAX - TMIN) * (Y1 - Y0);
+  geo = {ini, fim, ML, iw, W, X};
+  let g = '';
+  // grade de temperatura e limites
+  for(const [v, rot, cor] of [[40, '40 °C', 'var(--atencao)'], [60, '60 °C', 'var(--critico)']]){
+    g += `<line x1="${ML}" x2="${W - MR}" y1="${Yt(v)}" y2="${Yt(v)}" style="stroke:${cor}" stroke-dasharray="3 4" stroke-opacity=".7"/>`;
+    g += `<text x="${ML - 6}" y="${Yt(v) + 3.5}" text-anchor="end" font-size="10" style="fill:${cor}">${rot}</text>`;
+  }
+  g += `<line x1="${ML}" x2="${W - MR}" y1="${Y1}" y2="${Y1}" style="stroke:var(--borda)"/>`;
+  // sem envio (hachurado na altura toda)
+  if(estado !== 'vazio') for(const [a, b] of gaps){
+    if(b < ini || a > fim) continue;
+    const x0 = X(Math.max(a, ini)), x1 = X(Math.min(b, fim));
+    g += `<rect x="${x0}" y="${Y0 - 6}" width="${x1 - x0}" height="${YC + AB - Y0 + 6}" fill="url(#hach)"/>`;
+  }
+  // temperatura
+  const passo = horas === 24 ? 5 * MIN : 20 * MIN;
+  let d = '', area = '', aberto = false, inicioSeg = 0;
+  if(estado !== 'vazio') for(let t = ini; t <= fim; t += passo){
+    const v = temp(t);
+    if(v === null){ if(aberto){ area += `L${X(t - passo)},${Y1}Z`; } aberto = false; continue; }
+    const p = `${X(t).toFixed(1)},${Yt(Math.min(TMAX, v)).toFixed(1)}`;
+    if(!aberto){ d += `M${p}`; area += `M${X(t).toFixed(1)},${Y1}L${p}`; aberto = true; } else { d += `L${p}`; area += `L${p}`; }
+  }
+  if(aberto) area += `L${X(fim).toFixed(1)},${Y1}Z`;
+  g += `<path d="${area}" style="fill:var(--texto-sec)" fill-opacity=".07"/>`;
+  g += `<path class="${primeiraVez ? 'linha-temp' : ''}" d="${d}" fill="none" style="stroke:var(--texto-sec);--len:4000" stroke-width="1.6" stroke-linejoin="round" pathLength="4000"/>`;
+  // motor e cracha
+  g += `<text x="${ML - 6}" y="${YM + 7.5}" text-anchor="end" font-size="10" style="fill:var(--texto2)">Motor</text>`;
+  g += `<text x="${ML - 6}" y="${YC + 7.5}" text-anchor="end" font-size="10" style="fill:var(--texto2)">Crachá</text>`;
+  g += `<rect x="${ML}" y="${YM}" width="${iw}" height="${AB}" rx="2" style="fill:var(--hover)"/>`;
+  g += `<rect x="${ML}" y="${YC}" width="${iw}" height="${AB}" rx="2" style="fill:var(--hover)"/>`;
+  if(estado !== 'vazio'){
+    for(const [a, b] of motor){ if(b < ini || a > fim) continue; const x0 = X(Math.max(a, ini)), x1 = X(Math.min(b, fim));
+      g += `<rect x="${x0}" y="${YM}" width="${Math.max(2, x1 - x0)}" height="${AB}" rx="2" style="fill:var(--ok)"/>`; }
+    for(const [a, b] of sessoes){ if(b < ini || a > fim) continue; const x0 = X(Math.max(a, ini)), x1 = X(Math.min(b, fim));
+      g += `<rect x="${x0}" y="${YC}" width="${Math.max(2, x1 - x0)}" height="${AB}" rx="2" style="fill:var(--furto)" fill-opacity=".55"/>`; }
+  }
+  // eixo do tempo
+  const marcas = horas === 24 ? [0, 6, 12, 18, 24].map(h => ini + h * H) : [...Array(8).keys()].map(i => ini + i * 24 * H);
+  marcas.forEach((t, i) => {
+    const x = X(t), anc = i === 0 ? 'start' : i === marcas.length - 1 ? 'end' : 'middle';
+    g += `<line x1="${x}" x2="${x}" y1="${Y0 - 6}" y2="${YC + AB}" style="stroke:var(--borda)" stroke-opacity=".7"/>`;
+    g += `<text x="${x}" y="${HT - 4}" text-anchor="${anc}" font-size="10" style="fill:var(--texto2)">${horas === 24 ? hora(t) : diaChave(t)}</text>`;
+  });
+  // alarmes: um marcador por grupo
+  const alarmes = grupos(noPer.filter(e => e.eixo !== 'rotina' && passa(e)));
+  let marc = '';
+  for(const gr of alarmes){
+    const e = gr.itens[0], x = X(e.t), cor = e.eixo === 'incendio' ? 'var(--incendio)' : 'var(--furto)';
+    const sel = gr.itens.some(i => i.id === selId) || gr.id === selId;
+    marc += `<g class="marca" data-alvo="${gr.id}" style="cursor:pointer">
+      <line x1="${x}" x2="${x}" y1="10" y2="${YC + AB}" style="stroke:${cor}" stroke-opacity="${sel ? .9 : .35}" stroke-width="${sel ? 1.5 : 1}"/>
+      ${sel ? `<circle class="anel" cx="${x}" cy="7" r="5" fill="none" style="stroke:${cor}" stroke-width="2"/>` : ''}
+      <circle cx="${x}" cy="7" r="${e.sev === 'critico' ? 5 : 4}" style="fill:${cor};stroke:var(--card)" stroke-width="2"/>
+      ${gr.itens.length > 1 ? `<text x="${x + 7}" y="10" font-size="9.5" font-weight="600" style="fill:${cor}">×${gr.itens.length}</text>` : ''}
+      <rect x="${x - 11}" y="-4" width="22" height="${YC + AB + 4}" fill="transparent"/></g>`;
+  }
+  box.innerHTML = `<svg viewBox="0 -6 ${W} ${HT + 6}" role="img" aria-label="Temperatura do escape, motor, crachá e alarmes no período">
+    <defs><pattern id="hach" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" style="fill:var(--card)"/><line x1="0" y1="0" x2="0" y2="6" style="stroke:var(--borda-forte)" stroke-width="2"/></pattern></defs>
+    ${g}<line id="cursor" x1="0" x2="0" y1="${Y0 - 6}" y2="${YC + AB}" style="stroke:var(--texto)" stroke-width="1" opacity="0"/>${marc}</svg>`;
+  const svg = box.querySelector('svg');
+  svg.querySelectorAll('.marca').forEach(m => m.addEventListener('click', ev => { ev.stopPropagation(); irPara(m.dataset.alvo, true); }));
+  const mover = ev => {
+    const r = svg.getBoundingClientRect(), x = (ev.clientX - r.left) / r.width * W;
+    if(x < ML || x > ML + iw) return;
+    const t = ini + (x - ML) / iw * (fim - ini);
+    lerHorario(t, x);
+  };
+  svg.addEventListener('pointermove', mover);
+  svg.addEventListener('pointerdown', mover);
+  svg.addEventListener('pointerleave', () => { if(!selId) lerPadrao(); });
+  if(selId){ const e = acharSel(); if(e) lerHorario(e.t, X(e.t), e); } else lerPadrao();
+}
+
+function lerPadrao(){
+  const c = $('cursor'); if(c) c.setAttribute('opacity', 0);
+  $('leitura').innerHTML = estado === 'vazio'
+    ? '<span>A máquina ficou parada e sem leituras novas neste período.</span>'
+    : '<span class="p"><span class="ms" style="font-size:16px">touch_app</span>Toque ou arraste no gráfico para ler um horário; toque num ponto para ver o alarme.</span>';
+}
+function lerHorario(t, x, e){
+  const c = $('cursor'); if(c){ c.setAttribute('x1', x); c.setAttribute('x2', x); c.setAttribute('opacity', .55); }
+  const v = estado === 'vazio' ? null : temp(t), s = sessaoEm(t), sd = semDado(t) || estado === 'vazio';
+  $('leitura').innerHTML = `<strong>${diaChave(t)} ${hora(t)}</strong>`
+    + (e ? `<span class="p" style="color:var(--${e.eixo === 'incendio' ? 'incendio' : e.eixo === 'furto' ? 'furto' : 'texto2'})"><strong style="color:inherit">${e.t2 || e.t}</strong></span>` : '')
+    + (sd ? '<span class="p"><i style="background:var(--borda-forte)"></i>Sem leituras</span>'
+       : `<span class="p">Escape <strong>${Math.round(v)} °C</strong></span><span class="p"><i style="background:${motorEm(t) ? 'var(--ok)' : 'var(--texto3)'}"></i>Motor ${motorEm(t) ? 'ligado' : 'parado'}</span>`)
+    + (s ? `<span class="p"><i style="background:var(--furto)"></i>${s[2]}</span>` : (sd ? '' : '<span class="p">Sem crachá</span>'));
+
+}
+function acharSel(){
+  for(const e of eventos) if(e.id === selId || 'g' + e.id === selId) return {...e, t2: e.nome};
+  return null;
+}
+
+function lista(noPer, ini, fim){
+  const vis = noPer.filter(passa);
+  const al = vis.filter(e => e.eixo !== 'rotina').length;
+  $('cont').textContent = vis.length ? `${vis.length} ${vis.length === 1 ? 'evento' : 'eventos'}${filtro === 'tudo' ? ` · ${al} ${al === 1 ? 'alarme' : 'alarmes'}` : ''}` : '';
+  const L = $('lista');
+  if(!vis.length){
+    L.innerHTML = `<div class="vazio"><span class="ms">event_available</span><strong>${estado === 'vazio' ? 'Nenhum evento neste período' : 'Nenhum evento com este filtro'}</strong><span>${estado === 'vazio' ? `Sem alarmes, partidas ou crachás entre ${diaChave(ini)} ${hora(ini)} e ${diaChave(fim)} ${hora(fim)}.` : 'Troque o filtro para ver os outros eventos.'}</span>${estado !== 'vazio' ? '<button class="btn" id="verTudo">Ver tudo</button>' : ''}</div>`;
+    const b = $('verTudo'); if(b) b.onclick = () => setFiltro('tudo');
+    return;
+  }
+  // dias: mais recente primeiro; dentro do dia, em ordem de hora (conta a historia)
+  const porDia = new Map();
+  for(const e of vis){ const k = diaChave(e.t); if(!porDia.has(k)) porDia.set(k, []); porDia.get(k).push(e); }
+  let html = '', i = 0;
+  for(const [k, evs] of [...porDia.entries()].reverse()){
+    const nAl = evs.filter(e => e.eixo !== 'rotina').length;
+    html += `<div class="dia" style="--i:${i++}"><span>${FMT_D.format(evs[0].t)}</span><em>${nAl ? `${nAl} ${nAl === 1 ? 'alarme' : 'alarmes'}` : 'sem alarmes'}</em></div>`;
+    for(const g of grupos(evs)){
+      const e = g.itens[0], n = g.itens.length, ult = g.itens[n - 1];
+      const sel = g.id === selId || g.itens.some(x => x.id === selId);
+      const pill = e.sev === 'critico' ? '<span class="pill critico"><span class="ms">priority_high</span>Crítico</span>'
+        : e.sev === 'atencao' ? '<span class="pill atencao">Atenção</span>' : '<span class="pill rotina">Rotina</span>';
+      const temps = g.itens.map(x => parseInt(x.det)).filter(v => !isNaN(v));
+      const det = n > 1 ? `${n} vezes entre ${hora(e.t)} e ${hora(ult.t)}${temps.length ? ` · até ${Math.max(...temps)} °C` : ''}` : (e.calc ? `<span class="calc">${e.det}</span>` : e.det);
+      html += `<button class="ev ${e.eixo}${n > 1 ? ' grupo' : ''}${sel ? ' sel' : ''}" style="--i:${i++}" data-alvo="${g.id}" ${n > 1 ? `aria-expanded="${abertos.has(g.id)}"` : ''}>
+        <span class="h">${hora(e.t)}</span><span class="ico"><span class="ms">${e.ico}</span></span>
+        <span><div class="tit">${e.nome}${n > 1 ? ` <span class="ms seta" style="font-size:18px;vertical-align:-4px;color:var(--texto2)">expand_more</span>` : ''}</div><div class="det">${det}</div></span>${pill}</button>`;
+      if(n > 1) html += `<div class="filhos${abertos.has(g.id) ? ' aberto' : ''}" data-de="${g.id}"><div>${g.itens.map(x => `<div class="filho"><span>${hora(x.t)}</span><span></span><span><b>${TIPOS[x.tipo].nome}</b> · ${x.det}</span></div>`).join('')}</div></div>`;
+    }
+  }
+  L.innerHTML = html;
+  if(primeiraVez && !matchMedia('(prefers-reduced-motion: reduce)').matches){ L.classList.add('anim'); setTimeout(() => L.classList.remove('anim'), 1200); }
+  L.querySelectorAll('.ev').forEach(b => b.onclick = () => {
+    const id = b.dataset.alvo;
+    if(b.classList.contains('grupo')){
+      const f = L.querySelector(`[data-de="${id}"]`), abre = !abertos.has(id);
+      abre ? abertos.add(id) : abertos.delete(id);
+      b.setAttribute('aria-expanded', abre); f.classList.toggle('aberto', abre);
+    }
+    irPara(id, false);
+  });
+}
+
+function irPara(id, rolar){
+  selId = selId === id && !rolar ? null : id;
+  primeiraVez = false;
+  const y = window.scrollY;
+  render();
+  if(rolar){
+    const alvo = $('lista').querySelector(`[data-alvo="${id}"]`);
+    if(alvo) alvo.scrollIntoView({behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center'});
+  } else window.scrollTo(0, y);
+}
+function setFiltro(f){
+  filtro = f; primeiraVez = true;
+  $('filtros').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.f === f));
+  render();
+}
+
+// ---- controles ----
+document.querySelectorAll('#filtros button').forEach(b => b.onclick = () => setFiltro(b.dataset.f));
+document.querySelectorAll('[data-per]').forEach(b => b.onclick = () => {
+  if(b.dataset.per === 'livre'){ toast('No painel, “Período” abre o calendário (até 1 ano). Aqui só 24 h e 7 dias têm dados.'); return; }
+  horas = +b.dataset.per; selId = null; abertos.clear(); primeiraVez = true;
+  document.querySelectorAll('[data-per]').forEach(x => x.setAttribute('aria-pressed', x === b));
+  render();
+});
+document.querySelectorAll('[data-estado]').forEach(b => b.onclick = () => {
+  estado = b.dataset.estado; selId = null; primeiraVez = true;
+  if(!$('resumo')) { location.hash = ''; }
+  render();
+  $('cartao').scrollIntoView({behavior:'smooth', block:'start'});
+});
+let tt;
+function toast(msg){ const t = $('toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(tt); tt = setTimeout(() => t.classList.remove('on'), 3200); }
+$('tema').onclick = () => {
+  const r = document.documentElement, escuro = r.dataset.theme ? r.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+  r.dataset.theme = escuro ? 'light' : 'dark';
+};
+let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { primeiraVez = false; if($('faixa')) render(); }, 150); });
+
+// o erro troca o corpo do cartao; guardamos o original para voltar
+const corpoOriginal = $('corpo').innerHTML;
+const renderBase = render;
+render = function(){
+  if(estado !== 'erro' && !$('resumo')){
+    $('corpo').innerHTML = corpoOriginal;
+    document.querySelectorAll('#filtros button').forEach(b => { b.onclick = () => setFiltro(b.dataset.f); b.setAttribute('aria-pressed', b.dataset.f === filtro); });
+  }
+  renderBase();
+};
+render();
+})();
+</script>
+
+</html>

@@ -26,7 +26,9 @@
   (coordenadas das fazendas + tabela `ocorrencias`), `esp32_por_maquina.sql` (ID do ESP32 editável,
   histórico por máquina; rodar ANTES da API nova e reaplicar se `frota.sql` rodar de novo) e
   `clientes_logo.sql` e `ao_vivo.sql` (modo ao vivo; rodar por último e reaplicar se `frota.sql` rodar de novo,
-  porque ele reinstala o `registrar_dispositivo` sem `telemetria_ms`), todas aditivas e idempotentes. Não executar `preparar_supabase.sql` em banco existente. A finalização
+  porque ele reinstala o `registrar_dispositivo` sem `telemetria_ms`) e `linha_do_tempo.sql` (função
+  `linha_do_tempo_faixas`, só leitura: agrega a telemetria por faixa para a Linha do tempo; sem ela só 24 h
+  funciona), todas aditivas e idempotentes. Não executar `preparar_supabase.sql` em banco existente. A finalização
   `concluir_migracao_dispositivos()` só ocorre após provisionar e sincronizar todas as placas;
   ver [Ativar frota](docs/ATIVAR_FROTA.md). A compatibilidade legada não equivale a token universal.
 - Máquinas cadastradas são editáveis pelo botão "Editar" do card (ou pelo modal de
@@ -282,7 +284,8 @@ TinyGPSPlus 1.0.3 (Mikal Hart), MFRC522 1.4.12, **MAX6675 0.3.4 do RobTillaart**
 
 Scripts em `firmware/sql/`, rodados no **SQL Editor** do Supabase. Ordem:
 `preparar_supabase.sql` → `dados_exemplo.sql` → `fazenda.sql` → `usuarios.sql` → `frota.sql` →
-`exclusoes.sql` → `mapa_ocorrencias.sql` → `esp32_por_maquina.sql` → `clientes_logo.sql` → `ao_vivo.sql`.
+`exclusoes.sql` → `mapa_ocorrencias.sql` → `esp32_por_maquina.sql` → `clientes_logo.sql` → `ao_vivo.sql` →
+`linha_do_tempo.sql`.
 Todos **idempotentes** (os testes em
 `firmware/sql/tests/run.mjs` aplicam cada migração duas vezes no PGlite).
 
@@ -342,6 +345,7 @@ Arquivo central: `api/app.py`. Servida por **waitress** em produção; `python a
 | `GET /saude` | Health check (API + banco). Única rota liberada da API key |
 | `GET /me` | Perfil do usuário logado (role + fazenda vinculada) |
 | `GET /telemetria` | Últimas leituras (`?dispositivo=`, `?limite=`). Com `?de=AAAA-MM-DD&ate=AAAA-MM-DD` (os dois dias inclusivos, horário de Brasília, até 1 ano) lista o período em páginas de 50 (`?pagina=`), da mais nova para a mais velha, e devolve `pagina` e `tem_mais`; na página 1 também `total_leituras` e `total_paginas` (contagem exata com limite de 3 s; `null` nos dois se falhar, e a lista segue); `?corte=` (instante ISO com fuso) limita o fim do período, e o painel o fixa na 1ª página para a paginação não repetir linhas; período inválido dá 400 `periodo_invalido` |
+| `GET /telemetria/linha-do-tempo` | Linha do tempo do Painel da máquina numa resposta só: `?horas=24` ou `168` (até a última leitura da máquina) ou `?de=&ate=` (dias de Brasília, até 1 ano). Devolve `janela` (com `minutos` da faixa: 5 em 24 h, 30 em 7 dias, até 1440 no Período), `faixas` (leituras, motor, `temp_max`, risco; da função SQL `linha_do_tempo_faixas`), `sessoes`, `eventos` (alarmes, crachás aceitos/recusados e os calculados: motor ligou/parou, placa sem enviar, temperatura normal; no máximo 1.000, todos os alarmes ficam), `omitidos`, `resumo` e `limites`. Sem a função SQL: até 72 h agrega em Python; acima, 409 `sql_pendente` |
 | `GET /eventos` | Eventos do período (`?dias=`, ou `?de=AAAA-MM-DD&ate=AAAA-MM-DD`: os dois dias inclusivos, horário de Brasília, até 1 ano; `dias` junto com `de/ate` dá 400 `periodo_invalido`) |
 | `GET /resumo` | Resumo diário (view `resumo_diario`); aceita `?dias=` ou `?de=&ate=` como `/eventos` |
 | `GET /scores` | Scores de risco determinísticos por eixo |
@@ -483,6 +487,9 @@ Mais os asserts de SQL no PGlite (`node firmware/sql/tests/run.mjs`). Cobrem:
   Início do gestor, mapa, exposição, manutenção, ocorrências, PDF.
 - `test_telemetria.py`, `test_eventos.py`, `test_fazendas.py`, `test_usuarios.py`,
   `test_health.py` — rotas.
+- `test_linha_do_tempo*.py` — faixas, eventos de rotina, limites, corte e a rota da Linha do tempo;
+  `firmware/sql/tests/linha_do_tempo.sql` — a função `linha_do_tempo_faixas` no PGlite;
+  `test_painel_linha_tempo.py` — a seção no navegador (resumo, gráfico, lista, filtros, 24 h/7 dias/Período).
 - `test_janela_periodo.py` — `?de=&ate=` (Brasília, 1 ano) em `/eventos`, `/resumo` e `/operacoes`;
   `test_leituras_periodo.py` — `/telemetria` por período (páginas de 50, `corte`, total de páginas).
 - `test_painel_calendario.py`, `test_painel_leituras_periodo.py`, `test_painel_periodo_secao.py`,
