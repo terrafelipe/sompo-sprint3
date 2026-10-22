@@ -434,6 +434,7 @@
 <!-- Tailwind gerado (api/tailwind/painel.config.js); rebuild em docs/COMO_TESTAR.md -->
 <link rel="stylesheet" href="/static/painel.css"/>
 <link rel="stylesheet" href="/static/calendario.css"/>
+<link rel="stylesheet" href="/static/linha_do_tempo.css"/>
 </head>
 <body class="bg-background text-on-background font-sans text-sm overflow-x-hidden">
 
@@ -637,16 +638,10 @@
         <div id="graficoTipos" class="px-5 pb-5 space-y-3"></div>
       </section>
 
-      <!-- LINHA DO TEMPO (24h ate a ultima leitura) -->
+      <!-- LINHA DO TEMPO (eventos primeiro; desenho em static/linha_do_tempo.js) -->
       <section data-section="linhaTempo" class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
         <div class="p-5 pb-2 flex items-start justify-between gap-4 flex-wrap">
           <div><h2 class="text-base font-semibold text-on-surface">Linha do tempo</h2><p id="linhaTempoSub" class="text-sm text-on-surface-variant">24 horas até a última leitura da máquina</p></div>
-          <div class="flex items-center gap-x-4 gap-y-1 flex-wrap text-xs text-on-surface-variant pt-1">
-            <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm bg-ok"></span>Motor ligado</span>
-            <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm" style="background:var(--v-texto3)"></span>Ligada, motor parado</span>
-            <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm" style="background:var(--v-hover);outline:1px solid var(--v-borda)"></span>Sem leituras</span>
-            <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm" style="background:var(--s-furto)"></span>Sessão de crachá</span>
-          </div>
         </div>
         <div id="linhaTempo" class="px-5 pb-4"></div>
       </section>
@@ -1253,6 +1248,7 @@
 <div id="cadastroAviso" role="status" class="hidden fixed bottom-4 right-4 z-[70] max-w-[90vw] bg-surface-container-lowest shadow-lg rounded-xl p-4 text-sm"></div>
 
 <script src="/static/calendario.js"></script>
+<script src="/static/linha_do_tempo.js"></script>
 <script>
 const $ = id => document.getElementById(id);
 let contextoVersao = 0;
@@ -3551,92 +3547,28 @@ function renderizarFrota(){
   if(animarAgora('frota')) entrar(el, () => crescer(el.querySelectorAll('.frota-barra'), 'X', {atraso: 50}));
 }
 
-let linhaTempoDados = null;
+let linhaTempoDados = null, linhaTempoVista = null;
 async function carregarLinhaTempo(){
   const c = $('linhaTempo');
   try{
-    const per = periodo, eq = equipamentoSelecionado;
+    const eq = equipamentoSelecionado;
     const d = await getJSON(`/telemetria/linha-do-tempo?${seletorEquipamento()}&horas=24`);
+    if(eq !== equipamentoSelecionado) return;
     if(!d.janela || !(d.faixas || []).length){
-      linhaTempoDados = null;
+      linhaTempoDados = null; linhaTempoVista = null;
       c.innerHTML = '<div class="text-sm text-on-surface-variant italic py-8 text-center">Sem leituras desta máquina para montar a linha do tempo.</div>';
       $('linhaTempoSub').textContent = '24 horas até a última leitura da máquina'; return;
     }
-    const ini = new Date(d.janela.inicio), fim = new Date(d.janela.fim);
-    const dias = Math.max(1, Math.ceil((Date.now() - ini.getTime()) / 864e5) + 1);
-    const [ops, evs] = await Promise.all([
-      getJSON(`/operacoes?equipamento=${encodeURIComponent(eq)}&dias=${dias}&limite=200`).catch(() => ({dados: []})),
-      getJSON(`/eventos?equipamento=${encodeURIComponent(eq)}&dias=${dias}`).catch(() => ({dados: []})),
-    ]);
-    if(eq !== equipamentoSelecionado || per !== periodo) return;
-    const dentro = t => t >= ini.getTime() && t <= fim.getTime();
-    // Sem fim registrado: so a sessao ainda aberta vai ate o fim da janela; interrompida ou
-    // encerrada sem fim vira um marcador no inicio (nao pode pintar as 24h inteiras).
-    const ABERTA = ['aberta', 'em_andamento', 'ativa'];
-    const sessoes = (ops.dados || []).map(s => {
-      const a = new Date(s.inicio_em || s.fim_em).getTime();
-      const b = s.fim_em ? new Date(s.fim_em).getTime() : ABERTA.includes(s.status) ? new Date(d.janela.fim).getTime() : a;
-      return {s, a, b};
-    })
-      .filter(x => isFinite(x.a) && isFinite(x.b) && x.b >= ini.getTime() && x.a <= fim.getTime());
-    const alertas = (evs.dados || []).map(e => ({e, t: new Date(e.criado_em).getTime()})).filter(x => dentro(x.t));
-    linhaTempoDados = {janela: d.janela, faixas: d.faixas, sessoes, alertas};
-    if(!mudou('linhaTempo', `${d.janela.fim}|${d.faixas.reduce((a, f) => a + f.leituras, 0)}|${sessoes.length}|${alertas.length}`) && c.querySelector('svg')) return;
+    linhaTempoDados = d;
+    if(!mudou('linhaTempo', `${d.janela.inicio}|${d.janela.fim}|${d.faixas.reduce((a, f) => a + f.leituras, 0)}|${(d.eventos || []).length}`) && c.querySelector('svg')) return;
     desenharLinhaTempo();
-  }catch(e){ if(e.obsoleto) return; c.innerHTML = erroLista('Linha do tempo indisponível.'); }
+  }catch(e){ if(e.obsoleto) return; linhaTempoDados = null; linhaTempoVista = null; c.innerHTML = erroLista('Linha do tempo indisponível. Não deu para carregar os dados.'); }
 }
 function desenharLinhaTempo(){
-  const c = $('linhaTempo'), D = linhaTempoDados; if(!D) return;
+  const D = linhaTempoDados; if(!D) return;
   tipEsconder();
-  const ini = new Date(D.janela.inicio).getTime(), fim = new Date(D.janela.fim).getTime(), passo = D.janela.minutos * 60000;
-  const ativas = D.faixas.filter(f => f.leituras).length * D.janela.minutos;
-  const tempoAtivo = ativas >= 60 ? `${Math.floor(ativas / 60)} h${ativas % 60 ? ' ' + (ativas % 60) + ' min' : ''}` : `${ativas} min`;
-  $('linhaTempoSub').textContent = `24 horas até a última leitura (${fmtHora(D.janela.fim)}, ${fmtRelativo(D.janela.fim)}) · leituras em ${tempoAtivo} dessas 24 h`;
-  const W = larguraGrafico(c, 900), ML = 92, MR = 10, iw = W - ML - MR;
-  const TRILHAS = [['Máquina', 14], ['Risco', 34], ['Crachá', 54], ['Alertas', 74]], AT = 12, H = 112;
-  const X = t => ML + (t - ini) / (fim - ini) * iw;
-  const fw = iw / D.faixas.length;
-  const corRiscoFaixa = r => r === 'CRITICO' || r === 'ALTO' ? '#ba1a1a' : r === 'ATENCAO' || r === 'MEDIO' ? '#f59e0b' : r ? '#10b981' : null;
-  let g = TRILHAS.map(([n, y]) => `<text x="0" y="${y + 9}" font-size="11" style="fill:var(--v-texto2)">${n}</text>`).join('');
-  D.faixas.forEach((f, i) => {
-    const x = (ML + i * fw).toFixed(2), w = Math.max(0.5, fw - 1).toFixed(2);
-    const corM = !f.leituras ? 'var(--v-hover)' : f.motor_ligado ? '#10b981' : 'var(--v-texto3)';
-    g += `<rect x="${x}" y="${TRILHAS[0][1]}" width="${w}" height="${AT}" rx="2" style="fill:${corM}"/>`;
-    const cr = corRiscoFaixa(f.risco);
-    g += `<rect x="${x}" y="${TRILHAS[1][1]}" width="${w}" height="${AT}" rx="2" style="fill:${cr || 'var(--v-hover)'}"${cr ? ' fill-opacity="0.85"' : ''}/>`;
-  });
-  g += `<rect x="${ML}" y="${TRILHAS[2][1]}" width="${iw}" height="${AT}" rx="2" style="fill:var(--v-hover)"/>`;
-  D.sessoes.forEach(({a, b}) => {
-    const x0 = X(Math.max(a, ini)), x1 = X(Math.min(b, fim));
-    g += `<rect x="${x0.toFixed(1)}" y="${TRILHAS[2][1]}" width="${Math.max(2, x1 - x0).toFixed(1)}" height="${AT}" rx="2" fill="${COR.furto}"/>`;
-  });
-  g += `<line x1="${ML}" x2="${W - MR}" y1="${TRILHAS[3][1] + AT/2}" y2="${TRILHAS[3][1] + AT/2}" style="stroke:var(--v-borda)" stroke-width="1"/>`;
-  D.alertas.forEach(({e, t}) => {
-    const cor = eixoDoTipo(e.tipo) === 'incendio' ? COR.incendio : COR.furto;
-    g += `<circle cx="${X(t).toFixed(1)}" cy="${TRILHAS[3][1] + AT/2}" r="4" fill="${cor}" style="stroke:var(--v-card)" stroke-width="2"/>`;
-  });
-  for(let h = 0; h <= 24; h += 3){
-    const t = ini + h * 3600000, x = X(t);
-    const hora = new Date(t).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
-    g += `<line x1="${x.toFixed(1)}" x2="${x.toFixed(1)}" y1="${TRILHAS[0][1] - 4}" y2="${TRILHAS[3][1] + AT + 2}" style="stroke:var(--v-borda)" stroke-width="1" stroke-opacity="0.6"/>`;
-    g += `<text x="${x.toFixed(1)}" y="${H - 6}" text-anchor="${h === 0 ? 'start' : h === 24 ? 'end' : 'middle'}" font-size="10" style="fill:var(--v-texto2)">${hora}</text>`;
-  }
-  const hits = D.faixas.map((f, i) => `<rect class="viz-hit" data-i="${i}" x="${(ML + i * fw).toFixed(2)}" y="${TRILHAS[0][1] - 4}" width="${fw.toFixed(2)}" height="${TRILHAS[3][1] + AT + 8 - TRILHAS[0][1]}"/>`).join('');
-  c.innerHTML = `<svg viewBox="0 0 ${W} ${H}" class="w-full" role="img" aria-label="Linha do tempo das 24 horas até a última leitura: motor, risco, sessões de crachá e alertas">${g}${hits}</svg>`;
-  if(animarAgora('linhaTempo')) entrar(c, () => revelar(c.querySelector('svg')));
-  ligarHover(c, (ev, i) => {
-    if(!ev) return;
-    const f = D.faixas[i], a = ini + i * passo, b = a + passo;
-    const noIntervalo = D.alertas.filter(x => x.t >= a && x.t < b);
-    const sessao = D.sessoes.find(x => x.a < b && x.b >= a);
-    const hm = t => new Date(t).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
-    tipMostrar(ev, `${hm(a)} às ${hm(b)}`, [
-      [f.leituras ? (f.motor_ligado ? '#10b981' : '#a1a1aa') : '#d4d4d8', 'Máquina', f.leituras ? (f.motor_ligado ? 'Motor ligado' : 'Motor parado') : 'Sem leituras'],
-      [corRiscoFaixa(f.risco) || '#d4d4d8', 'Risco', nomeClasse(f.risco) || '–'],
-      [COR.furto, 'Crachá', sessao ? (sessao.s.operador_nome || 'Sessão ativa') : 'Nenhuma sessão'],
-      [COR.incendio, 'Alertas', noIntervalo.length ? noIntervalo.length + ' (' + [...new Set(noIntervalo.map(x => nomeTipo(x.e.tipo)))].slice(0, 2).join(', ') + ')' : '0'],
-    ]);
-  });
+  $('linhaTempoSub').textContent = `24 horas até a última leitura (${new Date(D.janela.fim).toLocaleString('pt-BR', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'}).replace(',', ',')}, ${fmtRelativo(D.janela.fim)})`;
+  linhaTempoVista = LinhaDoTempo.montar($('linhaTempo'), D, {titulos: TITULO_TIPO, animar: animarAgora('linhaTempo')});
 }
 
 /* ---------- Detalhe do alerta (modal) ---------- */
