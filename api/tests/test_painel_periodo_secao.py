@@ -7,10 +7,16 @@ from tests.test_painel import painel, pw, nav  # noqa: F401
 
 SEG = '#alertasSeg'
 LIVRE = f'{SEG} [data-periodo-livre]'
+SEGT = '#tempSeg'
+LIVRE_T = f'{SEGT} [data-periodo-livre]'
 
 
 def dias_btn(n):
     return f'{SEG} [data-dias="{n}"]'
+
+
+def dias_t(n):
+    return f'{SEGT} [data-dias="{n}"]'
 
 
 def abrir_maquina(page):
@@ -35,10 +41,10 @@ def gravar(page):
 def test_periodo_da_temperatura_so_recarrega_a_temperatura(painel):
     page, state = painel
     abrir_maquina(page)
-    pw.expect(page.locator('#tempDiaDias')).to_have_value('7')
-    pw.expect(page.locator('#tempDiaDias')).to_have_attribute('aria-label', 'Período da temperatura')
+    pw.expect(page.locator(dias_t(7))).to_have_attribute('aria-pressed', 'true')
+    pw.expect(page.locator(SEGT)).to_have_attribute('aria-label', 'Período da temperatura')
     pedidos = gravar(page)
-    page.select_option('#tempDiaDias', '30')
+    page.locator(dias_t(30)).click()
     pw.expect(page.locator('#tempDiaSub')).to_contain_text('últimos 30 dias')
     page.wait_for_load_state('networkidle')
     assert pedidos == [('/resumo', '30')]
@@ -65,11 +71,11 @@ def test_periodo_dos_alertas_so_recarrega_os_alertas(painel):
 def test_trocar_o_global_reinicia_as_secoes(painel):
     page, state = painel
     abrir_maquina(page)
-    page.select_option('#tempDiaDias', '90')
+    page.locator(dias_t(90)).click()
     page.locator(dias_btn(7)).click()
     pw.expect(page.locator('#tempDiaSub')).to_contain_text('últimos 90 dias')
     page.locator('[data-periodo="30"]').click()
-    pw.expect(page.locator('#tempDiaDias')).to_have_value('30')
+    pw.expect(page.locator(dias_t(30))).to_have_attribute('aria-pressed', 'true')
     pw.expect(page.locator(dias_btn(30))).to_have_attribute('aria-pressed', 'true')
     pw.expect(page.locator('#tempDiaSub')).to_contain_text('últimos 30 dias')
     pw.expect(page.locator('#atividadeSub')).to_contain_text('últimos 30 dias')
@@ -79,7 +85,7 @@ def test_refresh_mantem_o_periodo_de_cada_secao(painel):
     page, state = painel
     page.clock.install()
     abrir_maquina(page)
-    page.select_option('#tempDiaDias', '90')
+    page.locator(dias_t(90)).click()
     page.locator(dias_btn(30)).click()
     pw.expect(page.locator('#tempDiaSub')).to_contain_text('últimos 90 dias')
     pw.expect(page.locator('#atividadeSub')).to_contain_text('últimos 30 dias')
@@ -93,7 +99,7 @@ def test_refresh_mantem_o_periodo_de_cada_secao(painel):
     page.wait_for_load_state('networkidle')
     pw.expect(page.locator('#tempDiaSub')).to_contain_text('últimos 90 dias')
     assert sorted(pedidos) == [('/eventos', '60'), ('/resumo', '90')]
-    pw.expect(page.locator('#tempDiaDias')).to_have_value('90')
+    pw.expect(page.locator(dias_t(90))).to_have_attribute('aria-pressed', 'true')
     pw.expect(page.locator(dias_btn(30))).to_have_attribute('aria-pressed', 'true')
 
 
@@ -101,7 +107,7 @@ def test_periodo_da_secao_e_contexto_novo_so_dela(painel):
     page, state = painel
     abrir_maquina(page)
     state['hold'] = '/resumo'
-    page.select_option('#tempDiaDias', '30')
+    page.locator(dias_t(30)).click()
     pw.expect(page.locator('#graficoTempDia')).to_have_class(re.compile(r'viz-carregando'))
     assert not page.locator('#graficoAtividade').evaluate("e => e.classList.contains('viz-carregando')")
     for rota in state['held']:
@@ -222,3 +228,84 @@ def test_voltar_para_7_30_90_depois_do_periodo_livre(painel):
     pw.expect(page.locator('#atividadeSub')).to_contain_text('últimos 90 dias')
     pw.expect(page.locator(LIVRE)).to_have_attribute('aria-pressed', 'false')
     assert pedidos[-1].get('dias') == '180' and 'de' not in pedidos[-1]
+
+
+# ---------- periodo livre na Temperatura por dia ----------
+
+def gravar_rotas(page):
+    """(rota, parametros) de cada GET de /resumo e /eventos feito daqui para frente."""
+    pedidos = []
+
+    def ver(req):
+        url = urlparse(req.url)
+        if url.hostname == 'painel.test' and url.path in ('/resumo', '/eventos'):
+            pedidos.append((url.path, {k: v[0] for k, v in parse_qs(url.query).items()}))
+    page.on('request', ver)
+    return pedidos
+
+
+def test_botao_periodo_da_temperatura_vem_depois_de_7_30_90(painel):
+    page, state = painel
+    abrir_maquina(page)
+    pw.expect(page.locator(f'{SEGT} button')).to_have_text(['7 dias', '30 dias', '90 dias', 'calendar_monthPeríodo'])
+    pw.expect(page.locator(LIVRE_T)).to_have_attribute('aria-pressed', 'false')
+
+
+def test_periodo_livre_da_temperatura_pede_resumo_de_ate_sem_comparacao(painel):
+    page, state = painel
+    abrir_maquina(page)
+    pedidos = gravar_rotas(page)
+    escolher_periodo(page, '2026-10-02', '2026-10-21', botao=LIVRE_T)
+    pw.expect(page.locator('#tempDiaSub')).to_contain_text('de 02/10/2026 a 21/10/2026')
+    page.wait_for_load_state('networkidle')
+    assert [r for r, _ in pedidos] == ['/resumo']                 # uma so chamada: a temperatura nao compara
+    params = pedidos[0][1]
+    assert (params['de'], params['ate']) == ('2026-10-02', '2026-10-21') and 'dias' not in params
+    pw.expect(page.locator(LIVRE_T)).to_have_attribute('aria-pressed', 'true')
+    pw.expect(page.locator(f'{LIVRE_T} .rot')).to_have_text('2 out – 21 out')
+    for n in (7, 30, 90):
+        pw.expect(page.locator(dias_t(n))).to_have_attribute('aria-pressed', 'false')
+
+
+def test_periodo_livre_da_temperatura_nao_mexe_nos_alertas(painel):
+    page, state = painel
+    abrir_maquina(page)
+    pedidos = gravar_rotas(page)
+    escolher_periodo(page, '2026-10-02', '2026-10-21', botao=LIVRE_T)
+    pw.expect(page.locator('#tempDiaSub')).to_contain_text('de 02/10/2026 a 21/10/2026')
+    page.wait_for_load_state('networkidle')
+    assert all(r == '/resumo' for r, _ in pedidos)
+    pw.expect(page.locator(dias_btn(7))).to_have_attribute('aria-pressed', 'true')
+    pw.expect(page.locator('#atividadeSub')).to_contain_text('últimos 7 dias')
+
+
+def test_clique_global_apaga_o_periodo_livre_da_temperatura(painel):
+    page, state = painel
+    abrir_maquina(page)
+    escolher_periodo(page, '2026-10-02', '2026-10-21', botao=LIVRE_T)
+    pw.expect(page.locator(LIVRE_T)).to_have_attribute('aria-pressed', 'true')
+    page.locator('[data-periodo="30"]').click()
+    pw.expect(page.locator(LIVRE_T)).to_have_attribute('aria-pressed', 'false')
+    pw.expect(page.locator(f'{LIVRE_T} .rot')).to_have_text('Período')
+    pw.expect(page.locator(dias_t(30))).to_have_attribute('aria-pressed', 'true')
+    pw.expect(page.locator('#tempDiaSub')).to_contain_text('últimos 30 dias')
+
+
+def test_voltar_para_7_30_90_depois_do_periodo_livre_da_temperatura(painel):
+    page, state = painel
+    abrir_maquina(page)
+    escolher_periodo(page, '2026-10-02', '2026-10-21', botao=LIVRE_T)
+    pw.expect(page.locator('#tempDiaSub')).to_contain_text('de 02/10/2026 a 21/10/2026')
+    pedidos = gravar_rotas(page)
+    page.locator(dias_t(90)).click()
+    pw.expect(page.locator('#tempDiaSub')).to_contain_text('últimos 90 dias')
+    pw.expect(page.locator(LIVRE_T)).to_have_attribute('aria-pressed', 'false')
+    assert pedidos[-1] == ('/resumo', {**pedidos[-1][1], 'dias': '90'}) and 'de' not in pedidos[-1][1]
+
+
+def test_periodo_livre_sem_leituras_mostra_a_frase_de_sempre(painel):
+    page, state = painel
+    abrir_maquina(page)
+    page.route(re.compile(r'.*/resumo\?.*\bde=.*'), lambda r: r.fulfill(json={'dados': []}))   # periodo sem nenhum dia gravado
+    escolher_periodo(page, '2026-10-02', '2026-10-21', botao=LIVRE_T)
+    pw.expect(page.locator('#graficoTempDia')).to_contain_text('Sem leituras no período.')
