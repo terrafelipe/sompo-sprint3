@@ -208,3 +208,25 @@ def test_foco_volta_ao_botao_depois_de_trocar_de_pagina(painel):
     pw.expect(page.locator('#leiturasPagina')).to_contain_text('Página 3')
     pw.expect(page.locator('#leiturasProxima')).to_be_disabled()     # ultima pagina: o foco vai para o botao que resta
     pw.expect(page.locator('#leiturasAnterior')).to_be_focused()
+
+
+def test_foco_sobrevive_a_recarga_por_resposta_obsoleta(painel):
+    page, state = painel
+    st = _servidor(page, [([leitura(i) for i in range(50)], True), ([leitura(i) for i in range(50)], True)])
+    _abrir(page)
+    _escolher(page, '2026-09-21', '2026-10-21')
+    pw.expect(page.locator('#leiturasProxima')).to_be_enabled()
+    st['segurar'] = True
+    page.locator('#leiturasProxima').focus()
+    page.keyboard.press('Enter')
+    for _ in range(50):
+        if st['presas']:
+            break
+        page.wait_for_timeout(100)
+    assert st['presas'], 'a consulta da pagina 2 nao saiu'
+    page.evaluate('contextoVersao++')      # o contexto muda com a resposta em voo
+    st['segurar'] = False
+    rota, q = st['presas'].pop(0)
+    rota.fulfill(json=st['corpo'](q))      # chega obsoleta: a pagina e pedida de novo
+    pw.expect(page.locator('#leiturasPagina')).to_contain_text('Página 2')
+    pw.expect(page.locator('#leiturasProxima')).to_be_focused()

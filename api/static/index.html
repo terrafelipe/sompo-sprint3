@@ -1783,7 +1783,7 @@ function limparPeriodoLeituras(){
   $('leiturasLimpar').hidden = $('leiturasNav').hidden = true;
   avisoLeituras('');
 }
-async function carregarLeiturasPeriodo(){
+async function carregarLeiturasPeriodo(focoLembrado = null){
   const p = leiturasPeriodo; if(!p) return;
   const corpo = $('tabelaTelemetria');
   avisoLeituras('');
@@ -1791,7 +1791,7 @@ async function carregarLeiturasPeriodo(){
   $('leiturasLimpar').hidden = $('leiturasNav').hidden = false;
   corpo.innerHTML = '<tr><td colspan="9" class="py-6 px-5 text-on-surface-variant italic">Carregando…</td></tr>';
   $('leiturasPagina').textContent = `Página ${p.pagina}`;
-  const foco = $('leiturasNav').contains(document.activeElement) ? document.activeElement : null;
+  const foco = focoLembrado || ($('leiturasNav').contains(document.activeElement) ? document.activeElement : null);
   $('leiturasAnterior').disabled = $('leiturasProxima').disabled = true;   // 1 pagina por vez: clique duplo nao pula pagina
   // Desabilitar o botao focado joga o foco no <body>: devolve ao mesmo botao, ou ao que sobrou.
   const devolverFoco = () => {
@@ -1812,7 +1812,7 @@ async function carregarLeiturasPeriodo(){
     $('leiturasProxima').disabled = !d.tem_mais;
     devolverFoco();
   }catch(e){ if(leiturasPeriodo !== p) return;
-    if(e.obsoleto) return carregarLeiturasPeriodo();   // o contexto mudou no meio (ex.: outro cadastro excluido), o periodo continua valendo
+    if(e.obsoleto) return carregarLeiturasPeriodo(foco);   // o contexto mudou no meio (ex.: outro cadastro excluido), o periodo continua valendo
     corpo.innerHTML = '';
     avisoLeituras('Não foi possível carregar o período. Confira as datas e tente de novo.');
     $('leiturasAnterior').disabled = p.pagina <= 1;
