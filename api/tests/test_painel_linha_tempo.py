@@ -97,6 +97,117 @@ def test_tema_escuro_usa_as_cores_do_tema(painel):
     page, _ = painel
     _abrir(page)
     page.evaluate("document.documentElement.dataset.tema = 'escuro'")
-    fundo_claro = page.evaluate("""() => [...document.querySelectorAll('#linhaTempo *')].filter(e => {
-      const c = getComputedStyle(e); return c.backgroundColor === 'rgb(255, 255, 255)' || c.fill === 'rgb(255, 255, 255)'; }).length""")
-    assert fundo_claro == 0
+    # espera as transicoes de cor (150 ms no .seg) terminarem: nada branco sobra no tema escuro
+    page.wait_for_function("""() => ![...document.querySelectorAll('#linhaTempo *')].some(e => {
+      const c = getComputedStyle(e); return c.backgroundColor === 'rgb(255, 255, 255)' || c.fill === 'rgb(255, 255, 255)'; })""", timeout=3000)
+
+
+# ---- lista de eventos, grupos, filtros e ligacao com o grafico ----
+
+def test_lista_por_dia_mais_recente_primeiro_e_hora_crescente_no_dia(painel):
+    page, _ = painel
+    _abrir(page, resposta_exemplo(horas=168))
+    dias = page.locator('#ltLista .lt-dia')
+    pw.expect(dias.first).to_contain_text('22 de outubro')
+    pw.expect(dias.nth(1)).to_contain_text('21 de outubro')
+    horas = page.locator('#ltLista .lt-ev').evaluate_all(
+        "els => { const out = []; for(const e of els){ if(e.closest('[data-dia]').dataset.dia !== els[0].closest('[data-dia]').dataset.dia) break; out.push(e.querySelector('.h').textContent); } return out; }")
+    assert horas == sorted(horas) and len(horas) > 5
+
+
+def test_alarmes_repetidos_viram_uma_linha_que_abre(painel):
+    page, _ = painel
+    _abrir(page)
+    grupo = page.locator('#ltLista .lt-ev', has_text='Escape em atenção')
+    pw.expect(grupo).to_have_count(1)
+    pw.expect(grupo).to_contain_text('3 vezes entre 09:12 e 09:25 · até 53 °C')
+    pw.expect(grupo).to_have_attribute('aria-expanded', 'false')
+    grupo.click()
+    pw.expect(grupo).to_have_attribute('aria-expanded', 'true')
+    filhos = page.locator(f'#ltLista .lt-filhos[data-de="{grupo.get_attribute("data-lt-alvo")}"]')
+    pw.expect(filhos).to_contain_text('09:18')
+    pw.expect(filhos).to_contain_text('47 °C')
+
+
+def test_grupos_respeitam_30_min_mesmo_tipo_e_mesmo_dia(painel):
+    page, _ = painel
+    _abrir(page)
+    tamanhos = page.evaluate("""() => {
+      const e = (id, tipo, em) => ({id, tipo, em, eixo: 'incendio'});
+      return LinhaDoTempo.grupos([
+        e(1, 'escape_atencao', '2026-10-22T09:00:00-03:00'), e(2, 'escape_atencao', '2026-10-22T09:29:00-03:00'),
+        e(3, 'escape_atencao', '2026-10-22T10:00:00-03:00'), e(4, 'escape_critico', '2026-10-22T10:05:00-03:00'),
+        e(5, 'escape_atencao', '2026-10-22T23:50:00-03:00'), e(6, 'escape_atencao', '2026-10-23T00:10:00-03:00'),
+      ]).map(g => g.itens.length); }""")
+    assert tamanhos == [2, 1, 1, 1, 1]
+
+
+def test_filtros_e_contagem(painel):
+    page, _ = painel
+    _abrir(page)
+    lista, cont = page.locator('#ltLista'), page.locator('#ltCont')
+    pw.expect(cont).to_have_text('22 eventos · 9 alarmes')
+    page.locator('#ltFiltros [data-f="alarmes"]').click()
+    pw.expect(lista).not_to_contain_text('Motor ligou')
+    pw.expect(lista).to_contain_text('Capô aberto')
+    page.locator('#ltFiltros [data-f="incendio"]').click()
+    pw.expect(lista).not_to_contain_text('Capô aberto')
+    pw.expect(lista).to_contain_text('Escape crítico')
+    page.locator('#ltFiltros [data-f="rotina"]').click()
+    pw.expect(lista).to_contain_text('Motor ligou')
+    pw.expect(lista).not_to_contain_text('Escape crítico')
+    chip = page.locator('#ltResumo [data-filtro="furto"]')
+    chip.click()
+    pw.expect(page.locator('#ltFiltros [data-f="furto"]')).to_have_attribute('aria-pressed', 'true')
+    pw.expect(lista).to_contain_text('Crachá recusado')
+    pw.expect(lista).not_to_contain_text('Escape crítico')
+    page.locator('#ltResumo [data-filtro="furto"]').click()
+    pw.expect(page.locator('#ltFiltros [data-f="tudo"]')).to_have_attribute('aria-pressed', 'true')
+
+
+def test_tocar_no_marcador_rola_e_seleciona_na_lista(painel):
+    page, _ = painel
+    _abrir(page)
+    marca = page.locator('#ltGrafico [data-lt-marca]').nth(2)   # capo, atencao, critico...
+    marca.locator('rect.lt-alvo').dispatch_event('click')
+    linha = page.locator('#ltLista .lt-ev.sel')
+    pw.expect(linha).to_contain_text('Escape crítico')
+    pw.expect(linha).to_be_in_viewport()
+    pw.expect(page.locator('#ltLeitura')).to_contain_text('Escape crítico')
+
+
+def test_tocar_na_lista_marca_o_grafico_e_tocar_de_novo_desmarca(painel):
+    page, _ = painel
+    _abrir(page)
+    linha = page.locator('#ltLista .lt-ev', has_text='Capô aberto')
+    linha.click()
+    pw.expect(page.locator('#ltGrafico .lt-marca.sel .lt-anel')).to_have_count(1)
+    pw.expect(page.locator('#ltLeitura')).to_contain_text('02:14')
+    page.locator('#ltLista .lt-ev', has_text='Capô aberto').click()
+    pw.expect(page.locator('#ltGrafico .lt-anel')).to_have_count(0)
+
+
+def test_estados_vazio_filtro_sem_resultado_e_corte(painel):
+    page, _ = painel
+    _abrir(page, vazia())
+    pw.expect(page.locator('#ltLista')).to_contain_text('Nenhum evento neste período')
+    pw.expect(page.locator('#ltLeitura')).to_contain_text('A máquina ficou parada')
+    page.unroute('**/telemetria/linha-do-tempo*')
+    d = resposta_exemplo()
+    d['eventos'] = [e for e in d['eventos'] if e['eixo'] != 'incendio']
+    d['omitidos'] = 1234
+    servir(page, d)
+    page.evaluate('carregarLinhaTempo()')
+    pw.expect(page.locator('#ltLista')).to_contain_text('1.234 eventos de rotina mais antigos não aparecem; escolha um período menor.')
+    page.locator('#ltFiltros [data-f="incendio"]').click()
+    pw.expect(page.locator('#ltLista')).to_contain_text('Nenhum evento com este filtro')
+    page.locator('#ltLista button', has_text='Ver tudo').click()
+    pw.expect(page.locator('#ltFiltros [data-f="tudo"]')).to_have_attribute('aria-pressed', 'true')
+
+
+def test_reduced_motion_sem_animacao(painel):
+    page, _ = painel
+    page.emulate_media(reduced_motion='reduce')
+    _abrir(page)
+    nomes = page.locator('#ltLista .lt-ev').evaluate_all('els => els.map(e => getComputedStyle(e).animationName)')
+    assert nomes and set(nomes) == {'none'}
