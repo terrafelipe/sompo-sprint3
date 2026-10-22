@@ -40,8 +40,8 @@
 #calendario .dia.fim{ background:linear-gradient(90deg, var(--cal-faixa) 50%, transparent 50%); }
 #calendario .dia.ini.fim{ background:none; }
 #calendario .dia.ini span, #calendario .dia.fim span{ background:var(--cal-acento); color:#fff; font-weight:600; }
-#calendario .dia.futuro{ color:var(--v-texto3); opacity:.45; cursor:not-allowed; }
-#calendario .dia.futuro:hover span{ background:none; }
+#calendario .dia.futuro, #calendario .dia.limite{ color:var(--v-texto3); opacity:.45; cursor:not-allowed; }
+#calendario .dia.futuro:hover span, #calendario .dia.limite:hover span{ background:none; }
 #calendario .dia:focus-visible span, #calendario button:focus-visible{ outline:2px solid var(--cal-acento); outline-offset:1px; }
 
 #calendario .cal-rod{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 14px; border-top:1px solid var(--v-borda); }

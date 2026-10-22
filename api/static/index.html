@@ -1327,6 +1327,7 @@ function atualizarFiltroMaquina(){
   });
 }
 function setView(view){
+  Calendario.fechar();   // trocar de tela (inclusive pela paleta, sem clique fora) nao deixa o calendario solto
   if(restrita(view)) view = 'maquinas';
   const mudou = viewAtual !== view;
   if(mudou) novaEntrada(true);

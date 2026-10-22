@@ -41,13 +41,16 @@ def _aplicar_e_ler(page, st):
     return st['pedidos'][-1]
 
 
-def test_hoje_e_o_dia_de_brasilia(painel):
+def test_hoje_e_o_dia_de_brasilia_mesmo_com_o_navegador_em_outro_fuso(painel):
     page, _ = painel
-    page.clock.set_fixed_time('2026-10-21T01:30:00Z')       # 22:30 de 20/10 em Brasilia
-    assert page.evaluate('Calendario.hoje()') == '2026-10-20'
+    cdp = page.context.new_cdp_session(page)
+    cdp.send('Emulation.setTimezoneOverride', {'timezoneId': 'Asia/Tokyo'})
+    page.clock.set_fixed_time('2026-10-21T01:30:00Z')       # 22:30 de 20/10 em Brasilia, 10:30 de 21/10 em Toquio
+    assert page.evaluate("new Date().toLocaleDateString('sv-SE')") == '2026-10-21'   # o navegador ve o dia de Toquio
+    assert page.evaluate('Calendario.hoje()') == '2026-10-20'                         # o calendario ve o de Brasilia
     page.clock.set_fixed_time('2026-10-21T03:30:00Z')       # 00:30 de 21/10 em Brasilia
     assert page.evaluate('Calendario.hoje()') == '2026-10-21'
-    assert 'America/Sao_Paulo' in page.evaluate("fetch('/static/calendario.js').then(r => r.text())")
+    cdp.send('Emulation.setTimezoneOverride', {'timezoneId': ''})
 
 
 def test_formatar_e_dd_mm_aaaa(painel):
@@ -304,3 +307,46 @@ def test_calendario_acompanha_o_botao_ao_rolar_a_pagina(painel):
     depois = page.evaluate("document.getElementById('calendario').getBoundingClientRect().top")
     assert depois == page.evaluate("document.getElementById('maqFabricacaoBtn').getBoundingClientRect().bottom") + 6
     assert antes != depois or page.evaluate('window.scrollY') == 0     # so compara se a pagina de fato rolou
+
+
+# ---------- achados da revisao final ----------
+
+def test_intervalo_maior_que_1_ano_fica_desabilitado_e_o_resumo_explica(painel):
+    page, _ = painel
+    st = _preparar(page)
+    ini = _hoje(page) - timedelta(days=10)
+    longe = ini - timedelta(days=366)           # 366 dias de diferenca: o servidor recusaria (limite de 365)
+    no_limite = ini - timedelta(days=365)
+    abrir_calendario(page)
+    clicar_dia(page, ini.isoformat())
+    pw.expect(page.locator('#calResumo')).to_contain_text('máximo de 1 ano')
+    ir_para_mes(page, longe.isoformat())
+    pw.expect(page.locator(f'#calendario [data-dia="{longe.isoformat()}"]:not(.fora)')).to_be_disabled()
+    page.evaluate(f"document.querySelector('#calendario [data-dia=\"{longe.isoformat()}\"]:not(.fora)').click()")
+    pw.expect(page.locator('#calAplicar')).to_be_enabled()   # continua com so o inicio escolhido
+    clicar_dia(page, no_limite.isoformat())                  # exatamente 365 dias: vale
+    pedido = _aplicar_e_ler(page, st)
+    assert (pedido['de'], pedido['ate']) == (no_limite.isoformat(), ini.isoformat())
+
+
+def test_dia_unico_limpar_apaga_a_data_do_cadastro(painel):
+    page, state = painel
+    from tests.test_painel import acao
+    acao(page, '#listaMaquinas [data-editar-maquina="1"]').click()
+    pw.expect(page.locator('#maqFabricacao')).to_have_value('2020-01-02')
+    abrir_calendario(page, '#maqFabricacaoBtn')
+    page.locator('#calLimpar').click()
+    pw.expect(page.locator('#calendario')).to_be_hidden()
+    pw.expect(page.locator('#maqFabricacao')).to_have_value('')
+    pw.expect(page.locator('#maqFabricacaoBtn .txt')).to_have_text('Escolher data')
+    page.locator('#formMaquina button[type=submit]').click()
+    pw.expect(page.locator('#formMaquina')).not_to_be_visible()
+    assert state['posts'][-1][1]['fabricacao'] == ''
+
+
+def test_trocar_de_tela_pelo_teclado_fecha_o_calendario(painel):
+    page, _ = painel
+    _preparar(page)
+    abrir_calendario(page)
+    page.evaluate("setView('maquinas')")        # o que a paleta (Ctrl+K) faz: sem clique fora
+    pw.expect(page.locator('#calendario')).to_be_hidden()

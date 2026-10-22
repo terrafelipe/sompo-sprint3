@@ -9,6 +9,7 @@
   const ATALHOS = [['hoje','Hoje'],['ontem','Ontem'],['7','Últimos 7 dias'],['30','Últimos 30 dias'],
                    ['mes','Este mês'],['mespassado','Mês passado'],['90','Últimos 90 dias']];
   const DIA_MS = 864e5;
+  const MAX_DIFERENCA = 365;   // o servidor recusa periodo com mais de 365 dias de diferenca (1 ano)
 
   // ---- datas como texto AAAA-MM-DD, calculadas em UTC (meia-noite) para nao sofrer com horario de verao ----
   const ms = s => { const [a, m, d] = s.split('-').map(Number); return Date.UTC(a, m - 1, d); };
@@ -94,6 +95,7 @@
   function desenhar(manterFoco){
     const tinhaFoco = manterFoco && el.contains(document.activeElement) && document.activeElement.dataset.dia;
     const [a, b] = faixa(), h = hoje(), mes = est.vista;
+    const alcance = est.modo === 'intervalo' && est.ini && !est.fim ? [soma(est.ini, -MAX_DIFERENCA), soma(est.ini, MAX_DIFERENCA)] : null;
     const [ano, m] = mes.split('-').map(Number);
     $t('calTitulo').textContent = `${MESES[m - 1]} de ${ano}`;
     let html = ['D','S','T','Q','Q','S','S'].map(s => `<div class="cal-sem" role="columnheader">${s}</div>`).join('');
@@ -102,14 +104,15 @@
       const d = soma(inicio, i), c = ['dia'];
       if(mesDe(d) !== mes) c.push('fora');
       if(d === h) c.push('hoje');
-      const futuro = d > h;
+      const futuro = d > h, longe = !!alcance && (d < alcance[0] || d > alcance[1]);
       if(futuro) c.push('futuro');
+      if(longe) c.push('limite');
       if(a && b && d >= a && d <= b){
         if(d === a) c.push('ini');
         if(d === b) c.push('fim');
         if(d !== a && d !== b) c.push('meio');
       } else if(a && !b && d === a) c.push('ini', 'fim');
-      html += `<button type="button" class="${c.join(' ')}" data-dia="${d}" tabindex="${d === est.foco ? 0 : -1}"${futuro ? ' disabled' : ''}`
+      html += `<button type="button" class="${c.join(' ')}" data-dia="${d}" tabindex="${d === est.foco ? 0 : -1}"${futuro || longe ? ' disabled' : ''}`
             + ` aria-label="${Number(d.slice(8))} de ${MESES[Number(d.slice(5, 7)) - 1]} de ${d.slice(0, 4)}"${a && b && d >= a && d <= b ? ' aria-pressed="true"' : ''}><span>${Number(d.slice(8))}</span></button>`;
     }
     const grade = $t('calGrade');
@@ -124,7 +127,7 @@
     $t('calResumo').textContent = '';
     $t('calResumo').innerHTML = est.modo === 'dia' ? 'Escolha o dia'
       : !a ? 'Escolha a data inicial'
-      : !b ? `<b>${curto(a)}</b> até ...`
+      : !b ? `<b>${curto(a)}</b> até ... (máximo de 1 ano)`
       : `<b>${curto(a)}</b> até <b>${curto(b)}</b> · ${dias(a, b)} ${dias(a, b) > 1 ? 'dias' : 'dia'}`;
     $t('calAplicar').disabled = !a;
     if(tinhaFoco) irParaFoco();
@@ -176,6 +179,7 @@
 
   function escolher(d){
     if(d > hoje()) return;
+    if(est.modo === 'intervalo' && est.ini && !est.fim && Math.abs(ms(d) - ms(est.ini)) > MAX_DIFERENCA * DIA_MS) return;
     est.foco = d;
     if(est.modo === 'dia'){
       const cb = est.aoAplicar;
@@ -199,7 +203,10 @@
       est.hover = null; est.foco = est.fim; est.vista = mesDe(est.fim);
       desenhar(false);
     }
-    else if(e.target.closest('#calLimpar')){ est.ini = est.fim = est.hover = null; desenhar(false); }
+    else if(e.target.closest('#calLimpar')){
+      if(est.modo === 'dia'){ const cb = est.aoAplicar; fechar(true); if(cb) cb('', ''); return; }   // dia unico: limpar apaga o campo
+      est.ini = est.fim = est.hover = null; desenhar(false);
+    }
     else if(e.target.closest('#calAplicar')){
       const [a, b] = faixa();
       if(!a) return;
