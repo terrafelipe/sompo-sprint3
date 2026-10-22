@@ -319,6 +319,8 @@ def test_intervalo_maior_que_1_ano_fica_desabilitado_e_o_resumo_explica(painel):
     no_limite = ini - timedelta(days=365)
     abrir_calendario(page)
     clicar_dia(page, ini.isoformat())
+    # o ponteiro segue sobre o dia clicado: o hover no proprio inicio nao pode virar um intervalo de 1 dia
+    page.locator(f'#calendario [data-dia="{ini.isoformat()}"]:not(.fora)').hover()
     pw.expect(page.locator('#calResumo')).to_contain_text('máximo de 1 ano')
     ir_para_mes(page, longe.isoformat())
     pw.expect(page.locator(f'#calendario [data-dia="{longe.isoformat()}"]:not(.fora)')).to_be_disabled()

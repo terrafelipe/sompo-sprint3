@@ -87,7 +87,8 @@
   }
 
   function faixa(){
-    let a = est.ini, b = est.fim || (est.ini && est.hover);
+    const previa = est.ini && est.hover && est.hover !== est.ini ? est.hover : null;
+    let a = est.ini, b = est.fim || previa;
     if(a && b && b < a) [a, b] = [b, a];
     return [a, b];
   }
