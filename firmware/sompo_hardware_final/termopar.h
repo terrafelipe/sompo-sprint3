@@ -36,7 +36,8 @@ namespace Termopar {
   }
 
   void imprimir() {
-    if (ok) Serial.printf("Termopar: %.1f C\n", Estado.tempEscape);
+    if (ok) Serial.printf("Termopar: %.1f C (atencao %.0f, critico %.0f)\n", Estado.tempEscape,
+                          (float)TEMP_ESCAPE_ATENCAO, (float)TEMP_ESCAPE_CRITICO);
     else    Serial.println("Termopar: erro de leitura (confira fiacao/CS)");
   }
   void telemetria(Json &j) { if (ok) j.add(",\"temp_escape\":%.1f", Estado.tempEscape); }

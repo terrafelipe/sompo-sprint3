@@ -48,18 +48,19 @@
 #define INTERVALO_SAUDE_MPU_MS  5000   // reconferencia do MPU no barramento
 
 #define LIMIAR_POT_MOTOR_DESLIGADO 2000  // pot (0-4095) abaixo disso = desligado
-#define LIMIAR_CHAMA        2000         // A0 do KY-026 (raw 0-4095) abaixo disso = chama. CALIBRAR
+#define LIMIAR_CHAMA        1000         // A0 do KY-026 (raw 0-4095) abaixo disso = chama. Medido 21/10: janela aberta 1424, coberto 3412, isqueiro a 20-30 cm 1962 -> chama so a poucos cm
 #define LIMIAR_VIBRACAO     2.0          // desvio em m/s2 do repouso = vibracao
 #define AMOSTRAS_BASELINE   50           // amostras que calibram o repouso
 #define AMOSTRAS_VIBRACAO   3            // leituras seguidas p/ confirmar
-#define TEMP_ESCAPE_ATENCAO 450.0        // C - termopar tipo K
-#define TEMP_ESCAPE_CRITICO 550.0        // C
+#define TEMP_ESCAPE_ATENCAO 40.0        // C - termopar tipo K
+#define TEMP_ESCAPE_CRITICO 60.0        // C
 #define TRAVA_EVENTO_MS     5000         // anti-spam dos eventos continuos
 #define GRAVIDADE           9.80665      // m/s2 por g
 
 // Tom do alarme (buzzer continuo). Passivo? o volume e maximo perto da frequencia
 // de RESSONANCIA do buzzer (varia por modelo, tipico 2000-4000 Hz) - ajuste por ouvido.
-#define BUZZER_FREQ_CHAMA   2000         // Hz - alarme de incendio (fogo/temperatura)
+#define BUZZER_FREQ_CHAMA   2000         // Hz - alarme de incendio (chama / escape critico)
+#define BUZZER_FREQ_ATENCAO 1000         // Hz - escape em atencao: mais grave que o critico
 #define BUZZER_FREQ_FURTO   3000         // Hz - alarme de furto (vibracao/capo/tanque/partida)
 
 #define DISPOSITIVO_ID "ESP-3036EN"     // TEM de ser o ID cadastrado na maquina (painel > Frota)

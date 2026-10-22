@@ -33,15 +33,17 @@ namespace Alarme {
   // Alarme CONTINUO: enquanto houver ameaca ativa o buzzer nao para; sem ameaca,
   // silencia. Chamado todo ciclo (100 ms) no loop(). Fogo tem prioridade e tom proprio.
   void atualizar() {
-    bool fogo  = Estado.chamaDetectada || Estado.tempEscape >= TEMP_ESCAPE_ATENCAO;
+    bool fogo  = Estado.chamaDetectada || Estado.tempEscape >= TEMP_ESCAPE_CRITICO;
+    bool atencao = Estado.tempEscape >= TEMP_ESCAPE_ATENCAO;
     // Furto so soa ARMADO (sem cracha). Passar o cracha (desarmar) cala o furto -
     // mas NUNCA o fogo. Ligada e sem cracha ja e furto por si so.
     bool furto = !Estado.operadorAutorizado &&
                  ((!Estado.motorLigado &&
                     (Estado.vibracaoConfirmada || Estado.capoAberto || Estado.tanqueAberto))
                   || Estado.motorLigado);
-    if (fogo)       continuo(BUZZER_FREQ_CHAMA);
-    else if (furto) continuo(BUZZER_FREQ_FURTO);
+    if (fogo)         continuo(BUZZER_FREQ_CHAMA);
+    else if (atencao) continuo(BUZZER_FREQ_ATENCAO);
+    else if (furto)   continuo(BUZZER_FREQ_FURTO);
     else            parar();
   }
 #else
