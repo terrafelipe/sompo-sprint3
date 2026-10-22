@@ -101,18 +101,20 @@ exportar CSV; escolher hora (só dias); biblioteca externa de calendário.
    `?de=AAAA-MM-DD&ate=AAAA-MM-DD` como alternativa a `?dias=`, com a mesma semântica do
    `/telemetria` (inclusivo, Brasília, até 1 ano) e um helper único compartilhado; mandar `dias` e
    `de/ate` juntos dá 400 `periodo_invalido`. `/scores` e `/relatorio/risco` continuam só com `dias`.
-4. **Comparação com o período anterior:** Feed de alertas e Temperatura comparam com o período
-   imediatamente anterior de mesmo tamanho (hoje o painel pede `dias*2`); com `de/ate`, o painel pede
-   de `de - n dias` até `ate` (limite na escolha 8).
+4. **Comparação com o período anterior:** só a seção **Atividade de alertas** (e o que depende dela:
+   Alertas por tipo, o KPI de alertas e o feed) compara com o período imediatamente anterior de mesmo
+   tamanho (hoje o painel pede `dias*2`); com `de/ate`, o painel pede de `de - n dias` até `ate` (limite
+   na escolha 8). A **Temperatura por dia não compara** (hoje já é assim) e só pede o período escolhido.
 5. **Seletores de dias viram botões:** as caixas `#tempDiaDias`, `#alertasDias` e `#historicoDias`
    são substituídas pelos botões 7/30/90/Período do protótipo, e os testes que as usam são ajustados.
 6. **Limpar** no calendário apaga a seleção em edição; **Aplicar** fica desabilitado sem data inicial;
    com só a data inicial, Aplicar vale um dia só.
 7. **Dia único:** Fabricação e Última manutenção não aceitam datas futuras (hoje o campo nativo aceita).
-8. **Comparação com o período anterior só quando cabe em 1 ano:** o período anterior de mesmo tamanho
-   precisa caber na regra de 365 dias (a janela pedida é `de - n` até `ate`). Se 2n passar de 365 dias
-   (período livre acima de cerca de 6 meses), o painel mostra os dados do período sem a comparação, e
-   o texto "vs. período anterior" não aparece. Com 7, 30 ou 90 dias nada muda.
+8. **Comparação com o período anterior só quando cabe em 1 ano** (Atividade de alertas): o período
+   anterior de mesmo tamanho precisa caber na regra de 365 dias (a janela pedida é `de - n` até
+   `ate`). Se 2n passar de 365 dias (período livre acima de cerca de 6 meses), o painel mostra os
+   dados do período sem a comparação, e o texto "vs. período anterior" não aparece. Com 7, 30 ou 90
+   dias nada muda.
 9. **Clique nos botões 7/30/90 do topo (filtro global):** continua sobrescrevendo Temperatura por dia
    e Feed de alertas, como hoje, e agora também **apaga o período livre** dessas duas seções (o botão
    "Período" volta a "Período" e o rótulo some). O Histórico e as Leituras não são afetados pelo
