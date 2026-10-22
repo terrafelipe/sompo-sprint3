@@ -483,6 +483,12 @@ Mais os asserts de SQL no PGlite (`node firmware/sql/tests/run.mjs`). Cobrem:
   Início do gestor, mapa, exposição, manutenção, ocorrências, PDF.
 - `test_telemetria.py`, `test_eventos.py`, `test_fazendas.py`, `test_usuarios.py`,
   `test_health.py` — rotas.
+- `test_janela_periodo.py` — `?de=&ate=` (Brasília, 1 ano) em `/eventos`, `/resumo` e `/operacoes`;
+  `test_leituras_periodo.py` — `/telemetria` por período (páginas de 50, `corte`, total de páginas).
+- `test_painel_calendario.py`, `test_painel_leituras_periodo.py`, `test_painel_periodo_secao.py`,
+  `test_painel_historico_periodo.py` — calendário próprio (`api/static/calendario.js` e `.css`: intervalo
+  e dia único), aba Leituras e período livre em Atividade de alertas, Temperatura por dia e
+  Histórico; os ajudantes de navegador estão em `tests/ajuda_calendario.py`.
 - **`test_contrato_firmware.py`** — lê o `.ino` e o `.sql` **como texto** e garante o
   **contrato**: uma chave nova no firmware sem coluna no SQL, ou um evento que não pontua no
   `scores.py`, **quebra o pytest**.
