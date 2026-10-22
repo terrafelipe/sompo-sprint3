@@ -622,7 +622,7 @@
       <!-- ATIVIDADE DE ALERTAS (colunas empilhadas por eixo) -->
       <section id="secAlertas" data-ancora data-section="atividade" class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
         <div class="p-5 pb-2 flex items-start justify-between gap-4 flex-wrap">
-          <div><div class="flex items-center gap-2 flex-wrap"><h2 class="text-base font-semibold text-on-surface">Atividade de alertas</h2><select id="alertasDias" aria-label="Período dos alertas" title="Vale para Atividade de alertas e Alertas por tipo" class="h-9 inline-flex items-center leading-none bg-surface-container-lowest border border-outline-variant rounded-lg px-3 outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"><option value="7">7 dias</option><option value="30">30 dias</option><option value="90">90 dias</option></select></div><p id="atividadeSub" class="text-sm text-on-surface-variant">Eventos por dia nos últimos 7 dias</p></div>
+          <div><div class="flex items-center gap-2 flex-wrap"><h2 class="text-base font-semibold text-on-surface">Atividade de alertas</h2><div id="alertasSeg" role="group" aria-label="Período dos alertas" title="Vale para Atividade de alertas e Alertas por tipo" class="inline-flex items-center h-9 p-0.5 rounded-lg border border-outline-variant bg-surface-container-low"><button type="button" data-dias="7" class="per-btn whitespace-nowrap" aria-pressed="true">7 dias</button><button type="button" data-dias="30" class="per-btn whitespace-nowrap" aria-pressed="false">30 dias</button><button type="button" data-dias="90" class="per-btn whitespace-nowrap" aria-pressed="false">90 dias</button><button type="button" data-periodo-livre class="per-btn whitespace-nowrap inline-flex items-center gap-1.5" aria-pressed="false" aria-haspopup="dialog" aria-expanded="false"><span class="material-symbols-outlined text-[16px]">calendar_month</span><span class="rot">Período</span></button></div></div><p id="atividadeSub" class="text-sm text-on-surface-variant">Eventos por dia nos últimos 7 dias</p></div>
           <div class="flex items-center gap-4 text-xs text-on-surface-variant pt-1">
             <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm" style="background:var(--s-furto)"></span>Furto <b id="totFurto" class="text-on-surface font-semibold">–</b></span>
             <span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-sm" style="background:var(--s-incendio)"></span>Incêndio <b id="totIncendio" class="text-on-surface font-semibold">–</b></span>
@@ -1645,7 +1645,7 @@ function detalhamentoRisco(el, detalhamento, eixoNome){
 // Evidencias: abre a aba Alertas no mesmo recorte do score (7 dias) filtrada pelo tipo.
 function verEvidencias(tipo){
   filtroDia = null; filtroTipo = tipo;   // mesmo periodo do score que esta na tela
-  periodoAlertas = periodo; $('alertasDias').value = periodo;
+  periodoAlertas = periodo; alertasLivre = null; marcarSecaoPeriodo($('alertasSeg'), periodo, null);
   setView('visao'); carregarTudo();
   irPara('secAlertas');
 }
@@ -1927,16 +1927,23 @@ async function carregarTelemetria(){
 async function carregarEventos(){
   iniciando('eventos');
   try{
+    const per = periodoAlertas, livre = alertasLivre, sel = seletorEquipamento();
     // O refresh conserva os graficos visiveis; somente um contexto novo sinaliza carga.
-    if(mudou('eventos-contexto', `${contextoVersao}|${periodoAlertas}|${seletorEquipamento()}`))
+    if(mudou('eventos-contexto', `${contextoVersao}|${livre ? livre.de + '>' + livre.ate : per}|${sel}`))
       ['graficoAtividade','graficoTipos'].forEach(id => $(id).classList.add('viz-carregando'));
-    const per = periodoAlertas;
-    const d = await getJSON(`/eventos?${seletorEquipamento()}&dias=${per * 2}`);
-    if(per !== periodoAlertas) return;
+    // Periodo livre: pede [de - n, ate] (o periodo anterior, de mesmo tamanho) se couber na regra de 1 ano;
+    // senao so o periodo, e a comparacao some.
+    const n = livre ? Calendario.contar(livre.de, livre.ate) : per;
+    const comparar = !livre || 2 * n <= 365;
+    const url = livre ? `/eventos?${sel}&de=${comparar ? Calendario.somar(livre.de, -n) : livre.de}&ate=${livre.ate}`
+                      : `/eventos?${sel}&dias=${per * 2}`;
+    const d = await getJSON(url);
+    if(per !== periodoAlertas || livre !== alertasLivre) return;
     const corte = Date.now() - per * 864e5;
     const todos = d.dados || [];
-    const evs = todos.filter(e => !e.criado_em || new Date(e.criado_em).getTime() >= corte);
-    variacao($('kpiAlertasSub'), evs.length, todos.length - evs.length, `${per} dias`, 'Eventos registrados no período', false);
+    const doPeriodo = e => !e.criado_em || (livre ? diaBR(e.criado_em) >= livre.de : new Date(e.criado_em).getTime() >= corte);
+    const evs = todos.filter(doPeriodo);
+    variacao($('kpiAlertasSub'), evs.length, comparar ? todos.length - evs.length : null, `${n} dias`, 'Eventos registrados no período', false);
     eventosPeriodo = evs;
     if(animarAgora('kpiAlertas')) contarAoAparecer($('kpiAlertas'), evs.length); else $('kpiAlertas').textContent = evs.length;
     renderizarGraficosEventos(evs);
@@ -2836,7 +2843,7 @@ const nomeTipo = t => TITULO_TIPO[t] || t || 'evento';
 
 function renderizarFeed(){
   let evs = eventosPeriodo;
-  if(filtroDia) evs = evs.filter(e => diaLocal(e.criado_em) === filtroDia);
+  if(filtroDia) evs = evs.filter(e => diaDoEvento(e) === filtroDia);
   if(filtroTipo) evs = evs.filter(e => e.tipo === filtroTipo);
   $('alertasBadge').textContent = evs.length;
 
@@ -2896,6 +2903,7 @@ $('feedFiltros').addEventListener('click', ev => {
 let periodo = 7;
 // Temperatura por dia e Alertas tem periodo proprio; trocar o global reinicia os dois nele.
 let periodoTemp = 7, periodoAlertas = 7;
+let alertasLivre = null;   // {de, ate} (AAAA-MM-DD, Brasilia) quando a Atividade de alertas usa periodo livre
 // ===== Animacoes de entrada =====
 // Tocam UMA vez por "entrada" (abrir a tela, trocar maquina, fazenda ou periodo); o
 // auto-refresh de 5 s e a troca de tema nunca repetem. So transform e opacity (GPU),
@@ -3026,6 +3034,28 @@ function diasDoPeriodo(n){
   for(let i=n-1; i>=0; i--){ const d = new Date(hoje); d.setDate(hoje.getDate()-i); out.push(d.toLocaleDateString('sv-SE')); }
   return out;
 }
+// Dia de Brasilia de um instante: o mesmo corte que o servidor usa nas janelas de/ate.
+const diaBR = iso => new Intl.DateTimeFormat('sv-SE', {timeZone: 'America/Sao_Paulo'}).format(new Date(iso));
+function diasEntre(de, ate){ const out = []; for(let d = de; d <= ate; d = Calendario.somar(d, 1)) out.push(d); return out; }
+const diaDoEvento = e => alertasLivre ? diaBR(e.criado_em) : diaLocal(e.criado_em);
+// Botoes 7/30/90 + "Periodo" (calendario) de uma secao: aqui so se desenha o estado e se encaminham os cliques;
+// o estado (dias e periodo livre) fica com a secao.
+function marcarSecaoPeriodo(seg, dias, livre){
+  seg.querySelectorAll('[data-dias]').forEach(b => b.setAttribute('aria-pressed', String(!livre && +b.dataset.dias === dias)));
+  const bp = seg.querySelector('[data-periodo-livre]');
+  bp.setAttribute('aria-pressed', String(!!livre));
+  bp.querySelector('.rot').textContent = livre ? `${Calendario.curto(livre.de)} – ${Calendario.curto(livre.ate)}` : 'Período';
+}
+function ligarSecaoPeriodo(seg, {livre, aoDias, aoLivre}){
+  seg.addEventListener('click', e => {
+    const b = e.target.closest('button'); if(!b) return;
+    if(b.dataset.dias) aoDias(+b.dataset.dias);
+    else if(b.hasAttribute('data-periodo-livre')){
+      const atual = livre();
+      Calendario.abrir({ancora: b, modo: 'intervalo', inicio: atual?.de, fim: atual?.ate, aoAplicar: aoLivre});
+    }
+  });
+}
 function escalaBonita(max, passos=4){
   if(max <= 0) return {top:passos, step:1};
   const bruto = max/passos, mag = Math.pow(10, Math.floor(Math.log10(bruto)));
@@ -3066,18 +3096,18 @@ function ligarHover(cont, fn){
 }
 
 function renderizarGraficosEventos(evs){
-  if(!mudou('eventos', `${periodoAlertas}|${evs.length}|${evs[0]?.id ?? ''}|${filtroDia}|${filtroTipo}`) && $('graficoAtividade').firstChild){
+  if(!mudou('eventos', `${alertasLivre ? alertasLivre.de + '>' + alertasLivre.ate : periodoAlertas}|${evs.length}|${evs[0]?.id ?? ''}|${filtroDia}|${filtroTipo}`) && $('graficoAtividade').firstChild){
     ['graficoAtividade','graficoTipos'].forEach(id => $(id).classList.remove('viz-carregando')); return;
   }
   tipEsconder();
-  const dias = diasDoPeriodo(periodoAlertas), idx = new Map(dias.map((d,i)=>[d,i]));
+  const dias = alertasLivre ? diasEntre(alertasLivre.de, alertasLivre.ate) : diasDoPeriodo(periodoAlertas), idx = new Map(dias.map((d,i)=>[d,i]));
   const f = dias.map(()=>0), inc = dias.map(()=>0), porTipo = new Map();
   // Filtro cruzado: as colunas respeitam o tipo escolhido; o ranking de tipos, o dia escolhido.
-  evs.forEach(e => { if(!filtroDia || diaLocal(e.criado_em) === filtroDia) porTipo.set(e.tipo, (porTipo.get(e.tipo)||0) + 1); });
+  evs.forEach(e => { if(!filtroDia || diaDoEvento(e) === filtroDia) porTipo.set(e.tipo, (porTipo.get(e.tipo)||0) + 1); });
   if(filtroTipo && !porTipo.has(filtroTipo)) porTipo.set(filtroTipo, 0);
   evs.forEach(e => {
     if(filtroTipo && e.tipo !== filtroTipo) return;
-    const i = idx.get(diaLocal(e.criado_em)); if(i == null) return;
+    const i = idx.get(diaDoEvento(e)); if(i == null) return;
     const eixo = eixoDoTipo(e.tipo);
     if(eixo === 'furto') f[i]++; else if(eixo === 'incendio') inc[i]++;
   });
@@ -3156,11 +3186,12 @@ function renderizarGraficosEventos(evs){
   if(animarAgora('tipos')) entrar(cT, () => crescer(cT.querySelectorAll('.barra-h'), 'X', {atraso: 45}));
   cT.querySelectorAll('[data-tipo]').forEach(b => b.addEventListener('click', () =>
     aplicarFiltroAlertas(filtroDia, b.dataset.tipo === filtroTipo ? null : b.dataset.tipo)));
+  const livre = alertasLivre, intervalo = livre ? `de ${Calendario.formatar(livre.de)} a ${Calendario.formatar(livre.ate)}` : '';
   const txt = `últimos ${periodoAlertas} dias`;
-  $('atividadeSub').textContent = `Eventos por dia nos ${txt}` + (filtroTipo ? ` · só ${nomeTipo(filtroTipo)}` : '');
-  $('tiposSub').textContent = filtroDia ? `Total no dia ${fmtDia(filtroDia)}` : `Total nos ${txt}`;
-  $('feedSub').textContent = `Eventos dos ${txt}`;
-  $('kpiAlertasPill').textContent = `${periodoAlertas} dias`;
+  $('atividadeSub').textContent = (livre ? `Eventos por dia ${intervalo}` : `Eventos por dia nos ${txt}`) + (filtroTipo ? ` · só ${nomeTipo(filtroTipo)}` : '');
+  $('tiposSub').textContent = filtroDia ? `Total no dia ${fmtDia(filtroDia)}` : livre ? `Total ${intervalo}` : `Total nos ${txt}`;
+  $('feedSub').textContent = livre ? `Eventos ${intervalo}` : `Eventos dos ${txt}`;
+  $('kpiAlertasPill').textContent = `${livre ? Calendario.contar(livre.de, livre.ate) : periodoAlertas} dias`;
 }
 
 async function carregarTempDia(){
@@ -3232,7 +3263,7 @@ async function carregarTempDia(){
 
 document.querySelectorAll('[data-periodo]').forEach(b => b.addEventListener('click', () => {
   periodo = periodoTemp = periodoAlertas = +b.dataset.periodo;
-  $('tempDiaDias').value = $('alertasDias').value = periodo;
+  $('tempDiaDias').value = periodo; alertasLivre = null; marcarSecaoPeriodo($('alertasSeg'), periodo, null);
   novaEntrada();
   filtroDia = null;   // o dia escolhido pode nao existir no novo periodo
   document.querySelectorAll('[data-periodo]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
@@ -3243,10 +3274,15 @@ $('tempDiaDias').addEventListener('change', e => {
   periodoTemp = +e.target.value; animados.delete('tempdia');
   carregarTempDia();
 });
-$('alertasDias').addEventListener('change', e => {
-  periodoAlertas = +e.target.value; ['atividade','tipos','kpiAlertas'].forEach(k => animados.delete(k));
+function reiniciarAlertas(){
+  ['atividade','tipos','kpiAlertas'].forEach(k => animados.delete(k));
   filtroDia = null;   // o dia escolhido pode nao existir no novo periodo
   carregarEventos();
+}
+ligarSecaoPeriodo($('alertasSeg'), {
+  livre: () => alertasLivre,
+  aoDias: n => { periodoAlertas = n; alertasLivre = null; marcarSecaoPeriodo($('alertasSeg'), n, null); reiniciarAlertas(); },
+  aoLivre: (de, ate) => { alertasLivre = {de, ate}; marcarSecaoPeriodo($('alertasSeg'), periodoAlertas, alertasLivre); reiniciarAlertas(); },
 });
 
 /* ---------- Grafico de leituras (interativo) ---------- */

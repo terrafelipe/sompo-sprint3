@@ -240,5 +240,5 @@
     irParaFoco();
   }
 
-  window.Calendario = {abrir, fechar: () => fechar(false), hoje, formatar};
+  window.Calendario = {abrir, fechar: () => fechar(false), hoje, formatar, curto, somar: soma, contar: dias};
 })();
