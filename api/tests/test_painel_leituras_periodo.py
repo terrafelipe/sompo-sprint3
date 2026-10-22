@@ -2,6 +2,7 @@
 import re
 from urllib.parse import parse_qs, urlparse
 
+from tests.ajuda_calendario import escolher_periodo
 from tests.test_painel import painel, nav, pw  # noqa: F401
 
 
@@ -47,9 +48,7 @@ def _abrir(page):
 
 
 def _escolher(page, de, ate):
-    page.fill('#leiturasDe', de)
-    page.fill('#leiturasAte', ate)
-    page.get_by_role('button', name='Ver leituras').click()
+    escolher_periodo(page, de, ate)
 
 
 def test_periodo_lista_leituras_com_data_e_pagina(painel):
@@ -105,7 +104,7 @@ def test_limpar_volta_as_10_mais_recentes(painel):
     pw.expect(page.locator('#tabelaTelemetria tr')).to_have_count(antes)   # as mesmas 10 de antes, nao uma tabela vazia
     assert page.locator('#tabelaTelemetria').inner_text().count('Carregando') == 0
     pw.expect(page.locator('#leiturasPagina')).to_be_hidden()
-    pw.expect(page.locator('#leiturasDe')).to_have_value('')
+    pw.expect(page.locator('#leiturasPeriodoTxt')).to_have_text('Escolher período')
 
 
 def test_clique_duplo_em_proxima_avanca_so_uma_pagina(painel):
@@ -148,17 +147,8 @@ def test_trocar_de_maquina_descarta_o_periodo(painel):
     page.select_option('#equipamentoSel', '')
     pw.expect(page.locator('#tabelaSub')).to_have_text('As 10 leituras mais recentes da máquina')
     pw.expect(page.locator('#leiturasNav')).to_be_hidden()
-    pw.expect(page.locator('#leiturasDe')).to_have_value('')
+    pw.expect(page.locator('#leiturasPeriodoTxt')).to_have_text('Escolher período')
     assert page.evaluate('leiturasPeriodo') is None
-
-
-def test_datas_invertidas_avisam_sem_consultar(painel):
-    page, state = painel
-    st = _servidor(page, [([], False)])
-    _abrir(page)
-    _escolher(page, '2026-10-21', '2026-09-21')
-    pw.expect(page.locator('#leiturasAviso')).to_contain_text('data final')
-    assert st['pedidos'] == []
 
 
 def test_periodo_sem_leituras_e_erro_do_servidor_viram_frases(painel):

@@ -430,6 +430,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
 <!-- Tailwind gerado (api/tailwind/painel.config.js); rebuild em docs/COMO_TESTAR.md -->
 <link rel="stylesheet" href="/static/painel.css"/>
+<link rel="stylesheet" href="/static/calendario.css"/>
 </head>
 <body class="bg-background text-on-background font-sans text-sm overflow-x-hidden">
 
@@ -806,14 +807,10 @@
             <h2 class="text-base font-semibold text-on-surface">Últimas leituras</h2>
             <p id="tabelaSub" class="text-sm text-on-surface-variant">As 10 leituras mais recentes da máquina</p>
           </div>
-          <form id="formLeituras" class="flex items-end gap-2 flex-wrap" novalidate>
-            <label class="text-xs font-medium text-on-surface-variant">De
-              <input id="leiturasDe" type="date" class="block mt-1 h-9 bg-surface-container-lowest border border-outline-variant rounded-lg px-3 text-sm text-on-surface outline-none focus:ring-2 focus:ring-primary/20"/></label>
-            <label class="text-xs font-medium text-on-surface-variant">Até
-              <input id="leiturasAte" type="date" class="block mt-1 h-9 bg-surface-container-lowest border border-outline-variant rounded-lg px-3 text-sm text-on-surface outline-none focus:ring-2 focus:ring-primary/20"/></label>
-            <button type="submit" class="h-9 inline-flex items-center gap-1.5 bg-primary text-on-primary font-semibold px-4 rounded-lg hover:bg-on-primary-fixed-variant transition-colors">Ver leituras</button>
+          <div class="flex items-end gap-2 flex-wrap">
+            <button type="button" id="leiturasPeriodoBtn" aria-haspopup="dialog" aria-expanded="false" class="h-9 inline-flex items-center gap-2 bg-surface-container-lowest border border-outline-variant rounded-lg px-3 text-sm font-medium text-on-surface hover:bg-surface-container-low outline-none focus-visible:ring-2 focus-visible:ring-primary/20 transition-colors"><span class="material-symbols-outlined text-[18px] text-on-surface-variant">calendar_month</span><span id="leiturasPeriodoTxt">Escolher período</span></button>
             <button type="button" id="leiturasLimpar" hidden class="h-9 px-3 rounded-lg border border-outline-variant text-sm font-medium text-on-surface-variant hover:bg-surface-container-low transition-colors">Limpar</button>
-          </form>
+          </div>
         </div>
         <p id="leiturasAviso" role="alert" hidden class="mx-5 mb-3 text-sm text-error"></p>
         <div class="mx-5 mb-5 rounded-lg border border-outline-variant overflow-x-auto">
@@ -1247,6 +1244,7 @@
 <div id="vizTip" hidden></div>
 <div id="cadastroAviso" role="status" class="hidden fixed bottom-4 right-4 z-[70] max-w-[90vw] bg-surface-container-lowest shadow-lg rounded-xl p-4 text-sm"></div>
 
+<script src="/static/calendario.js"></script>
 <script>
 const $ = id => document.getElementById(id);
 let contextoVersao = 0;
@@ -1438,6 +1436,7 @@ function iniciando(id){ if(!$(id).innerHTML.trim() || $(id).querySelector('[data
 function limparMaquina(){
   desligarAoVivo(); $('btnAoVivo').hidden = true;
   contextoVersao++;
+  Calendario.fechar();
   limparPeriodoLeituras();   // o periodo pertence a maquina que saiu
   equipamentoSelecionado = null; dispositivo = ''; eventosCache = [];
   ['kpis','sparkTemp','tabelaTelemetria','eventos','justFurto','justIncendio','recs','lim','origemBadge'].forEach(id => $(id).innerHTML = '');
@@ -1778,7 +1777,7 @@ function linhaLeitura(x, fmtQuando){
 function avisoLeituras(msg){ $('leiturasAviso').textContent = msg || ''; $('leiturasAviso').hidden = !msg; }
 function limparPeriodoLeituras(){
   leiturasPeriodo = null;
-  $('leiturasDe').value = $('leiturasAte').value = '';
+  $('leiturasPeriodoTxt').textContent = 'Escolher período';
   $('tabelaSub').textContent = LEITURAS_SUB_PADRAO;
   $('leiturasLimpar').hidden = $('leiturasNav').hidden = true;
   avisoLeituras('');
@@ -1788,6 +1787,7 @@ async function carregarLeiturasPeriodo(focoLembrado = null){
   const corpo = $('tabelaTelemetria');
   avisoLeituras('');
   $('tabelaSub').textContent = `Leituras de ${fmtDiaCompleto(p.de)} a ${fmtDiaCompleto(p.ate)}`;
+  $('leiturasPeriodoTxt').textContent = `${Calendario.formatar(p.de)} até ${Calendario.formatar(p.ate)}`;
   $('leiturasLimpar').hidden = $('leiturasNav').hidden = false;
   corpo.innerHTML = '<tr><td colspan="9" class="py-6 px-5 text-on-surface-variant italic">Carregando…</td></tr>';
   $('leiturasPagina').textContent = `Página ${p.pagina}`;
@@ -1814,19 +1814,15 @@ async function carregarLeiturasPeriodo(focoLembrado = null){
   }catch(e){ if(leiturasPeriodo !== p) return;
     if(e.obsoleto) return carregarLeiturasPeriodo(foco);   // o contexto mudou no meio (ex.: outro cadastro excluido), o periodo continua valendo
     corpo.innerHTML = '';
-    avisoLeituras('Não foi possível carregar o período. Confira as datas e tente de novo.');
+    avisoLeituras('Não foi possível carregar o período. Tente de novo.');
     $('leiturasAnterior').disabled = p.pagina <= 1;
     devolverFoco();
   }
 }
-$('formLeituras').addEventListener('submit', ev => {
-  ev.preventDefault();
-  const de = $('leiturasDe').value, ate = $('leiturasAte').value;
-  if(!de || !ate) return avisoLeituras('Escolha a data inicial e a data final.');
-  if(ate < de) return avisoLeituras('A data final não pode ser anterior à data inicial.');
-  leiturasPeriodo = {de, ate, pagina: 1, corte: null};
-  carregarLeiturasPeriodo();
-});
+$('leiturasPeriodoBtn').addEventListener('click', e => Calendario.abrir({
+  ancora: e.currentTarget, modo: 'intervalo', inicio: leiturasPeriodo?.de, fim: leiturasPeriodo?.ate,
+  aoAplicar: (de, ate) => { leiturasPeriodo = {de, ate, pagina: 1, corte: null}; carregarLeiturasPeriodo(); },
+}));
 $('leiturasLimpar').addEventListener('click', () => {
   limparPeriodoLeituras();
   $('tabelaTelemetria').innerHTML = '<tr><td colspan="9" class="py-6 px-5 text-on-surface-variant italic">Carregando…</td></tr>';

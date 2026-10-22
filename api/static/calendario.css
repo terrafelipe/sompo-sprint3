@@ -1,0 +1,60 @@
+/* Calendario proprio do painel. So usa as variaveis --v-* que o index.html ja define (temas claro e escuro). */
+#calendario{
+  --cal-acento:#b70100; --cal-acento-fundo:#b701000f; --cal-faixa:#b7010014;
+  position:fixed; z-index:60; width:min(560px, calc(100vw - 24px));
+  background:var(--v-card); color:var(--v-texto); border:1px solid var(--v-borda); border-radius:12px;
+  box-shadow:0 14px 40px rgba(0,0,0,.14); font:400 14px/1.45 Inter, system-ui, sans-serif;
+  opacity:0; transform:translateY(-4px) scale(.98); transform-origin:top left;
+  transition:opacity 150ms var(--mov-curva, cubic-bezier(0.23,1,0.32,1)), transform 150ms var(--mov-curva, cubic-bezier(0.23,1,0.32,1));
+}
+:root[data-tema="escuro"] #calendario{ --cal-acento:#ef4444; --cal-acento-fundo:#ef44441f; --cal-faixa:#ef444426; box-shadow:0 14px 40px rgba(0,0,0,.5); }
+#calendario[hidden]{ display:none; }
+#calendario.vis{ opacity:1; transform:none; }
+#calendario.unico{ width:min(320px, calc(100vw - 24px)); }
+#calendario.unico .cal-atalhos, #calendario.unico #calAplicar{ display:none; }
+
+#calendario .cal-corpo{ display:flex; }
+#calendario .cal-atalhos{ width:150px; flex:none; padding:12px 8px; border-right:1px solid var(--v-borda); display:flex; flex-direction:column; gap:2px; }
+#calendario .cal-atalhos button{ text-align:left; padding:7px 10px; border-radius:6px; border:0; background:none; color:var(--v-texto); font:500 13px Inter, system-ui, sans-serif; cursor:pointer; white-space:nowrap; transition:background .12s; }
+#calendario .cal-atalhos button:hover{ background:var(--v-hover); }
+#calendario .cal-atalhos button[aria-pressed="true"]{ background:var(--cal-acento-fundo); color:var(--cal-acento); font-weight:600; }
+#calendario .cal-mes{ flex:1; padding:12px 14px 8px; min-width:0; }
+#calendario .cal-cab{ display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+#calendario .cal-titulo{ font:600 14px Inter, system-ui, sans-serif; text-transform:capitalize; padding:4px 8px; }
+#calendario .cal-nav{ display:flex; gap:2px; }
+#calendario .cal-nav button{ width:30px; height:30px; border-radius:8px; border:0; background:none; color:var(--v-texto2); cursor:pointer; display:grid; place-items:center; transition:background .12s,color .12s; }
+#calendario .cal-nav button:hover{ background:var(--v-hover); color:var(--v-texto); }
+#calendario .cal-nav .material-symbols-outlined{ font-size:18px; }
+#calendario .cal-grade{ display:grid; grid-template-columns:repeat(7, 1fr); row-gap:2px; }
+#calendario .cal-sem{ font-size:11px; font-weight:500; color:var(--v-texto3); text-align:center; padding:6px 0; text-transform:uppercase; }
+
+#calendario .dia{ height:36px; border:0; background:none; color:var(--v-texto); font:500 13px Inter, system-ui, sans-serif; cursor:pointer; position:relative; font-variant-numeric:tabular-nums; display:grid; place-items:center; padding:0; }
+#calendario .dia span{ width:34px; height:34px; border-radius:8px; display:grid; place-items:center; transition:background .12s,color .12s; }
+#calendario .dia:hover span{ background:var(--v-hover); }
+#calendario .dia.fora{ color:var(--v-texto3); }
+#calendario .dia.hoje span{ box-shadow:inset 0 0 0 1px var(--v-borda-forte); }
+#calendario .dia.meio{ background:var(--cal-faixa); }
+#calendario .dia.meio span{ color:var(--cal-acento); }
+#calendario .dia.meio:hover span{ background:var(--cal-faixa); }
+#calendario .dia.ini{ background:linear-gradient(90deg, transparent 50%, var(--cal-faixa) 50%); }
+#calendario .dia.fim{ background:linear-gradient(90deg, var(--cal-faixa) 50%, transparent 50%); }
+#calendario .dia.ini.fim{ background:none; }
+#calendario .dia.ini span, #calendario .dia.fim span{ background:var(--cal-acento); color:#fff; font-weight:600; }
+#calendario .dia.futuro{ color:var(--v-texto3); opacity:.45; cursor:not-allowed; }
+#calendario .dia.futuro:hover span{ background:none; }
+#calendario .dia:focus-visible span, #calendario button:focus-visible{ outline:2px solid var(--cal-acento); outline-offset:1px; }
+
+#calendario .cal-rod{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 14px; border-top:1px solid var(--v-borda); }
+#calendario .cal-resumo{ font-size:13px; color:var(--v-texto2); } #calendario .cal-resumo b{ color:var(--v-texto); font-weight:600; }
+#calendario .cal-acoes{ display:flex; gap:8px; align-items:center; }
+#calendario .cal-link{ background:none; border:0; color:var(--v-texto2); font:500 13px Inter, system-ui, sans-serif; cursor:pointer; padding:6px 8px; border-radius:6px; }
+#calendario .cal-link:hover{ color:var(--v-texto); background:var(--v-hover); }
+#calendario .cal-prim{ height:36px; padding:0 14px; border-radius:8px; border:1px solid var(--cal-acento); background:var(--cal-acento); color:#fff; font:600 13px Inter, system-ui, sans-serif; cursor:pointer; transition:filter .12s, transform .1s; }
+#calendario .cal-prim:hover{ filter:brightness(.92); } #calendario .cal-prim:active{ transform:scale(.97); } #calendario .cal-prim:disabled{ opacity:.4; pointer-events:none; }
+
+@media (max-width:560px){
+  #calendario .cal-corpo{ flex-direction:column; }
+  #calendario .cal-atalhos{ width:auto; flex-direction:row; overflow-x:auto; border-right:0; border-bottom:1px solid var(--v-borda); padding:8px; }
+  #calendario .cal-rod{ flex-wrap:wrap; }
+}
+@media (prefers-reduced-motion:reduce){ #calendario{ transition:none; } }
