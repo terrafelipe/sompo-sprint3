@@ -377,13 +377,13 @@ def test_editar_maquina_selecionada_atualiza_dispositivo(painel):
 
 def test_selects_estilizados(painel):
     page, state = painel
-    ids = ['fazendaSel','equipamentoSel','maqFazenda','opFazenda','historicoDias','fzCliente','usRole','usFazenda']
+    ids = ['fazendaSel','equipamentoSel','maqFazenda','opFazenda','fzCliente','usRole','usFazenda']
     aparencia = [page.evaluate('id => getComputedStyle(document.getElementById(id)).appearance', id) for id in ids]
     if aparencia[0] != 'base-select':
         pytest.skip('Chromium sem appearance: base-select')
     assert aparencia == ['base-select'] * len(ids)
     assert page.evaluate("getComputedStyle(document.getElementById('equipamentoSel'), '::picker-icon').display") == 'none'
-    assert page.evaluate("getComputedStyle(document.getElementById('historicoDias'), '::picker-icon').display") != 'none'
+    assert page.evaluate("getComputedStyle(document.getElementById('maqFazenda'), '::picker-icon').display") != 'none'
 
 
 def test_nome_longo_maquina_sem_sobrepor_seta(painel):

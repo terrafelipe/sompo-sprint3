@@ -1051,7 +1051,7 @@
       <section data-section="historico" class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)] p-6">
         <div class="flex items-center justify-between mb-5 flex-wrap gap-3">
           <div><h2 class="text-base font-semibold text-on-surface inline-flex items-center gap-2">Sessões de operação <span id="contaHistorico" class="selo"></span></h2><p class="text-xs text-on-surface-variant mt-1">Sessões identificadas pelo crachá, sem atribuição automática de responsabilidade.</p></div>
-          <div class="flex items-center gap-2 flex-wrap"><div class="relative"><span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant pointer-events-none">search</span><input type="search" id="buscaHistorico" placeholder="Buscar máquina ou operador…" aria-label="Buscar máquina ou operador…" class="busca"/></div><select id="historicoDias" class="h-9 inline-flex items-center leading-none bg-surface-container-lowest border border-outline-variant rounded-lg px-3 outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"><option value="7">7 dias</option><option value="30">30 dias</option><option value="90">90 dias</option></select></div>
+          <div class="flex items-center gap-2 flex-wrap"><div class="relative"><span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant pointer-events-none">search</span><input type="search" id="buscaHistorico" placeholder="Buscar máquina ou operador…" aria-label="Buscar máquina ou operador…" class="busca"/></div><div id="historicoSeg" role="group" aria-label="Período do histórico" class="inline-flex items-center h-9 p-0.5 rounded-lg border border-outline-variant bg-surface-container-low"><button type="button" data-dias="7" class="per-btn whitespace-nowrap" aria-pressed="true">7 dias</button><button type="button" data-dias="30" class="per-btn whitespace-nowrap" aria-pressed="false">30 dias</button><button type="button" data-dias="90" class="per-btn whitespace-nowrap" aria-pressed="false">90 dias</button><button type="button" data-periodo-livre class="per-btn whitespace-nowrap inline-flex items-center gap-1.5" aria-pressed="false" aria-haspopup="dialog" aria-expanded="false"><span class="material-symbols-outlined text-[16px]">calendar_month</span><span class="rot">Período</span></button></div></div>
         </div>
         <div data-filtro-maquina hidden class="mb-4"><span class="inline-flex items-center gap-2 rounded-full bg-primary/10 text-primary text-sm pl-3 pr-1 py-1"><span class="material-symbols-outlined text-[18px]" aria-hidden="true">filter_alt</span>Filtrando por <strong data-filtro-nome></strong><button type="button" data-limpar-maquina aria-label="Limpar o filtro da máquina" title="Limpar o filtro" class="w-7 h-7 grid place-items-center rounded-full hover:bg-primary/15"><span class="material-symbols-outlined text-[18px]" aria-hidden="true">close</span></button></span></div>
         <div id="listaHistorico"></div>
@@ -4379,6 +4379,7 @@ async function gerarCredencial(id){
 }
 
 let historicoCache = [], historicoPagina = 0;
+let historicoDias = 7, historicoLivre = null;   // 7/30/90 dias ou {de, ate} (AAAA-MM-DD, Brasilia)
 const POR_PAGINA = 10;
 const STATUS_SESSAO = {encerrada:['Encerrada','#71717a'], interrompida:['Interrompida','#f59e0b'], aberta:['Em andamento','#10b981'], em_andamento:['Em andamento','#10b981'], ativa:['Em andamento','#10b981']};
 const MOTIVO_SESSAO = {rfid:'pelo crachá', reinicio:'por reinício do ESP32', timeout:'por tempo esgotado', desligamento:'pelo desligamento', manual:'manualmente'};
@@ -4424,7 +4425,7 @@ function renderHistorico(){
 async function carregarHistorico(){
   iniciando('listaHistorico');
   if(semFazenda()){ historicoCache = []; $('contaHistorico').textContent = ''; atualizarFiltroMaquina(); $('listaHistorico').innerHTML = SEM_FAZENDA; return; }
-  try{ const q=new URLSearchParams({dias:$('historicoDias').value}); if(perfilRole==='sompo'&&fazendaSelecionada) q.set('fazenda',fazendaSelecionada); if(equipamentoSelecionado) q.set('equipamento',equipamentoSelecionado); atualizarFiltroMaquina(); const d=await getJSON('/operacoes?'+q);
+  try{ const q=new URLSearchParams(historicoLivre ? {de:historicoLivre.de, ate:historicoLivre.ate} : {dias:String(historicoDias)}); if(perfilRole==='sompo'&&fazendaSelecionada) q.set('fazenda',fazendaSelecionada); if(equipamentoSelecionado) q.set('equipamento',equipamentoSelecionado); atualizarFiltroMaquina(); const d=await getJSON('/operacoes?'+q);
     historicoCache = d.dados || [];
     renderHistorico();
   }catch(e){ if(e.obsoleto) return; $('listaHistorico').innerHTML=erroLista('Histórico indisponível.'); }
@@ -4810,7 +4811,12 @@ $('formMaquina').addEventListener('submit',salvarMaquina);
 $('btnNovoOperador').addEventListener('click',()=>{ $('formOperador').classList.toggle('hidden'); opcoesFazenda($('opFazenda'),fazendaSelecionada); });
 $('btnCancelarOperador').addEventListener('click',()=>$('formOperador').classList.add('hidden'));
 $('formOperador').addEventListener('submit',criarOperador);
-$('historicoDias').addEventListener('change',()=>{ historicoPagina = 0; carregarHistorico(); });
+function reiniciarHistorico(){ historicoPagina = 0; carregarHistorico(); }
+ligarSecaoPeriodo($('historicoSeg'), {
+  livre: () => historicoLivre,
+  aoDias: n => { historicoDias = n; historicoLivre = null; marcarSecaoPeriodo($('historicoSeg'), n, null); reiniciarHistorico(); },
+  aoLivre: (de, ate) => { historicoLivre = {de, ate}; marcarSecaoPeriodo($('historicoSeg'), historicoDias, historicoLivre); reiniciarHistorico(); },
+});
 $('buscaHistorico').addEventListener('input',()=>{ historicoPagina = 0; renderHistorico(); });
 $('listaHistorico').addEventListener('click',e=>{ const b=e.target.closest('[data-pag]'); if(b){ historicoPagina += +b.dataset.pag; renderHistorico(); return; }
   const l=e.target.closest('[data-ses]'); if(l) abrirSessao(historicoCache[+l.dataset.ses]); });
