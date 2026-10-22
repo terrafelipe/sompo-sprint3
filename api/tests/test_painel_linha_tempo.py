@@ -302,3 +302,38 @@ def test_resposta_atrasada_nao_sobrescreve(painel):
     page.wait_for_timeout(500)
     pw.expect(page.locator('#linhaTempoSub')).to_contain_text('24 horas')
     pw.expect(page.locator('#ltLista .lt-dia')).to_have_count(1)
+
+
+# ---- revisao final: recarga depois de erro, estado no redesenho, filhos sob demanda ----
+
+def test_erro_ou_vazio_nao_recarrega_a_cada_ciclo(painel):
+    page, _ = painel
+    st = _abrir(page, lambda p: (409, {'erro': 'sql_pendente'}) if p.get('horas') == '168' else resposta_exemplo())
+    page.locator('#linhaTempoSeg [data-lt-horas="168"]').click()
+    pw.expect(page.locator('#linhaTempo')).to_contain_text('Falta rodar linha_do_tempo.sql')
+    n = len(st['urls'])
+    page.evaluate('carregarLinhaTempo(); carregarLinhaTempo()')
+    page.wait_for_timeout(400)
+    assert len(st['urls']) == n                      # o ciclo de 5 s nao insiste no 409
+    page.evaluate('linhaTempoEm -= 61000; carregarLinhaTempo()')
+    page.wait_for_timeout(400)
+    assert len(st['urls']) == n + 1                  # depois de 60 s tenta de novo
+
+
+def test_redesenhar_mantem_filtro_selecao_e_grupo_aberto(painel):
+    page, _ = painel
+    _abrir(page)
+    page.locator('#ltLista .lt-ev', has_text='Escape em atenção').click()
+    page.locator('#ltFiltros [data-f="incendio"]').click()
+    page.evaluate('desenharLinhaTempo()')            # o que o resize faz
+    pw.expect(page.locator('#ltFiltros [data-f="incendio"]')).to_have_attribute('aria-pressed', 'true')
+    pw.expect(page.locator('#ltLista .lt-ev.sel')).to_contain_text('Escape em atenção')
+    pw.expect(page.locator('#ltLista .lt-ev', has_text='Escape em atenção')).to_have_attribute('aria-expanded', 'true')
+
+
+def test_filhos_do_grupo_so_entram_no_dom_quando_abre(painel):
+    page, _ = painel
+    _abrir(page)
+    pw.expect(page.locator('#ltLista .lt-filho')).to_have_count(0)
+    page.locator('#ltLista .lt-ev', has_text='Escape em atenção').click()
+    pw.expect(page.locator('#ltLista .lt-filho')).to_have_count(3)

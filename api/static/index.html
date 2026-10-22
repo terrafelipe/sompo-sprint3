@@ -3558,8 +3558,9 @@ let linhaTempoDados = null, linhaTempoVista = null, linhaTempoJanela = {horas: 2
 const LINHA_TEMPO_MS = 60000;
 async function carregarLinhaTempo(forcar = false){
   const c = $('linhaTempo'), eq = equipamentoSelecionado;
-  if(eq !== linhaTempoEq){ linhaTempoEq = eq; linhaTempoJanela = {horas: 24}; linhaTempoDados = null; marcarJanelaLinhaTempo(); }
-  if(!forcar && linhaTempoDados && (linhaTempoJanela.de || Date.now() - linhaTempoEm < LINHA_TEMPO_MS)) return;
+  if(eq !== linhaTempoEq){ linhaTempoEq = eq; linhaTempoJanela = {horas: 24}; linhaTempoDados = null; linhaTempoVista = null; linhaTempoEm = 0; marcarJanelaLinhaTempo(); }
+  // Vale tambem depois de erro ou de "sem leituras": o ciclo de 5 s nao insiste (o 409 de 7 dias pesaria no banco).
+  if(!forcar && linhaTempoEm && (linhaTempoJanela.de || Date.now() - linhaTempoEm < LINHA_TEMPO_MS)) return;
   const jan = linhaTempoJanela;
   const q = jan.de ? `de=${jan.de}&ate=${jan.ate}` : `horas=${jan.horas}`;
   try{
@@ -3567,7 +3568,7 @@ async function carregarLinhaTempo(forcar = false){
     if(eq !== equipamentoSelecionado || jan !== linhaTempoJanela) return;   // resposta de outra maquina ou janela
     linhaTempoEm = Date.now();
     if(!d.janela || !(d.faixas || []).length){
-      linhaTempoDados = null; linhaTempoVista = null;
+      linhaTempoVista?.destruir(); linhaTempoDados = null; linhaTempoVista = null;
       c.innerHTML = '<div class="text-sm text-on-surface-variant italic py-8 text-center">Sem leituras desta máquina para montar a linha do tempo.</div>';
       $('linhaTempoSub').textContent = subtituloLinhaTempo(jan); return;
     }
@@ -3576,7 +3577,8 @@ async function carregarLinhaTempo(forcar = false){
     desenharLinhaTempo();
   }catch(e){
     if(e.obsoleto || eq !== equipamentoSelecionado || jan !== linhaTempoJanela) return;
-    linhaTempoDados = null; linhaTempoVista = null;
+    linhaTempoEm = Date.now();
+    linhaTempoVista?.destruir(); linhaTempoDados = null; linhaTempoVista = null;
     c.innerHTML = e.message === 'HTTP 409'
       ? '<div role="alert" class="text-sm text-on-surface-variant py-8 text-center">Falta rodar linha_do_tempo.sql no Supabase para períodos longos. Use 24 h enquanto isso.</div>'
       : erroLista('Linha do tempo indisponível. Não deu para carregar os dados.');
@@ -3597,6 +3599,8 @@ function trocarJanelaLinhaTempo(j){
   $('linhaTempoSub').textContent = subtituloLinhaTempo(j);
   carregarLinhaTempo(true);
 }
+// "Tentar novamente" do erro: libera a trava de 60 s antes do carregarTudo() do clique.
+$('linhaTempo').addEventListener('click', e => { if(e.target.closest('[data-tentar]')) linhaTempoEm = 0; });
 $('linhaTempoSeg').addEventListener('click', e => {
   const b = e.target.closest('button'); if(!b) return;
   if(b.dataset.ltHoras) trocarJanelaLinhaTempo({horas: +b.dataset.ltHoras});
@@ -3607,7 +3611,8 @@ function desenharLinhaTempo(){
   const D = linhaTempoDados; if(!D) return;
   tipEsconder();
   $('linhaTempoSub').textContent = subtituloLinhaTempo(linhaTempoJanela, D.janela.fim);
-  linhaTempoVista = LinhaDoTempo.montar($('linhaTempo'), D, {titulos: TITULO_TIPO, animar: animarAgora('linhaTempo')});
+  // Redesenho (resize, dado novo): o filtro, a selecao e os grupos abertos continuam.
+  linhaTempoVista = LinhaDoTempo.montar($('linhaTempo'), D, {titulos: TITULO_TIPO, animar: animarAgora('linhaTempo'), estado: linhaTempoVista?.estado});
 }
 
 /* ---------- Detalhe do alerta (modal) ---------- */

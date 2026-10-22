@@ -151,15 +151,21 @@ def eventos_rotina(faixas: List[Dict[str, Any]], minutos: int, sessoes: Optional
         t = quando(al['em'])
         if t is None or (coberto_ate is not None and t <= coberto_ate):
             continue
+        # So "volta" ao normal o que esteve acima do limite a partir da faixa do alarme (chama com o
+        # escape frio nao gera o evento); a volta e a primeira faixa abaixo do limite depois disso.
+        quente = False
         for i, f in enumerate(faixas):
             if inicio(i) + passo <= t or not f['leituras'] or f['temp_max'] is None:
                 continue
-            if f['temp_max'] < lim['atencao']:
+            if f['temp_max'] >= lim['atencao']:
+                quente = True
+            elif quente:
                 coberto_ate = inicio(i)
                 out.append({'tipo': 'temp_normal', 'em': coberto_ate.isoformat(), 'temp': f['temp_max']})
                 break
         else:
-            break   # nao voltou ate o fim da janela: os alarmes seguintes tambem nao
+            if quente:
+                break   # ainda quente no fim da janela: os alarmes seguintes tambem nao voltam
     for e in out:
         e.update(eixo='rotina', sev='rotina')
     return sorted(out, key=lambda e: quando(e['em']))

@@ -1,6 +1,7 @@
 /* Linha do tempo do Painel da maquina (Issue #5): resumo, um grafico so e a lista de eventos.
    Sem rede: o index.html busca /telemetria/linha-do-tempo e chama
-   window.LinhaDoTempo.montar(container, dados, {titulos, animar}) -> {destruir(), selecionar(idEvento|null)}
+   window.LinhaDoTempo.montar(container, dados, {titulos, animar, estado?}) -> {destruir(), selecionar(idEvento|null), estado}
+   (passar o `estado` da vista anterior mantem filtro, selecao e grupos abertos no redesenho)
    window.LinhaDoTempo.grupos(eventos) -> [{id, tipo, itens}]  (alarmes repetidos viram um grupo)
    Tudo que vem da API entra por esc() ou textContent. Cores so pelas variaveis do painel (temas). */
 (function(){
@@ -72,7 +73,9 @@
     const lim = dados.limites || {atencao: 450, critico: 550};
     const titulos = op.titulos || {};
     const titulo = e => titulos[e.tipo] || ROTINA[e.tipo] || e.tipo;
-    const estado = {filtro: 'tudo', sel: null, abertos: new Set(), animar: !!op.animar};
+    const antes = op.estado || {};
+    const estado = {filtro: antes.filtro || 'tudo', sel: antes.sel ?? null, abertos: new Set(antes.abertos || []),
+                    animar: !!op.animar, recemAberto: null};
     const sessaoEm = t => sessoes.find(s => { const a = ms(s.inicio) ?? ini, b = ms(s.fim) ?? fim; return t >= a && t <= b; });
     const doId = id => eventos.find(e => String(e.id) === String(id));
     let geo = null;
@@ -249,12 +252,17 @@
           html += `<button type="button" class="lt-ev ${e.eixo}${qtd > 1 ? ' grupo' : ''}${sel ? ' sel' : ''}" style="--i:${i++}" data-lt-alvo="${esc(g.id)}" data-ev="${esc(e.id)}"${qtd > 1 ? ` aria-expanded="${aberto}"` : ''}>
             <span class="h">${hora(ms(e.em))}</span><span class="ico"><span class="material-symbols-outlined">${ICONE[e.tipo] || 'error'}</span></span>
             <span class="txt"><span class="tit">${esc(titulo(e))}${qtd > 1 ? ' <span class="material-symbols-outlined seta">expand_more</span>' : ''}</span><span class="det${e.tipo === 'temp_normal' ? ' calc' : ''}">${esc(det)}</span></span>${pill}</button>`;
-          if(qtd > 1) html += `<div class="lt-filhos${aberto ? ' aberto' : ''}" data-de="${esc(g.id)}"><div>${g.itens.map(x =>
+          if(qtd > 1 && aberto) html += `<div class="lt-filhos${g.id === estado.recemAberto ? '' : ' aberto'}" data-de="${esc(g.id)}"><div>${g.itens.map(x =>
             `<div class="lt-filho"><span>${hora(ms(x.em))}</span><span></span><span><b>${esc(titulo(x))}</b> · ${esc(detalhe(x))}</span></div>`).join('')}</div></div>`;
         }
         html += '</div>';
       }
       L.innerHTML = html + aviso;
+      if(estado.recemAberto){   // o grupo que acabou de abrir anima a altura (0fr -> 1fr)
+        const f = L.querySelector(`.lt-filhos[data-de="${CSS.escape(estado.recemAberto)}"]`);
+        estado.recemAberto = null;
+        if(f){ f.getBoundingClientRect(); f.classList.add('aberto'); }
+      }
       if(estado.animar && !reduzido()) L.classList.add('lt-anim'); else L.classList.remove('lt-anim');
     }
 
@@ -283,7 +291,7 @@
       if(linha){
         if(linha.classList.contains('grupo')){
           const id = linha.dataset.ltAlvo;
-          estado.abertos.has(id) ? estado.abertos.delete(id) : estado.abertos.add(id);
+          if(estado.abertos.has(id)) estado.abertos.delete(id); else { estado.abertos.add(id); estado.recemAberto = id; }
         }
         const y = window.scrollY;
         selecionar(linha.dataset.ev, false);
@@ -295,6 +303,7 @@
     return {
       destruir(){ cont.onclick = null; cont.innerHTML = ''; },
       selecionar(id){ selecionar(id, false); },
+      estado,
     };
   }
 

@@ -145,3 +145,18 @@ def test_normalizar_alarme():
                            'severidade': 4, 'temp_escape': 63.2, 'detalhes': {'limiar_c': 60}})
     assert a == {'id': 'a9', 'tipo': 'escape_critico', 'eixo': 'incendio', 'sev': 'critico',
                  'em': '2026-10-22T12:31:00+00:00', 'temp': 63.2, 'limiar_c': 60}
+
+
+def test_chama_com_escape_frio_nao_gera_temperatura_normal():
+    # So "volta" ao normal o que passou do limite depois do alarme; chama com o escape frio nao.
+    faixas = _faixas(_h(8), _h(11))   # 30 C o tempo todo
+    alarmes = [_alarme('chama_detectada', _h(9, 33))]
+    assert _de(eventos_rotina(faixas, 5, [], alarmes, {'atencao': 40, 'critico': 60}), 'temp_normal') == []
+
+
+def test_temperatura_normal_vem_depois_do_alarme():
+    temps = {_h(9, 30): 30.0, _h(9, 35): 55.0, _h(9, 40): 38.0}
+    faixas = _faixas(_h(8), _h(11), temps=temps)
+    alarmes = [_alarme('escape_atencao', _h(9, 33), 40)]
+    (normal,) = _de(eventos_rotina(faixas, 5, [], alarmes, limites(alarmes)), 'temp_normal')
+    assert normal['em'] == _h(9, 40).isoformat()
