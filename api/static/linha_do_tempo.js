@@ -130,6 +130,12 @@
       for(const [a, b] of lacunas(faixas, minutos)){
         const x0 = X(ms(faixas[a].inicio)), x1 = X(ms(faixas[b].inicio));
         g += `<rect class="lt-lacuna" x="${x0.toFixed(1)}" y="${Y0 - 6}" width="${(x1 - x0).toFixed(1)}" height="${YC + AB - Y0 + 6}" fill="url(#ltHach)"/>`;
+        const rot = `Placa sem enviar · ${dur((b - a) * minutos)}`;   // lacuna larga: diz o que e e quanto durou
+        if(x1 - x0 >= rot.length * 6.2 + 20){
+          const cx = ((x0 + x1) / 2).toFixed(1), w = rot.length * 6.2 + 16;
+          g += `<g class="lt-lacuna-rotulo"><rect x="${(cx - w / 2).toFixed(1)}" y="${Y0 + 30}" width="${w.toFixed(1)}" height="20" rx="6" style="fill:var(--v-card)" fill-opacity=".92"/>`
+            + `<text x="${cx}" y="${Y0 + 44}" text-anchor="middle" font-size="11" style="fill:var(--v-texto2)">${rot}</text></g>`;
+        }
       }
       // temperatura: maxima de cada faixa no meio dela; faixa sem leitura quebra a linha
       let d = '', area = '', aberto = false, ultX = 0;
@@ -247,7 +253,8 @@
           const sel = g.itens.some(x => String(x.id) === String(estado.sel)), aberto = estado.abertos.has(g.id);
           const pill = e.sev === 'critico' ? '<span class="lt-pill critico"><span class="material-symbols-outlined">priority_high</span>Crítico</span>'
             : e.sev === 'atencao' ? '<span class="lt-pill atencao">Atenção</span>' : '<span class="lt-pill rotina">Rotina</span>';
-          const temps = g.itens.map(x => x.temp).filter(v => v != null);
+          // so o escape tem temperatura que importa; a do sensor de chama (escape frio) so confunde
+          const temps = e.tipo.startsWith('escape') ? g.itens.map(x => x.temp).filter(v => v != null) : [];
           const det = qtd > 1 ? `${qtd} vezes entre ${hora(ms(e.em))} e ${hora(ms(ult.em))}${temps.length ? ` · até ${graus(Math.max(...temps))}` : ''}` : detalhe(e);
           html += `<button type="button" class="lt-ev ${e.eixo}${qtd > 1 ? ' grupo' : ''}${sel ? ' sel' : ''}" style="--i:${i++}" data-lt-alvo="${esc(g.id)}" data-ev="${esc(e.id)}"${qtd > 1 ? ` aria-expanded="${aberto}"` : ''}>
             <span class="h">${hora(ms(e.em))}</span><span class="ico"><span class="material-symbols-outlined">${ICONE[e.tipo] || 'error'}</span></span>

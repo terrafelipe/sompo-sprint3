@@ -337,3 +337,28 @@ def test_filhos_do_grupo_so_entram_no_dom_quando_abre(painel):
     pw.expect(page.locator('#ltLista .lt-filho')).to_have_count(0)
     page.locator('#ltLista .lt-ev', has_text='Escape em atenção').click()
     pw.expect(page.locator('#ltLista .lt-filho')).to_have_count(3)
+
+
+# ---- ajustes depois do uso em producao: chama sem temperatura e lacuna com rotulo ----
+
+def test_grupo_de_chama_nao_mostra_temperatura_do_escape(painel):
+    page, _ = painel
+    d = resposta_exemplo()
+    chamas = [{'id': f'c{i}', 'tipo': 'chama_detectada', 'eixo': 'incendio', 'sev': 'critico',
+               'em': f'2026-10-22T10:{10 + i * 5}:00-03:00', 'temp': 24, 'limiar_c': None} for i in range(3)]
+    d['eventos'] = chamas
+    _abrir(page, d)
+    grupo = page.locator('#ltLista .lt-ev', has_text='Chama detectada')
+    pw.expect(grupo).to_contain_text('3 vezes entre 10:10 e 10:20')
+    assert '°C' not in grupo.inner_text()
+
+
+def test_lacuna_grande_tem_rotulo_com_a_duracao(painel):
+    page, _ = painel
+    d = resposta_exemplo()
+    for f in d['faixas'][40:-1]:   # a placa so enviou no comeco e no fim da janela
+        f.update(leituras=0, motor_ligado=False, temp_max=None, risco=None)
+    _abrir(page, d)
+    rotulo = page.locator('#ltGrafico svg .lt-lacuna-rotulo')
+    pw.expect(rotulo).to_have_count(1)
+    pw.expect(rotulo).to_contain_text('Placa sem enviar · 20 h 35')
