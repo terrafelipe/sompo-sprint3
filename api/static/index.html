@@ -801,10 +801,21 @@
 
       <!-- TABELA DE LEITURAS -->
       <section data-section="tabela" class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_1px_2px_rgba(0,0,0,0.03)] overflow-hidden">
-        <div class="p-5 pb-4">
-          <h2 class="text-base font-semibold text-on-surface">Últimas leituras</h2>
-          <p class="text-sm text-on-surface-variant">As 10 leituras mais recentes da máquina</p>
+        <div class="p-5 pb-4 flex items-end justify-between gap-3 flex-wrap">
+          <div>
+            <h2 class="text-base font-semibold text-on-surface">Últimas leituras</h2>
+            <p id="tabelaSub" class="text-sm text-on-surface-variant">As 10 leituras mais recentes da máquina</p>
+          </div>
+          <form id="formLeituras" class="flex items-end gap-2 flex-wrap" novalidate>
+            <label class="text-xs font-medium text-on-surface-variant">De
+              <input id="leiturasDe" type="date" class="block mt-1 h-9 bg-surface-container-lowest border border-outline-variant rounded-lg px-3 text-sm text-on-surface outline-none focus:ring-2 focus:ring-primary/20"/></label>
+            <label class="text-xs font-medium text-on-surface-variant">Até
+              <input id="leiturasAte" type="date" class="block mt-1 h-9 bg-surface-container-lowest border border-outline-variant rounded-lg px-3 text-sm text-on-surface outline-none focus:ring-2 focus:ring-primary/20"/></label>
+            <button type="submit" class="h-9 inline-flex items-center gap-1.5 bg-primary text-on-primary font-semibold px-4 rounded-lg hover:bg-on-primary-fixed-variant transition-colors">Ver leituras</button>
+            <button type="button" id="leiturasLimpar" hidden class="h-9 px-3 rounded-lg border border-outline-variant text-sm font-medium text-on-surface-variant hover:bg-surface-container-low transition-colors">Limpar</button>
+          </form>
         </div>
+        <p id="leiturasAviso" role="alert" hidden class="mx-5 mb-3 text-sm text-error"></p>
         <div class="mx-5 mb-5 rounded-lg border border-outline-variant overflow-x-auto">
           <table class="w-full text-left">
             <thead>
@@ -822,6 +833,11 @@
             </thead>
             <tbody id="tabelaTelemetria" class="text-[13px]"></tbody>
           </table>
+        </div>
+        <div id="leiturasNav" hidden class="mx-5 mb-5 -mt-2 flex items-center justify-end gap-2 text-sm">
+          <span id="leiturasPagina" role="status" aria-live="polite" class="text-on-surface-variant mr-1"></span>
+          <button type="button" id="leiturasAnterior" class="h-9 px-3 rounded-lg border border-outline-variant font-medium text-on-surface-variant hover:bg-surface-container-low transition-colors disabled:opacity-40 disabled:pointer-events-none">Anterior</button>
+          <button type="button" id="leiturasProxima" class="h-9 px-3 rounded-lg border border-outline-variant font-medium text-on-surface-variant hover:bg-surface-container-low transition-colors disabled:opacity-40 disabled:pointer-events-none">Próxima</button>
         </div>
       </section>
 
@@ -1422,6 +1438,7 @@ function iniciando(id){ if(!$(id).innerHTML.trim() || $(id).querySelector('[data
 function limparMaquina(){
   desligarAoVivo(); $('btnAoVivo').hidden = true;
   contextoVersao++;
+  limparPeriodoLeituras();   // o periodo pertence a maquina que saiu
   equipamentoSelecionado = null; dispositivo = ''; eventosCache = [];
   ['kpis','sparkTemp','tabelaTelemetria','eventos','justFurto','justIncendio','recs','lim','origemBadge'].forEach(id => $(id).innerHTML = '');
   ['kpiRisco','kpiFurto','kpiIncendio','kpiAlertas','scoreFurto','scoreIncendio','classifFurto','classifIncendio','alertasBadge'].forEach(id => $(id).textContent = '–');
@@ -1738,13 +1755,92 @@ $('btnRegerar').addEventListener('click', async () => {
   const b = ev.target.closest('[data-evidencia]'); if(b) verEvidencias(b.dataset.evidencia);
 }));
 
+// Tabela "Últimas leituras": sem periodo mostra as 10 mais recentes (refresh de 5 s); com periodo
+// (De/Ate) mostra todas as leituras do intervalo em paginas, e o refresh nao mexe na tabela.
+let leiturasPeriodo = null;   // {de, ate, pagina, corte} enquanto a tabela mostra um periodo
+const LEITURAS_SUB_PADRAO = 'As 10 leituras mais recentes da máquina';
+const fmtDiaCompleto = ymd => ymd.split('-').reverse().join('/');
+function linhaLeitura(x, fmtQuando){
+  const cor = nivelCor(x.nivel_risco);
+  const bool = v => v ? 'Sim' : 'Não';
+  return `<tr class="border-b border-outline-variant last:border-0 hover:bg-surface-container-low transition-colors">
+        <td class="py-3 px-5 text-on-surface-variant tabular">${fmtQuando(x.criado_em)}</td>
+        <td class="py-3 px-5"><span class="inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-md border" style="color:${cor};border-color:${cor}40;background:${cor}0d"><span class="w-1.5 h-1.5 rounded-full" style="background:${cor}"></span>${x.nivel_risco ?? '–'}</span></td>
+        <td class="py-3 px-5">${x.temp_escape ?? '–'} °C</td>
+        <td class="py-3 px-5">${x.umidade_ar ?? '–'} %</td>
+        <td class="py-3 px-5">${x.vibracao ?? '–'} g</td>
+        <td class="py-3 px-5">${bool(x.motor_ligado)}</td>
+        <td class="py-3 px-5">${bool(x.capo_aberto)}</td>
+        <td class="py-3 px-5">${bool(x.tanque_aberto)}</td>
+        <td class="py-3 px-5">${bool(x.chama_detectada)}</td>
+      </tr>`;
+}
+function avisoLeituras(msg){ $('leiturasAviso').textContent = msg || ''; $('leiturasAviso').hidden = !msg; }
+function limparPeriodoLeituras(){
+  leiturasPeriodo = null;
+  $('leiturasDe').value = $('leiturasAte').value = '';
+  $('tabelaSub').textContent = LEITURAS_SUB_PADRAO;
+  $('leiturasLimpar').hidden = $('leiturasNav').hidden = true;
+  avisoLeituras('');
+}
+async function carregarLeiturasPeriodo(){
+  const p = leiturasPeriodo; if(!p) return;
+  const corpo = $('tabelaTelemetria');
+  avisoLeituras('');
+  $('tabelaSub').textContent = `Leituras de ${fmtDiaCompleto(p.de)} a ${fmtDiaCompleto(p.ate)}`;
+  $('leiturasLimpar').hidden = $('leiturasNav').hidden = false;
+  corpo.innerHTML = '<tr><td colspan="9" class="py-6 px-5 text-on-surface-variant italic">Carregando…</td></tr>';
+  $('leiturasPagina').textContent = `Página ${p.pagina}`;
+  const foco = $('leiturasNav').contains(document.activeElement) ? document.activeElement : null;
+  $('leiturasAnterior').disabled = $('leiturasProxima').disabled = true;   // 1 pagina por vez: clique duplo nao pula pagina
+  // Desabilitar o botao focado joga o foco no <body>: devolve ao mesmo botao, ou ao que sobrou.
+  const devolverFoco = () => {
+    if(!foco || document.activeElement !== document.body) return;
+    (!foco.disabled ? foco : [$('leiturasAnterior'), $('leiturasProxima')].find(b => !b.disabled))?.focus();
+  };
+  try{
+    // 1a pagina: sem corte, e o servidor devolve o instante que usou; as outras o reenviam (paginacao estavel).
+    const corte = p.corte ? `&corte=${encodeURIComponent(p.corte)}` : '';
+    const d = await getJSON(`/telemetria?${seletorEquipamento()}&de=${p.de}&ate=${p.ate}${corte}&pagina=${p.pagina}`);
+    if(leiturasPeriodo !== p) return;   // limpou ou pediu outra pagina enquanto esta carregava
+    p.corte = d.corte || p.corte;
+    const linhas = d.dados || [];
+    corpo.innerHTML = linhas.length
+      ? linhas.map(x => linhaLeitura(x, fmtHora)).join('')
+      : '<tr><td colspan="9" class="py-6 px-5 text-on-surface-variant italic">Nenhuma leitura neste período.</td></tr>';
+    $('leiturasAnterior').disabled = p.pagina <= 1;
+    $('leiturasProxima').disabled = !d.tem_mais;
+    devolverFoco();
+  }catch(e){ if(leiturasPeriodo !== p) return;
+    if(e.obsoleto) return carregarLeiturasPeriodo();   // o contexto mudou no meio (ex.: outro cadastro excluido), o periodo continua valendo
+    corpo.innerHTML = '';
+    avisoLeituras('Não foi possível carregar o período. Confira as datas e tente de novo.');
+    $('leiturasAnterior').disabled = p.pagina <= 1;
+    devolverFoco();
+  }
+}
+$('formLeituras').addEventListener('submit', ev => {
+  ev.preventDefault();
+  const de = $('leiturasDe').value, ate = $('leiturasAte').value;
+  if(!de || !ate) return avisoLeituras('Escolha a data inicial e a data final.');
+  if(ate < de) return avisoLeituras('A data final não pode ser anterior à data inicial.');
+  leiturasPeriodo = {de, ate, pagina: 1, corte: null};
+  carregarLeiturasPeriodo();
+});
+$('leiturasLimpar').addEventListener('click', () => {
+  limparPeriodoLeituras();
+  $('tabelaTelemetria').innerHTML = '<tr><td colspan="9" class="py-6 px-5 text-on-surface-variant italic">Carregando…</td></tr>';
+  carregarTelemetria();
+});
+$('leiturasAnterior').addEventListener('click', () => { if(leiturasPeriodo && leiturasPeriodo.pagina > 1){ leiturasPeriodo = {...leiturasPeriodo, pagina: leiturasPeriodo.pagina - 1}; carregarLeiturasPeriodo(); } });
+$('leiturasProxima').addEventListener('click', () => { if(leiturasPeriodo){ leiturasPeriodo = {...leiturasPeriodo, pagina: leiturasPeriodo.pagina + 1}; carregarLeiturasPeriodo(); } });
+
 async function carregarTelemetria(){
   iniciando('kpis');
   try{
     const d = await getJSON(`/telemetria?${seletorEquipamento()}&limite=30`);
     const linhas = d.dados || [];
     const t = linhas[0] || null;
-    const bool = v => v ? 'Sim' : 'Não';
 
     // Ao vivo ja pintou os quadradinhos: a carga de 5 s nao volta para uma leitura mais antiga.
     const kpisAoVivo = aoVivo.ligado && $('kpis').querySelector('[data-kpi]');
@@ -1753,7 +1849,7 @@ async function carregarTelemetria(){
       $('kpiRisco').textContent = '–';
       $('cardRisco').dataset.risco = 'seguro';   // sem dado -> sem feixe
       $('sparkTemp').innerHTML = graficoTemp([]);
-      $('tabelaTelemetria').innerHTML = '<tr><td colspan="9" class="py-6 px-5 text-on-surface-variant italic">Nenhuma leitura recebida.</td></tr>';
+      if(!leiturasPeriodo) $('tabelaTelemetria').innerHTML = '<tr><td colspan="9" class="py-6 px-5 text-on-surface-variant italic">Nenhuma leitura recebida.</td></tr>';
       return;
     }
 
@@ -1774,24 +1870,11 @@ async function carregarTelemetria(){
     renderizarGraficoLeituras();
     renderizarStatusAgora(); renderizarSaude();
 
-    $('tabelaTelemetria').innerHTML = linhas.slice(0,10).map(x=>{
-      const cor = nivelCor(x.nivel_risco);
-      return `<tr class="border-b border-outline-variant last:border-0 hover:bg-surface-container-low transition-colors">
-        <td class="py-3 px-5 text-on-surface-variant tabular">${fmtHoraCurta(x.criado_em)}</td>
-        <td class="py-3 px-5"><span class="inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-md border" style="color:${cor};border-color:${cor}40;background:${cor}0d"><span class="w-1.5 h-1.5 rounded-full" style="background:${cor}"></span>${x.nivel_risco ?? '–'}</span></td>
-        <td class="py-3 px-5">${x.temp_escape ?? '–'} °C</td>
-        <td class="py-3 px-5">${x.umidade_ar ?? '–'} %</td>
-        <td class="py-3 px-5">${x.vibracao ?? '–'} g</td>
-        <td class="py-3 px-5">${bool(x.motor_ligado)}</td>
-        <td class="py-3 px-5">${bool(x.capo_aberto)}</td>
-        <td class="py-3 px-5">${bool(x.tanque_aberto)}</td>
-        <td class="py-3 px-5">${bool(x.chama_detectada)}</td>
-      </tr>`;
-    }).join('');
+    if(!leiturasPeriodo) $('tabelaTelemetria').innerHTML = linhas.slice(0,10).map(x => linhaLeitura(x, fmtHoraCurta)).join('');
   }catch(e){ if(e.obsoleto) return;
     $('kpis').innerHTML = erroLista('Telemetria indisponível.');
     $('sparkTemp').innerHTML = '';
-    $('tabelaTelemetria').innerHTML = '<tr><td colspan="9">Telemetria indisponível.</td></tr>';
+    if(!leiturasPeriodo) $('tabelaTelemetria').innerHTML = '<tr><td colspan="9">Telemetria indisponível.</td></tr>';
     $('kpiRisco').textContent = '–'; $('cardRisco').dataset.risco = 'seguro';
   }
 }

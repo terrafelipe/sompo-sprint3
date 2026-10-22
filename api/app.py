@@ -53,6 +53,7 @@ from supabase_client import (
     consultar_resumo,
     consultar_telemetria,
     consultar_telemetria_intervalo,
+    consultar_telemetria_periodo,
     consultar_usuario,
     consultar_usuarios,
     inserir_tabela,
@@ -507,11 +508,63 @@ def me():
     }), 200
 
 
+_BRT = timezone(timedelta(hours=-3))
+_LEITURAS_POR_PAGINA = 50
+
+
+def _periodo_de_ate():
+    # ?de=AAAA-MM-DD&ate=AAAA-MM-DD, os dois dias inclusivos, no horario de Brasilia (ate 1 ano).
+    # Devolve (inicio, fim) com fim EXCLUSIVO: 00:00 do dia seguinte ao "ate", ou o corte (?corte= ou agora)
+    # se vier antes; sem de/ate, None.
+    de, ate = request.args.get('de'), request.args.get('ate')
+    if de is None and ate is None:
+        return None
+    if not (de and ate and re.fullmatch(r'\d{4}-\d{2}-\d{2}', de) and re.fullmatch(r'\d{4}-\d{2}-\d{2}', ate)):
+        raise frota.FrotaErro('periodo_invalido')
+    try:
+        primeiro, ultimo = datetime.fromisoformat(de).date(), datetime.fromisoformat(ate).date()
+    except ValueError:
+        raise frota.FrotaErro('periodo_invalido')
+    if not 0 <= (ultimo - primeiro).days <= 365:
+        raise frota.FrotaErro('periodo_invalido')
+    try:
+        inicio = datetime(primeiro.year, primeiro.month, primeiro.day, tzinfo=_BRT)
+        fim = datetime(ultimo.year, ultimo.month, ultimo.day, tzinfo=_BRT) + timedelta(days=1)
+    except OverflowError:   # "ate" = 9999-12-31: o dia seguinte nao existe
+        raise frota.FrotaErro('periodo_invalido')
+    # Corte: o fim nunca passa do instante em que a 1a pagina foi pedida. A resposta devolve esse instante
+    # e o painel o reenvia em ?corte= nas outras paginas; sem isso, uma leitura nova gravada entre duas
+    # paginas empurraria as linhas por offset e a ultima de uma reapareceria no topo da seguinte.
+    # O relogio e o do servidor, nao o do navegador.
+    corte = request.args.get('corte')
+    if corte:
+        try:
+            momento = datetime.fromisoformat(corte)
+        except ValueError:
+            raise frota.FrotaErro('periodo_invalido')
+        if momento.tzinfo is None:
+            raise frota.FrotaErro('periodo_invalido')
+    else:
+        momento = datetime.now(timezone.utc)
+    return inicio, min(fim, momento)
+
+
 @app.get('/telemetria')
 def telemetria():
     dispositivo = _dispositivo_para(request.args.get('dispositivo', 'SOMPO-ESP32'))
     eq = frota.id_selecionado()
     limite = _parse_int(request.args.get('limite', '50'), 50, minimum=1, maximum=500)
+    periodo = _periodo_de_ate()
+
+    if periodo:
+        pagina = frota.inteiro(request.args.get('pagina', 1), 'pagina', maximo=1_000_000)
+        try:
+            linhas = consultar_telemetria_periodo(dispositivo, *periodo, pagina=pagina, por_pagina=_LEITURAS_POR_PAGINA, equipamento=eq)
+            dados = frota.identificar_registros(linhas[:_LEITURAS_POR_PAGINA])
+            return jsonify({'total': len(dados), 'dados': dados, 'pagina': pagina, 'corte': periodo[1].isoformat(),
+                            'tem_mais': len(linhas) > _LEITURAS_POR_PAGINA, **frota.contexto()}), 200
+        except Exception as exc:
+            return _erro('falha_na_consulta', exc, 502)
 
     try:
         dados = frota.identificar_registros(consultar_telemetria(dispositivo, limite=limite, equipamento=eq) if dispositivo or eq else [])

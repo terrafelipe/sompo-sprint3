@@ -105,6 +105,16 @@ def consultar_telemetria(dispositivo, limite: int = 50, equipamento=None) -> Lis
                             limite=limite, order='criado_em.desc')
 
 
+def consultar_telemetria_periodo(dispositivo, inicio: datetime, fim: datetime, pagina: int = 1, por_pagina: int = 50, equipamento=None) -> List[Dict[str, Any]]:
+    # [inicio, fim), da mais nova para a mais velha. Pede UMA linha a mais que a pagina: se ela
+    # vier, existe a proxima pagina (evita uma consulta de contagem a mais ate o Supabase).
+    return consultar_tabela('telemetria', filtros={
+        **_leituras_de(dispositivo, equipamento),
+        'criado_em': f'gte.{inicio.isoformat()}',
+        'and': f'(criado_em.lt.{fim.isoformat()})',
+    }, limite=por_pagina + 1, offset=(pagina - 1) * por_pagina, order='criado_em.desc,id.desc')
+
+
 def consultar_telemetria_intervalo(dispositivo, inicio: datetime, fim: datetime, equipamento=None) -> List[Dict[str, Any]]:
     # So as colunas que a linha do tempo usa: 24h de leituras podem ser milhares de linhas.
     return consultar_todos('telemetria', filtros={

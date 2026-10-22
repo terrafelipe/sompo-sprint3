@@ -214,7 +214,8 @@ Supabase em produção). Detalhes de montagem que fugiram do "ideal":
   troca o operador. Reinício interrompe a sessão e exige novo crachá. Não há UID fixo de
   autorização no código. **Fogo sempre soa**, independentemente da sessão.
 - **Buzzer (GPIO26):** alarme **contínuo** enquanto a ameaça está presente (não bipe único).
-  Tons em `BUZZER_FREQ_CHAMA` (2000 Hz) / `BUZZER_FREQ_FURTO` (3000 Hz). Bipes curtos de
+  Tons em `BUZZER_FREQ_CHAMA` (2000 Hz, chama e escape crítico) / `BUZZER_FREQ_ATENCAO` (1000 Hz,
+  escape em atenção) / `BUZZER_FREQ_FURTO` (3000 Hz). Bipes curtos de
   feedback distintos para crachá autorizado / negado / ímã do reed.
 - **Driver USB da placa: CP2102** (Silicon Labs). Sem o driver CP210x o Windows não cria a COM.
 
@@ -340,7 +341,7 @@ Arquivo central: `api/app.py`. Servida por **waitress** em produção; `python a
 | `GET /` | Painel visual (dashboard) — pede login se `PAINEL_SENHA` definida |
 | `GET /saude` | Health check (API + banco). Única rota liberada da API key |
 | `GET /me` | Perfil do usuário logado (role + fazenda vinculada) |
-| `GET /telemetria` | Últimas leituras (`?dispositivo=`, `?limite=`) |
+| `GET /telemetria` | Últimas leituras (`?dispositivo=`, `?limite=`). Com `?de=AAAA-MM-DD&ate=AAAA-MM-DD` (os dois dias inclusivos, horário de Brasília, até 1 ano) lista o período em páginas de 50 (`?pagina=`), da mais nova para a mais velha, e devolve `pagina` e `tem_mais`; `?corte=` (instante ISO com fuso) limita o fim do período, e o painel o fixa na 1ª página para a paginação não repetir linhas; período inválido dá 400 `periodo_invalido` |
 | `GET /eventos` | Eventos do período (`?dias=`) |
 | `GET /resumo` | Resumo diário (view `resumo_diario`) |
 | `GET /scores` | Scores de risco determinísticos por eixo |

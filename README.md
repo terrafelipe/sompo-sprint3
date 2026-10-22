@@ -103,7 +103,7 @@ login na **AWS Lambda** (URL limpa via Cloudflare Pages: https://sompo-painel.pa
 |------|-----------|
 | `GET /` | Painel visual (dashboard) — pede login se `PAINEL_SENHA` estiver definida |
 | `GET /saude` | Health check (API + banco) |
-| `GET /telemetria` | Últimas leituras de telemetria |
+| `GET /telemetria` | Últimas leituras de telemetria (`?de=&ate=` filtra por período, em páginas) |
 | `GET /eventos` | Eventos (furto/incêndio) do período |
 | `GET /resumo` | Resumo diário (view `resumo_diario`) |
 | `GET /scores` | Scores de risco determinísticos por eixo |
