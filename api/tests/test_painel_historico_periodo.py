@@ -85,3 +85,25 @@ def test_voltar_para_7_30_90_depois_do_periodo_livre_do_historico(painel):
     pw.expect(page.locator(f'{LIVRE} .rot')).to_have_text('Período')
     page.wait_for_load_state('networkidle')
     assert pedidos[-1]['dias'] == '90' and 'de' not in pedidos[-1]
+
+
+def _sessoes(n):
+    return [dict(SESSAO, sessao_id=f's{i}', recebido_em=f'2026-10-10T10:{i % 60:02d}:00Z') for i in range(n)]
+
+
+def test_historico_avisa_quando_o_periodo_tem_mais_sessoes_do_que_vieram(painel):
+    page, state = painel
+    pedidos = []
+    page.on('request', lambda r: pedidos.append(dict(parse_qs(urlparse(r.url).query))) if urlparse(r.url).path == '/operacoes' else None)
+    page.route('**/operacoes?*', lambda r: r.fulfill(json={'dados': _sessoes(200), 'total': 450}))
+    nav(page, 'historico')
+    pw.expect(page.locator('#historicoAviso')).to_have_text('Mostrando as 200 sessões mais recentes de 450 no período. Escolha um período menor para ver as demais.')
+    assert pedidos[-1]['limite'] == ['200']                      # o maximo que a API aceita (o padrao era 50)
+
+
+def test_historico_sem_corte_nao_mostra_aviso(painel):
+    page, state = painel
+    page.route('**/operacoes?*', lambda r: r.fulfill(json={'dados': _sessoes(3), 'total': 3}))
+    nav(page, 'historico')
+    pw.expect(page.locator('#listaHistorico')).to_contain_text('Trator 1')
+    pw.expect(page.locator('#historicoAviso')).to_be_hidden()

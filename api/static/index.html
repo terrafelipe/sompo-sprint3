@@ -1054,6 +1054,7 @@
           <div class="flex items-center gap-2 flex-wrap"><div class="relative"><span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant pointer-events-none">search</span><input type="search" id="buscaHistorico" placeholder="Buscar máquina ou operador…" aria-label="Buscar máquina ou operador…" class="busca"/></div><div id="historicoSeg" role="group" aria-label="Período do histórico" class="inline-flex items-center h-9 p-0.5 rounded-lg border border-outline-variant bg-surface-container-low"><button type="button" data-dias="7" class="per-btn whitespace-nowrap" aria-pressed="true">7 dias</button><button type="button" data-dias="30" class="per-btn whitespace-nowrap" aria-pressed="false">30 dias</button><button type="button" data-dias="90" class="per-btn whitespace-nowrap" aria-pressed="false">90 dias</button><button type="button" data-periodo-livre class="per-btn whitespace-nowrap inline-flex items-center gap-1.5" aria-pressed="false" aria-haspopup="dialog" aria-expanded="false"><span class="material-symbols-outlined text-[16px]">calendar_month</span><span class="rot">Período</span></button></div></div>
         </div>
         <div data-filtro-maquina hidden class="mb-4"><span class="inline-flex items-center gap-2 rounded-full bg-primary/10 text-primary text-sm pl-3 pr-1 py-1"><span class="material-symbols-outlined text-[18px]" aria-hidden="true">filter_alt</span>Filtrando por <strong data-filtro-nome></strong><button type="button" data-limpar-maquina aria-label="Limpar o filtro da máquina" title="Limpar o filtro" class="w-7 h-7 grid place-items-center rounded-full hover:bg-primary/15"><span class="material-symbols-outlined text-[18px]" aria-hidden="true">close</span></button></span></div>
+        <p id="historicoAviso" role="status" hidden class="mx-1 mb-2 text-xs text-on-surface-variant"></p>
         <div id="listaHistorico"></div>
       </section>
 
@@ -1327,9 +1328,9 @@ function atualizarFiltroMaquina(){
   });
 }
 function setView(view){
-  Calendario.fechar();   // trocar de tela (inclusive pela paleta, sem clique fora) nao deixa o calendario solto
   if(restrita(view)) view = 'maquinas';
   const mudou = viewAtual !== view;
+  if(mudou) Calendario.fechar();   // trocar de tela (inclusive pela paleta, sem clique fora) nao deixa o calendario solto; resize chama setView(viewAtual) e nao fecha
   if(mudou) novaEntrada(true);
   if(mudou && typeof assinaturas !== 'undefined') ['leituras','eventos','tempdia'].forEach(k => assinaturas.delete(k));
   viewAtual = view;
@@ -4436,9 +4437,12 @@ function renderHistorico(){
 }
 async function carregarHistorico(){
   iniciando('listaHistorico');
-  if(semFazenda()){ historicoCache = []; $('contaHistorico').textContent = ''; atualizarFiltroMaquina(); $('listaHistorico').innerHTML = SEM_FAZENDA; return; }
-  try{ const q=new URLSearchParams(historicoLivre ? {de:historicoLivre.de, ate:historicoLivre.ate} : {dias:String(historicoDias)}); if(perfilRole==='sompo'&&fazendaSelecionada) q.set('fazenda',fazendaSelecionada); if(equipamentoSelecionado) q.set('equipamento',equipamentoSelecionado); atualizarFiltroMaquina(); const d=await getJSON('/operacoes?'+q);
+  if(semFazenda()){ historicoCache = []; $('historicoAviso').hidden = true; $('contaHistorico').textContent = ''; atualizarFiltroMaquina(); $('listaHistorico').innerHTML = SEM_FAZENDA; return; }
+  try{ const q=new URLSearchParams(historicoLivre ? {de:historicoLivre.de, ate:historicoLivre.ate} : {dias:String(historicoDias)}); if(perfilRole==='sompo'&&fazendaSelecionada) q.set('fazenda',fazendaSelecionada); if(equipamentoSelecionado) q.set('equipamento',equipamentoSelecionado); atualizarFiltroMaquina(); q.set('limite','200'); const d=await getJSON('/operacoes?'+q);
     historicoCache = d.dados || [];
+    const corte = (d.total ?? 0) > historicoCache.length;   // a API entrega no maximo 200 por consulta
+    $('historicoAviso').hidden = !corte;
+    $('historicoAviso').textContent = corte ? `Mostrando as ${historicoCache.length} sessões mais recentes de ${d.total} no período. Escolha um período menor para ver as demais.` : '';
     renderHistorico();
   }catch(e){ if(e.obsoleto) return; $('listaHistorico').innerHTML=erroLista('Histórico indisponível.'); }
 }

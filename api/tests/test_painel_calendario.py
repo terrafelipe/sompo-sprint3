@@ -207,7 +207,7 @@ def test_trocar_de_maquina_fecha_o_calendario(painel):
     page, _ = painel
     _preparar(page)
     abrir_calendario(page)
-    page.select_option('#equipamentoSel', '')
+    page.evaluate('limparMaquina()')        # o caminho da troca de maquina/fazenda, sem passar por setView
     pw.expect(page.locator('#calendario')).to_be_hidden()
 
 
@@ -350,3 +350,16 @@ def test_trocar_de_tela_pelo_teclado_fecha_o_calendario(painel):
     abrir_calendario(page)
     page.evaluate("setView('maquinas')")        # o que a paleta (Ctrl+K) faz: sem clique fora
     pw.expect(page.locator('#calendario')).to_be_hidden()
+
+
+def test_redimensionar_a_janela_nao_fecha_o_calendario(painel):
+    # No celular a barra de endereco que some ao rolar dispara resize; o calendario nao pode perder a selecao.
+    page, _ = painel
+    _preparar(page)
+    abrir_calendario(page)
+    clicar_dia(page, '2026-10-01')
+    tamanho = page.viewport_size
+    page.set_viewport_size({'width': tamanho['width'], 'height': tamanho['height'] - 40})
+    page.wait_for_timeout(200)
+    pw.expect(page.locator('#calendario')).to_be_visible()
+    pw.expect(page.locator('#calResumo')).to_contain_text('1 out')
