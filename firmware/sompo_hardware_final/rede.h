@@ -55,19 +55,31 @@ p/SgguMh1YQdc4acLa/KNJvxn7kjNuK8YAOdgLOaVsjh4rsUecrNIdSUtUlD
   // RECUSADO = o servidor recusou ESTE registro em definitivo e reenviar nunca vai passar.
   enum Envio { ENVIADO, FALHOU, RECUSADO };
 
+  // Uma conexao TLS so, reaproveitada entre os envios: abrir uma por POST custava ~3 s de
+  // aperto de mao (o "chegou em" do ao vivo). Falhou? clienteTls.stop() e o proximo reabre.
+  // O HTTPClient tambem e unico: o destrutor dele fecha o cliente, entao um local por envio
+  // derrubaria a conexao no fim de cada chamada.
+  WiFiClientSecure clienteTls;
+  HTTPClient httpEnvio;
+  bool clienteTlsPronto = false;
+
   Envio postarRpc(const char* categoria, const char* json) {
-    WiFiClientSecure cliente;
-    // Autentica pelo CA raiz embutido. O firmware antigo usava setInsecure()
-    // porque o simulador nao trazia o bundle de CAs; com internet real nao ha
-    // motivo para aceitar qualquer certificado.
-    cliente.setCACert(ROOT_CA);
-    cliente.setTimeout(TIMEOUT_HTTP / 1000);
+    if (!clienteTlsPronto) {
+      // Autentica pelo CA raiz embutido. O firmware antigo usava setInsecure()
+      // porque o simulador nao trazia o bundle de CAs; com internet real nao ha
+      // motivo para aceitar qualquer certificado.
+      clienteTls.setCACert(ROOT_CA);
+      clienteTls.setTimeout(TIMEOUT_HTTP / 1000);
+      clienteTlsPronto = true;
+    }
 
     char url[192];
     snprintf(url, sizeof(url), "%s/rest/v1/rpc/registrar_dispositivo", SUPABASE_URL_CFG);
 
-    HTTPClient http;
-    if (!http.begin(cliente, url)) { Serial.println("[REDE] http.begin() falhou"); return FALHOU; }
+    HTTPClient &http = httpEnvio;
+    const bool reaproveitada = clienteTls.connected();
+    const unsigned long t0 = millis();
+    if (!http.begin(clienteTls, url)) { Serial.println("[REDE] http.begin() falhou"); return FALHOU; }
     http.setTimeout(TIMEOUT_HTTP);
     http.addHeader("apikey", SUPABASE_CHAVE_CFG);
     http.addHeader("Authorization", "Bearer " SUPABASE_CHAVE_CFG);
@@ -81,6 +93,9 @@ p/SgguMh1YQdc4acLa/KNJvxn7kjNuK8YAOdgLOaVsjh4rsUecrNIdSUtUlD
     corpo += '}';
     int codigo = http.POST((uint8_t*)corpo.c_str(), corpo.length());
     Envio resultado = (codigo >= 200 && codigo < 300) ? ENVIADO : FALHOU;
+    // Diagnostico: quanto o POST leva e se a conexao veio pronta (some quando o envio ficar estavel).
+    Serial.printf("[REDE] POST %s HTTP %d em %lu ms (%s)\n", categoria, codigo,
+                  millis() - t0, reaproveitada ? "conexao reaproveitada" : "conexao nova");
     if (resultado == ENVIADO) {
       uint32_t novo = intervaloDaResposta(http.getString());
       if (novo != intervaloTelemetria) {
@@ -102,10 +117,12 @@ p/SgguMh1YQdc4acLa/KNJvxn7kjNuK8YAOdgLOaVsjh4rsUecrNIdSUtUlD
           erro.indexOf("alheio a credencial") >= 0) resultado = RECUSADO;
     }
     http.end();
+    if (resultado != ENVIADO) clienteTls.stop();   // conexao suspeita: o proximo envio abre outra
     return resultado;
   }
 
   bool sincronizar() {
+    clienteTls.stop();   // so uma sessao TLS viva por vez (RAM)
     WiFiClientSecure cliente;
     cliente.setCACert(ROOT_CA);
     cliente.setTimeout(TIMEOUT_HTTP / 1000);

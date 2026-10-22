@@ -54,6 +54,22 @@ def test_envio_bem_sucedido_le_o_intervalo_da_resposta():
     assert 'intervaloDaResposta(' in corpo
 
 
+def test_envio_reaproveita_a_conexao_tls():
+    # Uma conexao nova por POST custava ~3-4 s de aperto de mao TLS (o "chegou em" do ao vivo).
+    corpo = _funcao('Envio postarRpc(')
+    assert 'WiFiClientSecure' not in corpo
+    # ~HTTPClient() fecha o cliente: um HTTPClient local por envio derrubaria a conexao reaproveitada.
+    assert not re.search(r'HTTPClient\s+\w+\s*;', corpo)
+    assert 'clienteTls.stop()' in corpo   # falhou: fecha para reabrir limpa no proximo envio
+    assert re.search(r'WiFiClientSecure\s+clienteTls\s*;', _ino())
+    assert re.search(r'HTTPClient\s+httpEnvio\s*;', _ino())
+
+
+def test_sincronizacao_libera_a_conexao_compartilhada():
+    # A sincronizacao abre o proprio cliente TLS; duas sessoes vivas juntas pesam na RAM.
+    assert 'clienteTls.stop()' in _funcao('bool sincronizar(')
+
+
 def test_loop_usa_o_intervalo_variavel():
     corpo = _funcao('void loop()')
     assert 'agora - telemetria >= intervaloTelemetria' in corpo
