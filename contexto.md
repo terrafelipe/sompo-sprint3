@@ -342,8 +342,8 @@ Arquivo central: `api/app.py`. Servida por **waitress** em produção; `python a
 | `GET /saude` | Health check (API + banco). Única rota liberada da API key |
 | `GET /me` | Perfil do usuário logado (role + fazenda vinculada) |
 | `GET /telemetria` | Últimas leituras (`?dispositivo=`, `?limite=`). Com `?de=AAAA-MM-DD&ate=AAAA-MM-DD` (os dois dias inclusivos, horário de Brasília, até 1 ano) lista o período em páginas de 50 (`?pagina=`), da mais nova para a mais velha, e devolve `pagina` e `tem_mais`; `?corte=` (instante ISO com fuso) limita o fim do período, e o painel o fixa na 1ª página para a paginação não repetir linhas; período inválido dá 400 `periodo_invalido` |
-| `GET /eventos` | Eventos do período (`?dias=`) |
-| `GET /resumo` | Resumo diário (view `resumo_diario`) |
+| `GET /eventos` | Eventos do período (`?dias=`, ou `?de=AAAA-MM-DD&ate=AAAA-MM-DD`: os dois dias inclusivos, horário de Brasília, até 1 ano; `dias` junto com `de/ate` dá 400 `periodo_invalido`) |
+| `GET /resumo` | Resumo diário (view `resumo_diario`); aceita `?dias=` ou `?de=&ate=` como `/eventos` |
 | `GET /scores` | Scores de risco determinísticos por eixo |
 | `GET /relatorio/bruto` | Relatório factual |
 | `GET /relatorio/risco` | Relatório interpretado por IA (fallback gracioso, sempre 200) |

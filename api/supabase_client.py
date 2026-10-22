@@ -74,7 +74,12 @@ def consultar_todos(tabela, *, filtros=None, select='*', order='id.asc'):
             return dados
 
 
-def consultar_periodo(tabela, filtros, dias, campo='criado_em', order='criado_em.desc,id.desc'):
+def consultar_periodo(tabela, filtros, dias=None, campo='criado_em', order='criado_em.desc,id.desc', janela=None):
+    if janela:   # (inicio, fim) com fim exclusivo, no lugar de "ultimos N dias"
+        return consultar_todos(tabela, filtros={
+            **filtros, campo: f'gte.{janela[0].isoformat()}',
+            'and': f'({campo}.lt.{janela[1].isoformat()})',
+        }, order=order)
     agora = datetime.now(timezone.utc)
     return consultar_todos(tabela, filtros={
         **filtros, campo: f'gte.{(agora-timedelta(days=dias)).isoformat()}',
@@ -124,16 +129,20 @@ def consultar_telemetria_intervalo(dispositivo, inicio: datetime, fim: datetime,
     }, select='criado_em,motor_ligado,nivel_risco', order='criado_em.asc')
 
 
-def consultar_eventos(dispositivo, dias: int = 7, equipamento=None) -> List[Dict[str, Any]]:
-    return consultar_periodo('eventos', _leituras_de(dispositivo, equipamento), dias)
+def consultar_eventos(dispositivo, dias: int = 7, equipamento=None, janela=None) -> List[Dict[str, Any]]:
+    return consultar_periodo('eventos', _leituras_de(dispositivo, equipamento), dias, janela=janela)
 
 
-def consultar_resumo(dispositivo, dias: int = 7, equipamento=None) -> List[Dict[str, Any]]:
-    hoje = datetime.now(timezone(timedelta(hours=-3))).date()
+def consultar_resumo(dispositivo, dias: int = 7, equipamento=None, janela=None) -> List[Dict[str, Any]]:
+    if janela:   # a view agrupa por dia de Brasilia: do primeiro ao ultimo dia da janela
+        primeiro, ultimo = janela[0].date(), (janela[1] - timedelta(microseconds=1)).date()
+    else:
+        ultimo = datetime.now(timezone(timedelta(hours=-3))).date()
+        primeiro = ultimo - timedelta(days=dias - 1)
     filtros = {
         **_leituras_de(dispositivo, equipamento),
-        'dia': f'gte.{(hoje-timedelta(days=dias-1)).isoformat()}',
-        'and': f'(dia.lte.{hoje.isoformat()})',
+        'dia': f'gte.{primeiro.isoformat()}',
+        'and': f'(dia.lte.{ultimo.isoformat()})',
     }
     view = 'resumo_diario_maquina' if equipamento is not None else 'resumo_diario'
     return consultar_todos(view, filtros=filtros, order='dia.desc')

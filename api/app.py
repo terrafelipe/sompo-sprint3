@@ -508,45 +508,7 @@ def me():
     }), 200
 
 
-_BRT = timezone(timedelta(hours=-3))
 _LEITURAS_POR_PAGINA = 50
-
-
-def _periodo_de_ate():
-    # ?de=AAAA-MM-DD&ate=AAAA-MM-DD, os dois dias inclusivos, no horario de Brasilia (ate 1 ano).
-    # Devolve (inicio, fim) com fim EXCLUSIVO: 00:00 do dia seguinte ao "ate", ou o corte (?corte= ou agora)
-    # se vier antes; sem de/ate, None.
-    de, ate = request.args.get('de'), request.args.get('ate')
-    if de is None and ate is None:
-        return None
-    if not (de and ate and re.fullmatch(r'\d{4}-\d{2}-\d{2}', de) and re.fullmatch(r'\d{4}-\d{2}-\d{2}', ate)):
-        raise frota.FrotaErro('periodo_invalido')
-    try:
-        primeiro, ultimo = datetime.fromisoformat(de).date(), datetime.fromisoformat(ate).date()
-    except ValueError:
-        raise frota.FrotaErro('periodo_invalido')
-    if not 0 <= (ultimo - primeiro).days <= 365:
-        raise frota.FrotaErro('periodo_invalido')
-    try:
-        inicio = datetime(primeiro.year, primeiro.month, primeiro.day, tzinfo=_BRT)
-        fim = datetime(ultimo.year, ultimo.month, ultimo.day, tzinfo=_BRT) + timedelta(days=1)
-    except OverflowError:   # "ate" = 9999-12-31: o dia seguinte nao existe
-        raise frota.FrotaErro('periodo_invalido')
-    # Corte: o fim nunca passa do instante em que a 1a pagina foi pedida. A resposta devolve esse instante
-    # e o painel o reenvia em ?corte= nas outras paginas; sem isso, uma leitura nova gravada entre duas
-    # paginas empurraria as linhas por offset e a ultima de uma reapareceria no topo da seguinte.
-    # O relogio e o do servidor, nao o do navegador.
-    corte = request.args.get('corte')
-    if corte:
-        try:
-            momento = datetime.fromisoformat(corte)
-        except ValueError:
-            raise frota.FrotaErro('periodo_invalido')
-        if momento.tzinfo is None:
-            raise frota.FrotaErro('periodo_invalido')
-    else:
-        momento = datetime.now(timezone.utc)
-    return inicio, min(fim, momento)
 
 
 @app.get('/telemetria')
@@ -554,7 +516,7 @@ def telemetria():
     dispositivo = _dispositivo_para(request.args.get('dispositivo', 'SOMPO-ESP32'))
     eq = frota.id_selecionado()
     limite = _parse_int(request.args.get('limite', '50'), 50, minimum=1, maximum=500)
-    periodo = _periodo_de_ate()
+    periodo = frota.janela(com_corte=True)
 
     if periodo:
         pagina = frota.inteiro(request.args.get('pagina', 1), 'pagina', maximo=1_000_000)
@@ -597,10 +559,11 @@ def telemetria_linha_do_tempo():
 def eventos():
     dispositivo = _dispositivo_para(request.args.get('dispositivo', 'SOMPO-ESP32'))
     eq = frota.id_selecionado()
-    dias = frota.periodo()   # 1..365, senao 400 dias_invalido (como no /operacoes)
+    intervalo = frota.janela()
+    dias = None if intervalo else frota.periodo()   # 1..365, senao 400 dias_invalido (como no /operacoes)
 
     try:
-        dados = frota.identificar_registros(consultar_eventos(dispositivo, dias=dias, equipamento=eq) if dispositivo or eq else [])
+        dados = frota.identificar_registros(consultar_eventos(dispositivo, dias=dias, equipamento=eq, janela=intervalo) if dispositivo or eq else [])
         return jsonify({'total': len(dados), 'dados': dados, **frota.contexto()}), 200
     except Exception as exc:
         return _erro('falha_na_consulta', exc, 502)
@@ -610,10 +573,11 @@ def eventos():
 def resumo():
     dispositivo = _dispositivo_para(request.args.get('dispositivo', 'SOMPO-ESP32'))
     eq = frota.id_selecionado()
-    dias = frota.periodo()   # 1..365, senao 400 dias_invalido (como no /operacoes)
+    intervalo = frota.janela()
+    dias = None if intervalo else frota.periodo()   # 1..365, senao 400 dias_invalido (como no /operacoes)
 
     try:
-        dados = consultar_resumo(dispositivo, dias=dias, equipamento=eq) if dispositivo or eq else []
+        dados = consultar_resumo(dispositivo, dias=dias, equipamento=eq, janela=intervalo) if dispositivo or eq else []
         return jsonify({'total': len(dados), 'dados': dados, **frota.contexto()}), 200
     except Exception as exc:
         return _erro('falha_na_consulta', exc, 502)
