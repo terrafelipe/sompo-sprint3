@@ -82,6 +82,7 @@
       if(est && e.key === 'Escape'){ e.preventDefault(); fechar(true); }
     });
     addEventListener('resize', () => { if(est) posicionar(); });
+    addEventListener('scroll', () => { if(est) posicionar(); }, true);   // acompanha o botao quando a pagina (ou um painel) rola
   }
 
   function faixa(){

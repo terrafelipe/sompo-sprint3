@@ -1,10 +1,11 @@
 """Calendario proprio do painel (rede isolada), exercitado pelo botao de periodo das Leituras."""
 import calendar
+import re
 from datetime import date, timedelta
 
 import pytest
 
-from tests.ajuda_calendario import abrir_calendario, clicar_dia, ir_para_mes
+from tests.ajuda_calendario import abrir_calendario, clicar_dia, escolher_dia, ir_para_mes
 from tests.test_painel import painel, pw  # noqa: F401
 from tests.test_painel_leituras_periodo import _abrir, _servidor, leitura
 
@@ -226,3 +227,80 @@ def test_atalhos_viram_fileira_no_celular_e_coluna_no_desktop(painel):
     abrir_calendario(page)
     direcao = page.evaluate("getComputedStyle(document.getElementById('calAtalhos')).flexDirection")
     assert direcao == ('row' if page.viewport_size['width'] <= 560 else 'column')
+
+
+# ---------- calendario de dia unico (cadastro de maquina) ----------
+
+def _nova_maquina(page):
+    page.locator('#btnNovaMaquina').click()
+    pw.expect(page.locator('#formMaquina')).to_be_visible()
+
+
+def test_dia_unico_escolhe_com_um_clique_e_fecha(painel):
+    page, _ = painel
+    _nova_maquina(page)
+    pw.expect(page.locator('#maqFabricacaoBtn .txt')).to_have_text('Escolher data')
+    abrir_calendario(page, '#maqFabricacaoBtn')
+    pw.expect(page.locator('#calendario')).to_have_class(re.compile(r'unico'))
+    pw.expect(page.locator('#calAplicar')).to_be_hidden()            # dia unico: sem Aplicar
+    pw.expect(page.locator('#calAtalhos')).to_be_hidden()            # e sem atalhos de periodo
+    dia = (_hoje(page) - timedelta(days=3)).isoformat()
+    clicar_dia(page, dia)
+    pw.expect(page.locator('#calendario')).to_be_hidden()
+    pw.expect(page.locator('#maqFabricacao')).to_have_value(dia)
+    pw.expect(page.locator('#maqFabricacaoBtn .txt')).to_have_text(f'{dia[8:]}/{dia[5:7]}/{dia[:4]}')
+    pw.expect(page.locator('#maqFabricacaoBtn')).to_be_focused()     # o foco volta ao botao
+
+
+def test_dia_unico_nao_aceita_data_futura(painel):
+    page, _ = painel
+    _nova_maquina(page)
+    amanha = (_hoje(page) + timedelta(days=1)).isoformat()
+    abrir_calendario(page, '#maqManutencaoBtn')
+    ir_para_mes(page, amanha)
+    pw.expect(page.locator(f'#calendario [data-dia="{amanha}"]')).to_be_disabled()
+    page.evaluate(f"document.querySelector('#calendario [data-dia=\"{amanha}\"]').click()")
+    pw.expect(page.locator('#calendario')).to_be_visible()
+    pw.expect(page.locator('#maqManutencao')).to_have_value('')
+
+
+def test_editar_maquina_mostra_as_datas_gravadas_e_grava_a_nova(painel):
+    page, state = painel
+    from tests.test_painel import acao
+    acao(page, '#listaMaquinas [data-editar-maquina="1"]').click()
+    pw.expect(page.locator('#formMaquina')).to_be_visible()
+    pw.expect(page.locator('#maqFabricacaoBtn .txt')).to_have_text('02/01/2020')
+    pw.expect(page.locator('#maqManutencaoBtn .txt')).to_have_text('01/09/2026')
+    pw.expect(page.locator('#maqFabricacao')).to_have_value('2020-01-02')
+    nova = (_hoje(page) - timedelta(days=1)).isoformat()
+    escolher_dia(page, '#maqManutencaoBtn', nova)
+    page.locator('#formMaquina button[type=submit]').click()
+    pw.expect(page.locator('#formMaquina')).not_to_be_visible()
+    payload = state['posts'][-1][1]
+    assert payload['fabricacao'] == '2020-01-02' and payload['ultima_manutencao'] == nova
+
+
+def test_nova_maquina_depois_de_editar_limpa_as_datas(painel):
+    page, _ = painel
+    from tests.test_painel import acao
+    acao(page, '#listaMaquinas [data-editar-maquina="1"]').click()
+    pw.expect(page.locator('#maqFabricacao')).to_have_value('2020-01-02')
+    page.locator('#maqCancelar').click() if page.locator('#maqCancelar').count() else page.evaluate('fecharFormMaquina()')
+    page.locator('#btnNovaMaquina').click()
+    pw.expect(page.locator('#maqFabricacao')).to_have_value('')       # form.reset() nao limpa campo oculto
+    pw.expect(page.locator('#maqManutencao')).to_have_value('')
+    pw.expect(page.locator('#maqFabricacaoBtn .txt')).to_have_text('Escolher data')
+    pw.expect(page.locator('#maqManutencaoBtn .txt')).to_have_text('Escolher data')
+
+
+def test_calendario_acompanha_o_botao_ao_rolar_a_pagina(painel):
+    page, _ = painel
+    _nova_maquina(page)
+    abrir_calendario(page, '#maqFabricacaoBtn')
+    antes = page.evaluate("document.getElementById('calendario').getBoundingClientRect().top")
+    page.evaluate("window.scrollBy(0, 40)")
+    page.wait_for_function("() => document.getElementById('calendario').getBoundingClientRect().top === document.getElementById('maqFabricacaoBtn').getBoundingClientRect().bottom + 6")
+    pw.expect(page.locator('#calendario')).to_be_visible()
+    depois = page.evaluate("document.getElementById('calendario').getBoundingClientRect().top")
+    assert depois == page.evaluate("document.getElementById('maqFabricacaoBtn').getBoundingClientRect().bottom") + 6
+    assert antes != depois or page.evaluate('window.scrollY') == 0     # so compara se a pagina de fato rolou
