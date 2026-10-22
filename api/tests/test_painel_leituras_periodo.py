@@ -1,9 +1,10 @@
 """Últimas leituras por período: De/Até, páginas de 50 e volta às 10 mais recentes (rede isolada)."""
 import re
+import pytest
 from urllib.parse import parse_qs, urlparse
 
 from tests.ajuda_calendario import escolher_periodo
-from tests.test_painel import painel, nav, pw  # noqa: F401
+from tests.test_painel import HTML, painel, nav, pw  # noqa: F401
 
 
 CORTE = '2026-10-05T18:00:00+00:00'   # o que o servidor devolve na 1a pagina
@@ -14,14 +15,17 @@ def leitura(i):
                 vibracao=0.1, motor_ligado=True, capo_aberto=False, tanque_aberto=False, chama_detectada=False)
 
 
-def _servidor(page, paginas):
+def _servidor(page, paginas, totais=None):
     """Finge o /telemetria com período: paginas = [(linhas, tem_mais), ...]."""
     st = dict(pedidos=[], status=200, falhar_pagina=None, segurar=False, presas=[])
 
     def corpo(q):
         n = int(q.get('pagina', 1))
-        linhas, tem_mais = paginas[n - 1]
-        return dict(total=len(linhas), dados=linhas, pagina=n, tem_mais=tem_mais, corte=CORTE)
+        linhas, tem_mais = paginas[min(n, len(paginas)) - 1]
+        resposta = dict(total=len(linhas), dados=linhas, pagina=n, tem_mais=tem_mais, corte=CORTE)
+        if n == 1:   # como o servidor: totais so na pagina 1 (None se a contagem falhou)
+            resposta.update(total_leituras=totais[0] if totais else None, total_paginas=totais[1] if totais else None)
+        return resposta
 
     def responder(r):
         q = {k: v[0] for k, v in parse_qs(urlparse(r.request.url).query).items()}
@@ -62,7 +66,7 @@ def test_periodo_lista_leituras_com_data_e_pagina(painel):
     assert (st['pedidos'][-1]['de'], st['pedidos'][-1]['ate'], st['pedidos'][-1]['pagina']) == ('2026-09-21', '2026-10-21', '1')
     pw.expect(page.locator('#tabelaTelemetria tr').first).to_contain_text('05/10/2026')
     pw.expect(page.locator('#tabelaSub')).to_contain_text('21/09/2026 a 21/10/2026')
-    pw.expect(page.locator('#leiturasPagina')).to_contain_text('Página 1')
+    pw.expect(page.locator('#leiturasIr')).to_have_value('1')
     pw.expect(page.locator('#leiturasAnterior')).to_be_disabled()
 
     page.locator('#leiturasProxima').click()
@@ -70,7 +74,7 @@ def test_periodo_lista_leituras_com_data_e_pagina(painel):
     assert st['pedidos'][-1]['pagina'] == '2'
     assert 'corte' not in st['pedidos'][0]         # a 1a pagina deixa o servidor escolher o instante (relogio do servidor)
     assert st['pedidos'][-1]['corte'] == CORTE      # as seguintes reenviam o que ele devolveu
-    pw.expect(page.locator('#leiturasPagina')).to_contain_text('Página 2')
+    pw.expect(page.locator('#leiturasIr')).to_have_value('2')
     pw.expect(page.locator('#leiturasProxima')).to_be_disabled()
 
     page.locator('#leiturasAnterior').click()
@@ -113,9 +117,9 @@ def test_clique_duplo_em_proxima_avanca_so_uma_pagina(painel):
                           ([leitura(1)], False)])
     _abrir(page)
     _escolher(page, '2026-09-21', '2026-10-21')
-    pw.expect(page.locator('#leiturasPagina')).to_contain_text('Página 1')
+    pw.expect(page.locator('#leiturasIr')).to_have_value('1')
     page.locator('#leiturasProxima').dblclick()
-    pw.expect(page.locator('#leiturasPagina')).to_contain_text('Página 2')
+    pw.expect(page.locator('#leiturasIr')).to_have_value('2')
     page.wait_for_load_state('networkidle')
     pw.expect(page.locator('#tabelaTelemetria tr')).to_have_count(50)
     assert [p['pagina'] for p in st['pedidos']] == ['1', '2']
@@ -130,7 +134,7 @@ def test_falha_em_uma_pagina_mostra_aviso_e_deixa_voltar(painel):
     st['falhar_pagina'] = 2
     page.locator('#leiturasProxima').click()
     pw.expect(page.locator('#leiturasAviso')).to_contain_text('período')
-    pw.expect(page.locator('#leiturasPagina')).to_contain_text('Página 2')
+    pw.expect(page.locator('#leiturasIr')).to_have_value('2')
     pw.expect(page.locator('#leiturasAnterior')).to_be_enabled()
     st['falhar_pagina'] = None
     page.locator('#leiturasAnterior').click()
@@ -188,14 +192,17 @@ def test_foco_volta_ao_botao_depois_de_trocar_de_pagina(painel):
     _servidor(page, [([leitura(i) for i in range(50)], True), ([leitura(i) for i in range(50)], True), ([leitura(1)], False)])
     _abrir(page)
     _escolher(page, '2026-09-21', '2026-10-21')
-    pw.expect(page.locator('#leiturasPagina')).to_contain_text('Página 1')
+    pw.expect(page.locator('#leiturasIr')).to_have_value('1')
     pw.expect(page.locator('#leiturasProxima')).to_be_enabled()
     page.locator('#leiturasProxima').focus()
     page.keyboard.press('Enter')
-    pw.expect(page.locator('#leiturasPagina')).to_contain_text('Página 2')
+    pw.expect(page.locator('#leiturasIr')).to_have_value('2')
+    # o valor da caixa muda no inicio do carregamento e o Chrome ainda reporta o botao desabilitado como focado
+    # por um instante: so a habilitacao diz que a pagina chegou
+    pw.expect(page.locator('#leiturasProxima')).to_be_enabled()
     pw.expect(page.locator('#leiturasProxima')).to_be_focused()
     page.keyboard.press('Enter')
-    pw.expect(page.locator('#leiturasPagina')).to_contain_text('Página 3')
+    pw.expect(page.locator('#leiturasIr')).to_have_value('3')
     pw.expect(page.locator('#leiturasProxima')).to_be_disabled()     # ultima pagina: o foco vai para o botao que resta
     pw.expect(page.locator('#leiturasAnterior')).to_be_focused()
 
@@ -218,5 +225,120 @@ def test_foco_sobrevive_a_recarga_por_resposta_obsoleta(painel):
     st['segurar'] = False
     rota, q = st['presas'].pop(0)
     rota.fulfill(json=st['corpo'](q))      # chega obsoleta: a pagina e pedida de novo
-    pw.expect(page.locator('#leiturasPagina')).to_contain_text('Página 2')
+    pw.expect(page.locator('#leiturasIr')).to_have_value('2')
+    # o valor da caixa muda no inicio do carregamento e o Chrome ainda reporta o botao desabilitado como focado
+    # por um instante: so a habilitacao diz que a pagina chegou
+    pw.expect(page.locator('#leiturasProxima')).to_be_enabled()
     pw.expect(page.locator('#leiturasProxima')).to_be_focused()
+
+
+# ---------- aba Leituras, rodape com total e salto de pagina ----------
+
+def _pedidos_de_pagina(st):
+    return [p['pagina'] for p in st['pedidos']]
+
+
+def test_aba_leituras_aparece_e_rola_ate_a_secao(painel):
+    page, state = painel
+    _servidor(page, [([leitura(i) for i in range(5)], False)])
+    _abrir(page)
+    botao = page.locator('#atalhosPainel [data-ir="secLeituras"]')
+    pw.expect(botao).to_have_text('Leituras')
+    botao.click()
+    pw.expect(botao).to_have_attribute('aria-pressed', 'true')
+    pw.expect(page.locator('#secLeituras')).to_be_in_viewport()
+    pw.expect(page.locator('#secLeituras h2')).to_have_text('Leituras')
+
+
+def test_rodape_mostra_total_e_paginas(painel):
+    page, state = painel
+    _servidor(page, [([leitura(i) for i in range(50)], True)], totais=(8928, 179))
+    _abrir(page)
+    _escolher(page, '2026-09-21', '2026-10-21')
+    pw.expect(page.locator('#leiturasMostrando')).to_have_text('Mostrando 1 a 50 de 8.928 leituras')
+    pw.expect(page.locator('#leiturasPagina')).to_contain_text('de 179')
+    assert page.locator('#leiturasIr').evaluate('e => e.tagName') == 'SELECT'
+
+
+def test_select_de_pagina_ate_200_paginas_salta_para_a_escolhida(painel):
+    page, state = painel
+    st = _servidor(page, [([leitura(i) for i in range(50)], True)], totais=(8928, 179))
+    _abrir(page)
+    _escolher(page, '2026-09-21', '2026-10-21')
+    pw.expect(page.locator('#leiturasIr')).to_be_enabled()
+    assert page.locator('#leiturasIr option').count() == 179
+    page.select_option('#leiturasIr', '10')
+    pw.expect(page.locator('#leiturasMostrando')).to_have_text('Mostrando 451 a 500 de 8.928 leituras')
+    assert _pedidos_de_pagina(st)[-1] == '10'
+    pw.expect(page.locator('#leiturasIr')).to_have_value('10')
+
+
+def test_campo_numerico_acima_de_200_paginas_salta_com_enter_e_ao_sair(painel):
+    page, state = painel
+    st = _servidor(page, [([leitura(i) for i in range(50)], True)], totais=(268000, 5360))
+    _abrir(page)
+    _escolher(page, '2026-09-21', '2026-10-21')
+    pw.expect(page.locator('#leiturasPagina')).to_contain_text('de 5.360')
+    assert page.locator('#leiturasIr').evaluate('e => e.tagName') == 'INPUT'
+    campo = page.locator('#leiturasIr')
+    pw.expect(campo).to_be_enabled()
+    campo.fill('37')
+    campo.press('Enter')
+    pw.expect(page.locator('#leiturasMostrando')).to_contain_text('Mostrando 1.801 a 1.850')
+    assert _pedidos_de_pagina(st)[-1] == '37'
+    pw.expect(campo).to_be_enabled()
+    campo.fill('40')
+    campo.press('Tab')                                     # sair do campo tambem salta
+    pw.expect(page.locator('#leiturasMostrando')).to_contain_text('Mostrando 1.951 a 2.000')
+    assert _pedidos_de_pagina(st)[-1] == '40'
+
+
+@pytest.mark.parametrize('texto', ['', '0', 'abc', '3.5', '-2'])
+def test_campo_de_pagina_invalido_volta_para_a_atual(painel, texto):
+    page, state = painel
+    st = _servidor(page, [([leitura(i) for i in range(50)], True)], totais=(268000, 5360))
+    _abrir(page)
+    _escolher(page, '2026-09-21', '2026-10-21')
+    campo = page.locator('#leiturasIr')
+    pw.expect(campo).to_be_enabled()
+    antes = len(st['pedidos'])
+    campo.fill(texto)
+    campo.press('Enter')
+    pw.expect(campo).to_have_value('1')
+    assert len(st['pedidos']) == antes
+
+
+def test_numero_maior_que_o_total_vai_para_a_ultima(painel):
+    page, state = painel
+    st = _servidor(page, [([leitura(i) for i in range(50)], True)], totais=(268000, 5360))
+    _abrir(page)
+    _escolher(page, '2026-09-21', '2026-10-21')
+    campo = page.locator('#leiturasIr')
+    pw.expect(campo).to_be_enabled()
+    campo.fill('99999')
+    campo.press('Enter')
+    pw.expect(campo).to_have_value('5360')
+    assert _pedidos_de_pagina(st)[-1] == '5360'
+
+
+def test_sem_total_o_rodape_nao_mostra_de_n_e_a_navegacao_segue(painel):
+    page, state = painel
+    st = _servidor(page, [([leitura(i) for i in range(50)], True), ([leitura(i) for i in range(50)], True)])   # totais None
+    _abrir(page)
+    _escolher(page, '2026-09-21', '2026-10-21')
+    pw.expect(page.locator('#leiturasMostrando')).to_have_text('Mostrando 1 a 50')
+    assert ' de ' not in page.locator('#leiturasPagina').inner_text()
+    pw.expect(page.locator('#leiturasProxima')).to_be_enabled()
+    page.locator('#leiturasProxima').click()
+    pw.expect(page.locator('#leiturasMostrando')).to_have_text('Mostrando 51 a 100')
+    campo = page.locator('#leiturasIr')
+    pw.expect(campo).to_be_enabled()
+    campo.fill('7')
+    campo.press('Enter')
+    pw.expect(page.locator('#leiturasMostrando')).to_have_text('Mostrando 301 a 350')
+
+
+def test_lista_aberta_dos_selects_tem_rolagem_fina():
+    bloco = re.search(r'::picker\(select\)\{[^}]*margin-top[^}]*\}', HTML)
+    assert bloco, 'bloco ::picker(select) nao achado'
+    assert 'scrollbar-width' in bloco.group(0) and 'thin' in bloco.group(0)
