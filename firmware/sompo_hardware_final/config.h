@@ -41,7 +41,7 @@
 // ---------- Parametros ajustaveis na bancada ----------
 #define INTERVALO_CICLO_MS      100    // amostragem dos sensores rapidos
 #define INTERVALO_SERIAL_MS     2000   // retrato periodico no Monitor Serial
-#define INTERVALO_LENTO_MS      2000   // AHT10 e MAX6675 (conversao lenta)
+#define INTERVALO_LENTO_MS      1000   // AHT10 e MAX6675 (conversao lenta); 1 s: a amostra do ao vivo (2 s) chega com <= 1 s de idade
 #define INTERVALO_TELEMETRIA_MS 10000  // amostra gravada no Supabase (10s: casa com o refresh de 5s
                                        // do painel; gera ~3x mais linhas na tabela telemetria - ok p/ demo)
 #define INTERVALO_TELEMETRIA_AO_VIVO_MS 2000  // modo ao vivo, ligado pelo painel (resposta do registrar_dispositivo)
