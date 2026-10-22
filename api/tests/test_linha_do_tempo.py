@@ -1,9 +1,10 @@
-"""Linha do tempo de 24h do Painel da maquina: faixas de 15 min ate a ultima leitura."""
+"""Linha do tempo do Painel da maquina: agregacao em Python (plano B) e rota sem leituras."""
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 from app import app
 from linha_do_tempo import agregar
+from supabase_client import FuncaoAusente
 
 FIM = datetime(2026, 9, 19, 20, 0, tzinfo=timezone.utc)
 
@@ -27,17 +28,20 @@ def test_agrega_em_faixas_de_15_min_ate_a_ultima_leitura():
     assert faixas[10] == {'inicio': faixas[10]['inicio'], 'leituras': 0, 'motor_ligado': False, 'temp_max': None, 'risco': None}
 
 
-def test_rota_usa_a_janela_das_24h_ate_a_ultima_leitura():
+def test_rota_sem_a_funcao_sql_agrega_em_python_ate_a_ultima_leitura():
+    # Plano B enquanto linha_do_tempo.sql nao foi rodado no Supabase (ate 72 h).
     janelas = []
     def intervalo(_disp, inicio, fim, equipamento=None):
         janelas.append((inicio, fim))
         return [_leitura(0, True)]
     with patch('app.consultar_telemetria', return_value=[{'criado_em': FIM.isoformat()}]), \
+         patch('app.consultar_faixas', side_effect=FuncaoAusente()), \
+         patch('app.consultar_eventos', return_value=[]), \
          patch('app.consultar_telemetria_intervalo', side_effect=intervalo):
         d = app.test_client().get('/telemetria/linha-do-tempo?dispositivo=SOMPO-ESP32&horas=24').get_json()
     assert janelas == [(FIM - timedelta(hours=24), FIM)]
-    assert d['janela'] == {'inicio': (FIM - timedelta(hours=24)).isoformat(), 'fim': FIM.isoformat(), 'minutos': 15}
-    assert len(d['faixas']) == 96 and d['faixas'][-1]['motor_ligado'] is True
+    assert d['janela'] == {'inicio': (FIM - timedelta(hours=24)).isoformat(), 'fim': FIM.isoformat(), 'minutos': 5, 'tipo': 'horas'}
+    assert len(d['faixas']) == 288 and d['faixas'][-1]['motor_ligado'] is True
 
 
 def test_rota_sem_nenhuma_leitura():

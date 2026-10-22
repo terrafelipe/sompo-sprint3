@@ -7,6 +7,7 @@ import math
 import os
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Tuple
 
@@ -47,7 +48,11 @@ from supabase_client import (
     atualizar_tabela,
     buscar_usuario,
     consultar_clientes,
+    FuncaoAusente,
     consultar_eventos,
+    consultar_faixas,
+    consultar_negadas,
+    consultar_sessoes_janela,
     consultar_fazendas,
     consultar_gestores,
     consultar_resumo,
@@ -546,22 +551,75 @@ def telemetria():
 
 @app.get('/telemetria/linha-do-tempo')
 def telemetria_linha_do_tempo():
-    # Janela de N horas ate a ULTIMA leitura da maquina (mostra o ultimo dia com
-    # atividade mesmo se o ESP32 parou), agregada em faixas de 15 min.
+    # 24 h ou 7 dias ate a ULTIMA leitura da maquina (mostra o ultimo dia com atividade mesmo se o
+    # ESP32 parou), ou ?de=&ate= em dias de Brasilia. Faixas agregadas no banco, alarmes, sessoes,
+    # crachas recusados e os eventos de rotina calculados, numa resposta so.
     dispositivo = _dispositivo_para(request.args.get('dispositivo', 'SOMPO-ESP32'))
     eq = frota.id_selecionado()
-    horas = _parse_int(request.args.get('horas', '24'), 24, minimum=1, maximum=72)
+    intervalo = frota.janela()
+    contexto = frota.contexto()
     try:
-        ultima = consultar_telemetria(dispositivo, limite=1, equipamento=eq) if dispositivo or eq else []
-        fim = linha_do_tempo.quando(ultima[0].get('criado_em')) if ultima else None
-        if fim is None:
-            return jsonify({'faixas': [], 'janela': None, **frota.contexto()}), 200
-        inicio = fim - timedelta(hours=horas)
-        linhas = consultar_telemetria_intervalo(dispositivo, inicio, fim, equipamento=eq)
-        return jsonify({'janela': {'inicio': inicio.isoformat(), 'fim': fim.isoformat(), 'minutos': 15},
-                        'faixas': linha_do_tempo.agregar(linhas, fim, horas, 15), **frota.contexto()}), 200
+        if intervalo:
+            inicio, fim = intervalo[0], min(intervalo[1], datetime.now(timezone.utc))
+            tipo = 'periodo'
+            if fim <= inicio:
+                return jsonify({'faixas': [], 'janela': None, **contexto}), 200
+        else:
+            horas = _parse_int(request.args.get('horas', '24'), 24, minimum=1, maximum=168)
+            ultima = consultar_telemetria(dispositivo, limite=1, equipamento=eq) if dispositivo or eq else []
+            fim = linha_do_tempo.quando(ultima[0].get('criado_em')) if ultima else None
+            if fim is None:
+                return jsonify({'faixas': [], 'janela': None, **contexto}), 200
+            inicio, tipo = fim - timedelta(hours=horas), 'horas'
+        minutos = linha_do_tempo.minutos_para(inicio, fim)
+        # A janela das consultas tem fim exclusivo; a leitura do fim conta.
+        janela_consulta = (inicio, fim + timedelta(seconds=1))
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            f_faixas = pool.submit(consultar_faixas, dispositivo, eq, inicio, fim, minutos)
+            f_eventos = pool.submit(consultar_eventos, dispositivo, equipamento=eq, janela=janela_consulta)
+            f_sessoes = pool.submit(consultar_sessoes_janela, eq, inicio, fim) if eq is not None else None
+            f_negadas = pool.submit(consultar_negadas, eq, *janela_consulta) if eq is not None else None
+            try:
+                faixas = f_faixas.result()
+            except FuncaoAusente:
+                if fim - inicio > timedelta(hours=72):
+                    return jsonify({'erro': 'sql_pendente'}), 409
+                faixas = linha_do_tempo.agregar(consultar_telemetria_intervalo(dispositivo, inicio, fim, equipamento=eq),
+                                                fim, minutos=minutos, inicio=inicio)
+            eventos_db = f_eventos.result()
+            sessoes_db = f_sessoes.result() if f_sessoes else None
+            negadas_db = f_negadas.result() if f_negadas else []
+        corpo = _linha_do_tempo_corpo(faixas, minutos, eventos_db, sessoes_db, negadas_db, inicio, fim)
+        return jsonify({'janela': {'inicio': inicio.isoformat(), 'fim': fim.isoformat(), 'minutos': minutos, 'tipo': tipo},
+                        **corpo, **contexto}), 200
     except Exception as exc:
         return _erro('falha_na_consulta', exc, 502)
+
+
+def _linha_do_tempo_corpo(faixas, minutos, eventos_db, sessoes_db, negadas_db, inicio, fim):
+    dentro = lambda iso: (t := linha_do_tempo.quando(iso)) is not None and inicio <= t <= fim
+    alarmes = [a for a in map(linha_do_tempo.normalizar_alarme, eventos_db or []) if dentro(a['em'])]
+    negadas = [{'id': f"n{n.get('registro_id')}", 'tipo': 'cracha_negado', 'eixo': 'furto', 'sev': 'atencao',
+                'em': n.get('ocorrido_em') or n.get('recebido_em'), 'uid': n.get('uid')} for n in negadas_db or []]
+    negadas = [n for n in negadas if dentro(n['em'])]
+    sessoes = [{'inicio': s.get('inicio_em'), 'fim': s.get('fim_em'), 'operador_nome': s.get('operador_nome'),
+                'status': s.get('status')} for s in sessoes_db or []]
+    cracha = []
+    for i, s in enumerate(sessoes):
+        if dentro(s['inicio']):
+            cracha.append({'id': f's{i}i', 'tipo': 'cracha_inicio', 'eixo': 'rotina', 'sev': 'rotina',
+                           'em': s['inicio'], 'operador_nome': s['operador_nome']})
+        if dentro(s['fim']):
+            a, b = linha_do_tempo.quando(s['inicio']), linha_do_tempo.quando(s['fim'])
+            cracha.append({'id': f's{i}f', 'tipo': 'cracha_fim', 'eixo': 'rotina', 'sev': 'rotina', 'em': s['fim'],
+                           'operador_nome': s['operador_nome'],
+                           'duracao_min': round((b - a).total_seconds() / 60) if a and b else None})
+    lim = linha_do_tempo.limites(alarmes)
+    rotina = linha_do_tempo.eventos_rotina(faixas, minutos, sessoes if sessoes_db is not None else None, alarmes, lim)
+    rotina = [{'id': f'r{i}', **e} for i, e in enumerate(rotina)]
+    eventos, omitidos = linha_do_tempo.cortar(alarmes + negadas + cracha + rotina)
+    return {'faixas': faixas, 'sessoes': sessoes, 'eventos': eventos, 'omitidos': omitidos,
+            'resumo': linha_do_tempo.resumo(alarmes + negadas, faixas, minutos), 'limites': lim}
 
 
 @app.get('/eventos')
