@@ -24,7 +24,7 @@ def test_agrega_em_faixas_de_15_min_ate_a_ultima_leitura():
     assert ultima['risco'] == 'CRITICO'      # pior nivel da faixa
     assert faixas[-2]['leituras'] == 1 and faixas[-2]['motor_ligado'] is False
     assert sum(f['leituras'] for f in faixas) == 3   # a de 24h10 atras fica fora
-    assert faixas[10] == {'inicio': faixas[10]['inicio'], 'leituras': 0, 'motor_ligado': False, 'risco': None}
+    assert faixas[10] == {'inicio': faixas[10]['inicio'], 'leituras': 0, 'motor_ligado': False, 'temp_max': None, 'risco': None}
 
 
 def test_rota_usa_a_janela_das_24h_ate_a_ultima_leitura():
