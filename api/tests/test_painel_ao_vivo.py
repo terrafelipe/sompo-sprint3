@@ -82,6 +82,18 @@ def test_liga_mostra_terminal_com_gravado_e_desliga(painel):
     assert st['posts'][-1] == {'ligar': False}
 
 
+def test_busca_o_ao_vivo_a_cada_1_segundo(painel):
+    """A placa grava a cada 2 s; buscar a cada 1 s tira ~0,5 s da espera media ate a linha aparecer."""
+    page, _ = painel
+    st = _servidor(page, ligado_ate=agora(3600))
+    _ja_ligada(page)
+    _abrir(page)
+    page.wait_for_function(LIGADA)
+    antes = len(st['desdes'])
+    page.wait_for_timeout(3300)
+    assert len(st['desdes']) - antes >= 3   # a 2 s seriam 1 ou 2 buscas nesta janela
+
+
 def test_evento_mostra_faixa_linha_vermelha_e_tile_em_alerta(painel):
     page, _ = painel
     st = _servidor(page, ligado_ate=agora(3600))
