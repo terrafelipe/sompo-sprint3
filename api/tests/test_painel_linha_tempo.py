@@ -1,4 +1,8 @@
 """Linha do tempo do Painel da maquina (mockup aprovado da Issue #5), com a rota respondida pelo teste."""
+import json
+from datetime import date, timedelta
+
+from tests.ajuda_calendario import escolher_periodo
 from tests.ajuda_linha_tempo import resposta_exemplo, servir, vazia  # noqa: F401
 from tests.test_painel import nav, painel, pw  # noqa: F401
 
@@ -197,7 +201,7 @@ def test_estados_vazio_filtro_sem_resultado_e_corte(painel):
     d['eventos'] = [e for e in d['eventos'] if e['eixo'] != 'incendio']
     d['omitidos'] = 1234
     servir(page, d)
-    page.evaluate('carregarLinhaTempo()')
+    page.evaluate('carregarLinhaTempo(true)')
     pw.expect(page.locator('#ltLista')).to_contain_text('1.234 eventos de rotina mais antigos não aparecem; escolha um período menor.')
     page.locator('#ltFiltros [data-f="incendio"]').click()
     pw.expect(page.locator('#ltLista')).to_contain_text('Nenhum evento com este filtro')
@@ -211,3 +215,90 @@ def test_reduced_motion_sem_animacao(painel):
     _abrir(page)
     nomes = page.locator('#ltLista .lt-ev').evaluate_all('els => els.map(e => getComputedStyle(e).animationName)')
     assert nomes and set(nomes) == {'none'}
+
+
+# ---- janela: 24 h | 7 dias | Periodo, atualizacao e respostas atrasadas ----
+
+def test_7_dias_pede_horas_168(painel):
+    page, _ = painel
+    st = _abrir(page)
+    page.locator('#linhaTempoSeg [data-lt-horas="168"]').click()
+    pw.expect(page.locator('#linhaTempoSub')).to_contain_text('7 dias até a última leitura')
+    assert 'horas=168' in st['urls'][-1]
+    pw.expect(page.locator('#linhaTempoSeg [data-lt-horas="168"]')).to_have_attribute('aria-pressed', 'true')
+
+
+def test_periodo_abre_calendario_e_pede_de_ate(painel):
+    page, _ = painel
+    st = _abrir(page)
+    hoje = date.fromisoformat(page.evaluate('Calendario.hoje()'))
+    de, ate = hoje - timedelta(days=30), hoje - timedelta(days=1)
+    escolher_periodo(page, de.isoformat(), ate.isoformat(), botao='#linhaTempoSeg [data-lt-periodo]')
+    pw.expect(page.locator('#linhaTempoSub')).to_have_text(f'{de:%d/%m/%Y} até {ate:%d/%m/%Y}')
+    assert f'de={de.isoformat()}&ate={ate.isoformat()}' in st['urls'][-1]
+
+
+def test_trocar_de_maquina_volta_para_24h(painel):
+    page, _ = painel
+    st = _abrir(page)
+    page.locator('#linhaTempoSeg [data-lt-horas="168"]').click()
+    pw.expect(page.locator('#linhaTempoSub')).to_contain_text('7 dias')
+    page.select_option('#fazendaSel', '2')   # uma maquina por fazenda no fixture
+    page.select_option('#equipamentoSel', '2')
+    pw.expect(page.locator('#ltGrafico svg')).to_be_visible()
+    pw.expect(page.locator('#linhaTempoSeg [data-lt-horas="24"]')).to_have_attribute('aria-pressed', 'true')
+    pw.expect(page.locator('#linhaTempoSub')).to_contain_text('24 horas')
+    assert 'horas=24' in st['urls'][-1]
+
+
+def test_atualiza_a_cada_60_s_e_nao_no_periodo(painel):
+    page, _ = painel
+    st = _abrir(page)
+    n = len(st['urls'])
+    page.evaluate('carregarLinhaTempo()')
+    page.wait_for_timeout(300)
+    assert len(st['urls']) == n                      # menos de 60 s: nao busca de novo
+    page.evaluate('linhaTempoEm -= 61000; carregarLinhaTempo()')
+    page.wait_for_function('() => true')
+    pw.expect(page.locator('#ltGrafico svg')).to_be_visible()
+    page.wait_for_timeout(300)
+    assert len(st['urls']) == n + 1
+    hoje = date.fromisoformat(page.evaluate('Calendario.hoje()'))
+    escolher_periodo(page, (hoje - timedelta(days=3)).isoformat(), hoje.isoformat(), botao='#linhaTempoSeg [data-lt-periodo]')
+    pw.expect(page.locator('#linhaTempoSub')).to_contain_text('até')
+    n = len(st['urls'])
+    page.evaluate('linhaTempoEm -= 3600000; carregarLinhaTempo()')
+    page.wait_for_timeout(300)
+    assert len(st['urls']) == n                      # no Periodo, nunca
+
+
+def test_sql_pendente_mostra_o_aviso(painel):
+    page, _ = painel
+    _abrir(page, lambda p: (409, {'erro': 'sql_pendente'}) if p.get('horas') == '168' else resposta_exemplo())
+    page.locator('#linhaTempoSeg [data-lt-horas="168"]').click()
+    pw.expect(page.locator('#linhaTempo')).to_contain_text('Falta rodar linha_do_tempo.sql no Supabase para períodos longos.')
+    page.locator('#linhaTempoSeg [data-lt-horas="24"]').click()
+    pw.expect(page.locator('#ltGrafico svg')).to_be_visible()
+
+
+def test_resposta_atrasada_nao_sobrescreve(painel):
+    page, _ = painel
+    _abrir(page)
+    presas = []
+    def rota(r):
+        if 'horas=168' in r.request.url:
+            presas.append(r)
+        else:
+            r.fulfill(status=200, content_type='application/json', body=json.dumps(resposta_exemplo()))
+    page.unroute('**/telemetria/linha-do-tempo*')
+    page.route('**/telemetria/linha-do-tempo*', rota)
+    page.locator('#linhaTempoSeg [data-lt-horas="168"]').click()
+    page.wait_for_function('() => true')
+    pw.expect(page.locator('#linhaTempoSeg [data-lt-horas="168"]')).to_have_attribute('aria-pressed', 'true')
+    page.locator('#linhaTempoSeg [data-lt-horas="24"]').click()
+    pw.expect(page.locator('#linhaTempoSub')).to_contain_text('24 horas')
+    assert presas
+    presas[0].fulfill(status=200, content_type='application/json', body=json.dumps(resposta_exemplo(horas=168)))
+    page.wait_for_timeout(500)
+    pw.expect(page.locator('#linhaTempoSub')).to_contain_text('24 horas')
+    pw.expect(page.locator('#ltLista .lt-dia')).to_have_count(1)
