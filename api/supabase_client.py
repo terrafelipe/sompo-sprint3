@@ -23,20 +23,24 @@ class SupabaseError(RuntimeError):
         self.codigo = codigo
 
 
-def _request_json(method: str, table: str, params: Optional[Dict[str, str]] = None, payload: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+def _request_json(method: str, table: str, params: Optional[Dict[str, str]] = None, payload: Optional[Dict[str, Any]] = None, contar: bool = False) -> List[Dict[str, Any]]:
     validate_supabase_config()
     url = f'{BASE_URL}/{table}'
     headers = get_supabase_headers()
     if method in {'POST', 'PATCH'}:
         headers = {**headers, 'Prefer': 'return=representation'}
+    if contar:   # so o total (cabecalho Content-Range), de uma linha, com tempo limite curto: a contagem nunca segura a tela
+        headers = {**headers, 'Prefer': 'count=exact', 'Range-Unit': 'items', 'Range': '0-0'}
     response = _sessao.request(
         method=method,
         url=url,
         headers=headers,
         params=params or {},
         json=payload,
-        timeout=10,
+        timeout=3 if contar else 10,
     )
+    if contar and response.status_code in (200, 206, 416):   # 416: faixa 0-0 numa consulta sem linhas
+        return [{'total': int(response.headers['Content-Range'].rsplit('/', 1)[1])}]
     if response.status_code >= 400:
         try:
             codigo = response.json().get('code', '')
@@ -74,7 +78,12 @@ def consultar_todos(tabela, *, filtros=None, select='*', order='id.asc'):
             return dados
 
 
-def consultar_periodo(tabela, filtros, dias, campo='criado_em', order='criado_em.desc,id.desc'):
+def consultar_periodo(tabela, filtros, dias=None, campo='criado_em', order='criado_em.desc,id.desc', janela=None):
+    if janela:   # (inicio, fim) com fim exclusivo, no lugar de "ultimos N dias"
+        return consultar_todos(tabela, filtros={
+            **filtros, campo: f'gte.{janela[0].isoformat()}',
+            'and': f'({campo}.lt.{janela[1].isoformat()})',
+        }, order=order)
     agora = datetime.now(timezone.utc)
     return consultar_todos(tabela, filtros={
         **filtros, campo: f'gte.{(agora-timedelta(days=dias)).isoformat()}',
@@ -115,6 +124,17 @@ def consultar_telemetria_periodo(dispositivo, inicio: datetime, fim: datetime, p
     }, limite=por_pagina + 1, offset=(pagina - 1) * por_pagina, order='criado_em.desc,id.desc')
 
 
+def contar_telemetria_periodo(dispositivo, inicio: datetime, fim: datetime, equipamento=None) -> int:
+    # Total de leituras de [inicio, fim), o mesmo filtro de consultar_telemetria_periodo. Levanta em falha ou
+    # estouro de 3 s: quem chama decide mostrar a tabela sem o total.
+    linhas = _request_json('GET', 'telemetria', params={
+        'select': 'id', **_leituras_de(dispositivo, equipamento),
+        'criado_em': f'gte.{inicio.isoformat()}',
+        'and': f'(criado_em.lt.{fim.isoformat()})',
+    }, contar=True)
+    return linhas[0]['total']
+
+
 def consultar_telemetria_intervalo(dispositivo, inicio: datetime, fim: datetime, equipamento=None) -> List[Dict[str, Any]]:
     # So as colunas que a linha do tempo usa: 24h de leituras podem ser milhares de linhas.
     return consultar_todos('telemetria', filtros={
@@ -124,16 +144,20 @@ def consultar_telemetria_intervalo(dispositivo, inicio: datetime, fim: datetime,
     }, select='criado_em,motor_ligado,nivel_risco', order='criado_em.asc')
 
 
-def consultar_eventos(dispositivo, dias: int = 7, equipamento=None) -> List[Dict[str, Any]]:
-    return consultar_periodo('eventos', _leituras_de(dispositivo, equipamento), dias)
+def consultar_eventos(dispositivo, dias: int = 7, equipamento=None, janela=None) -> List[Dict[str, Any]]:
+    return consultar_periodo('eventos', _leituras_de(dispositivo, equipamento), dias, janela=janela)
 
 
-def consultar_resumo(dispositivo, dias: int = 7, equipamento=None) -> List[Dict[str, Any]]:
-    hoje = datetime.now(timezone(timedelta(hours=-3))).date()
+def consultar_resumo(dispositivo, dias: int = 7, equipamento=None, janela=None) -> List[Dict[str, Any]]:
+    if janela:   # a view agrupa por dia de Brasilia: do primeiro ao ultimo dia da janela
+        primeiro, ultimo = janela[0].date(), (janela[1] - timedelta(microseconds=1)).date()
+    else:
+        ultimo = datetime.now(timezone(timedelta(hours=-3))).date()
+        primeiro = ultimo - timedelta(days=dias - 1)
     filtros = {
         **_leituras_de(dispositivo, equipamento),
-        'dia': f'gte.{(hoje-timedelta(days=dias-1)).isoformat()}',
-        'and': f'(dia.lte.{hoje.isoformat()})',
+        'dia': f'gte.{primeiro.isoformat()}',
+        'and': f'(dia.lte.{ultimo.isoformat()})',
     }
     view = 'resumo_diario_maquina' if equipamento is not None else 'resumo_diario'
     return consultar_todos(view, filtros=filtros, order='dia.desc')

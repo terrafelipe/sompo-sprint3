@@ -341,9 +341,9 @@ Arquivo central: `api/app.py`. Servida por **waitress** em produção; `python a
 | `GET /` | Painel visual (dashboard) — pede login se `PAINEL_SENHA` definida |
 | `GET /saude` | Health check (API + banco). Única rota liberada da API key |
 | `GET /me` | Perfil do usuário logado (role + fazenda vinculada) |
-| `GET /telemetria` | Últimas leituras (`?dispositivo=`, `?limite=`). Com `?de=AAAA-MM-DD&ate=AAAA-MM-DD` (os dois dias inclusivos, horário de Brasília, até 1 ano) lista o período em páginas de 50 (`?pagina=`), da mais nova para a mais velha, e devolve `pagina` e `tem_mais`; `?corte=` (instante ISO com fuso) limita o fim do período, e o painel o fixa na 1ª página para a paginação não repetir linhas; período inválido dá 400 `periodo_invalido` |
-| `GET /eventos` | Eventos do período (`?dias=`) |
-| `GET /resumo` | Resumo diário (view `resumo_diario`) |
+| `GET /telemetria` | Últimas leituras (`?dispositivo=`, `?limite=`). Com `?de=AAAA-MM-DD&ate=AAAA-MM-DD` (os dois dias inclusivos, horário de Brasília, até 1 ano) lista o período em páginas de 50 (`?pagina=`), da mais nova para a mais velha, e devolve `pagina` e `tem_mais`; na página 1 também `total_leituras` e `total_paginas` (contagem exata com limite de 3 s; `null` nos dois se falhar, e a lista segue); `?corte=` (instante ISO com fuso) limita o fim do período, e o painel o fixa na 1ª página para a paginação não repetir linhas; período inválido dá 400 `periodo_invalido` |
+| `GET /eventos` | Eventos do período (`?dias=`, ou `?de=AAAA-MM-DD&ate=AAAA-MM-DD`: os dois dias inclusivos, horário de Brasília, até 1 ano; `dias` junto com `de/ate` dá 400 `periodo_invalido`) |
+| `GET /resumo` | Resumo diário (view `resumo_diario`); aceita `?dias=` ou `?de=&ate=` como `/eventos` |
 | `GET /scores` | Scores de risco determinísticos por eixo |
 | `GET /relatorio/bruto` | Relatório factual |
 | `GET /relatorio/risco` | Relatório interpretado por IA (fallback gracioso, sempre 200) |
@@ -483,6 +483,12 @@ Mais os asserts de SQL no PGlite (`node firmware/sql/tests/run.mjs`). Cobrem:
   Início do gestor, mapa, exposição, manutenção, ocorrências, PDF.
 - `test_telemetria.py`, `test_eventos.py`, `test_fazendas.py`, `test_usuarios.py`,
   `test_health.py` — rotas.
+- `test_janela_periodo.py` — `?de=&ate=` (Brasília, 1 ano) em `/eventos`, `/resumo` e `/operacoes`;
+  `test_leituras_periodo.py` — `/telemetria` por período (páginas de 50, `corte`, total de páginas).
+- `test_painel_calendario.py`, `test_painel_leituras_periodo.py`, `test_painel_periodo_secao.py`,
+  `test_painel_historico_periodo.py` — calendário próprio (`api/static/calendario.js` e `.css`: intervalo
+  e dia único), aba Leituras e período livre em Atividade de alertas, Temperatura por dia e
+  Histórico; os ajudantes de navegador estão em `tests/ajuda_calendario.py`.
 - **`test_contrato_firmware.py`** — lê o `.ino` e o `.sql` **como texto** e garante o
   **contrato**: uma chave nova no firmware sem coluna no SQL, ou um evento que não pontua no
   `scores.py`, **quebra o pytest**.

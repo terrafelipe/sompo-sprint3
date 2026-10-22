@@ -373,6 +373,10 @@ C:\dev\_tools\tailwindcss-windows-x64.exe -c tailwind\login.config.js  -i tailwi
 Classe montada por concatenação no JS precisa aparecer inteira em algum lugar do arquivo
 (ex.: `'text-error'`), senão o scan não a encontra.
 
+O calendário próprio (`api/static/calendario.js` e `calendario.css`) **não** passa pelo Tailwind: usa as
+variáveis `--v-*` do `index.html` (temas claro e escuro). Só a marcação do `index.html` que usa classes
+Tailwind pede o rebuild acima. Os testes de navegador carregam esses dois arquivos de `/static/`.
+
 ## Se algo falhar
 - **`No such file or directory` / `can't open file` ou `Could not open requirements file`:**
   você está na pasta errada. Rode `cd "<raiz>\api"` antes — todos os comandos da API rodam de

@@ -1,6 +1,6 @@
 """Cadastros e autorização da frota. Identidade do operador não é login."""
 from concurrent.futures import ThreadPoolExecutor
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 import hashlib
 import re
@@ -366,6 +366,50 @@ def periodo():
     return inteiro(request.args.get('dias', 7), 'dias', maximo=365)
 
 
+_BRT = timezone(timedelta(hours=-3))
+
+
+def janela(com_corte=False):
+    """?de=AAAA-MM-DD&ate=AAAA-MM-DD, os dois dias inclusivos, no horario de Brasilia (ate 1 ano).
+
+    Devolve (inicio, fim) com fim EXCLUSIVO (00:00 do dia seguinte ao "ate"); sem de e sem ate, None.
+    Com com_corte, o fim nunca passa do corte (?corte= ou o agora do servidor): o painel fixa o corte na 1a
+    pagina e o reenvia nas outras, senao uma leitura nova gravada entre duas paginas empurraria as linhas
+    por offset e a ultima de uma reapareceria no topo da seguinte. O relogio e o do servidor, nao o do
+    navegador."""
+    de, ate = request.args.get('de'), request.args.get('ate')
+    if de is None and ate is None:
+        return None
+    if not (de and ate and re.fullmatch(r'\d{4}-\d{2}-\d{2}', de) and re.fullmatch(r'\d{4}-\d{2}-\d{2}', ate)):
+        raise FrotaErro('periodo_invalido')
+    if 'dias' in request.args:
+        raise FrotaErro('periodo_invalido')
+    try:
+        primeiro, ultimo = datetime.fromisoformat(de).date(), datetime.fromisoformat(ate).date()
+    except ValueError:
+        raise FrotaErro('periodo_invalido')
+    if not 0 <= (ultimo - primeiro).days <= 365:
+        raise FrotaErro('periodo_invalido')
+    try:
+        inicio = datetime(primeiro.year, primeiro.month, primeiro.day, tzinfo=_BRT)
+        fim = datetime(ultimo.year, ultimo.month, ultimo.day, tzinfo=_BRT) + timedelta(days=1)
+    except OverflowError:   # "ate" = 9999-12-31: o dia seguinte nao existe
+        raise FrotaErro('periodo_invalido')
+    if com_corte:
+        corte = request.args.get('corte')
+        if corte:
+            try:
+                momento = datetime.fromisoformat(corte)
+            except ValueError:
+                raise FrotaErro('periodo_invalido')
+            if momento.tzinfo is None:
+                raise FrotaErro('periodo_invalido')
+        else:
+            momento = datetime.now(timezone.utc)
+        fim = min(fim, momento)
+    return inicio, fim
+
+
 @bp.get('/operacoes')
 def listar_operacoes():
     papel()
@@ -380,8 +424,9 @@ def listar_operacoes():
     if request.args.get('operador'):
         op = operador(request.args['operador'], historico=True)
         filtros['operador_id'] = f'eq.{op["id_operador"]}'
-    rows = db.consultar_periodo('sessoes_operacao', filtros, periodo(),
-                               campo='recebido_em', order='recebido_em.desc,sessao_id.asc')
+    intervalo = janela()
+    rows = db.consultar_periodo('sessoes_operacao', filtros, None if intervalo else periodo(),
+                               campo='recebido_em', order='recebido_em.desc,sessao_id.asc', janela=intervalo)
     pagina = inteiro(request.args.get('pagina', 1), 'pagina')
     limite = inteiro(request.args.get('limite', 50), 'limite', maximo=200)
     start = (pagina-1)*limite

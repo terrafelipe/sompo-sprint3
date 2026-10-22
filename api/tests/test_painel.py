@@ -11,6 +11,7 @@ from urllib.parse import urlparse
 import pytest
 
 pw = pytest.importorskip('playwright.sync_api')
+from tests.ajuda_calendario import escolher_dia  # noqa: E402
 HTML = (Path(__file__).parents[1] / 'static/index.html').read_text(encoding='utf-8')
 FARMS = [dict(id_fazenda=i, nome=f'Fazenda {i}', fk_cliente_id_cliente=i, localizacao='Campinas - SP',
               cliente=dict(nome=f'Cliente {i}')) for i in (1, 2)]
@@ -285,8 +286,10 @@ def test_formulario_detalhe_operador_e_atalho(painel):
         pw.expect(page.locator('#detCorpo')).to_contain_text(text)
     page.locator('#detFechar').click()
     page.locator('#btnNovaMaquina').click()
-    for id, value in [('maqNome','Colheitadeira teste'),('maqTipo','Colheitadeira'),('maqModelo','M1'),('maqDispositivo','ESP-TESTE'),('maqFabricacao','2020-01-02'),('maqManutencao','2026-09-01'),('maqValor','150000.50')]:
+    for id, value in [('maqNome','Colheitadeira teste'),('maqTipo','Colheitadeira'),('maqModelo','M1'),('maqDispositivo','ESP-TESTE'),('maqValor','150000.50')]:
         page.locator('#'+id).fill(value)
+    escolher_dia(page, '#maqFabricacaoBtn', '2020-01-02')
+    escolher_dia(page, '#maqManutencaoBtn', '2026-09-01')
     captura(page, 'formulario')
     assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
     page.locator('#formMaquina button[type=submit]').click()
@@ -377,13 +380,13 @@ def test_editar_maquina_selecionada_atualiza_dispositivo(painel):
 
 def test_selects_estilizados(painel):
     page, state = painel
-    ids = ['fazendaSel','equipamentoSel','maqFazenda','opFazenda','historicoDias','fzCliente','usRole','usFazenda']
+    ids = ['fazendaSel','equipamentoSel','maqFazenda','opFazenda','fzCliente','usRole','usFazenda']
     aparencia = [page.evaluate('id => getComputedStyle(document.getElementById(id)).appearance', id) for id in ids]
     if aparencia[0] != 'base-select':
         pytest.skip('Chromium sem appearance: base-select')
     assert aparencia == ['base-select'] * len(ids)
     assert page.evaluate("getComputedStyle(document.getElementById('equipamentoSel'), '::picker-icon').display") == 'none'
-    assert page.evaluate("getComputedStyle(document.getElementById('historicoDias'), '::picker-icon').display") != 'none'
+    assert page.evaluate("getComputedStyle(document.getElementById('maqFazenda'), '::picker-icon').display") != 'none'
 
 
 def test_nome_longo_maquina_sem_sobrepor_seta(painel):

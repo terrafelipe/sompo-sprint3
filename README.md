@@ -104,8 +104,8 @@ login na **AWS Lambda** (URL limpa via Cloudflare Pages: https://sompo-painel.pa
 | `GET /` | Painel visual (dashboard) — pede login se `PAINEL_SENHA` estiver definida |
 | `GET /saude` | Health check (API + banco) |
 | `GET /telemetria` | Últimas leituras de telemetria (`?de=&ate=` filtra por período, em páginas) |
-| `GET /eventos` | Eventos (furto/incêndio) do período |
-| `GET /resumo` | Resumo diário (view `resumo_diario`) |
+| `GET /eventos` | Eventos (furto/incêndio) do período (`?dias=` ou `?de=&ate=`) |
+| `GET /resumo` | Resumo diário (view `resumo_diario`; `?dias=` ou `?de=&ate=`) |
 | `GET /scores` | Scores de risco determinísticos por eixo |
 | `GET /relatorio/bruto` | Relatório factual |
 | `GET /relatorio/risco` | Relatório interpretado pela IA (com fallback gracioso) |
@@ -119,7 +119,7 @@ login na **AWS Lambda** (URL limpa via Cloudflare Pages: https://sompo-painel.pa
 | `GET /ocorrencias/responsaveis?fazenda=<id>` | Quem pode assumir: usuários Sompo e gestores da fazenda |
 | `GET/POST /equipamentos` | Lista/cadastra máquinas dentro do escopo da fazenda |
 | `GET/POST /operadores` | Lista/cadastra operadores RFID, sem criar login |
-| `GET /operacoes` | Histórico paginado de sessões dos operadores |
+| `GET /operacoes` | Histórico paginado de sessões dos operadores (`?dias=` ou `?de=&ate=`) |
 | `GET /fazendas/<id>/resumo` | Resumo das máquinas, comunicação e risco da fazenda, com os 10 alertas mais recentes |
 
 ## Perfis de acesso (role-based)
