@@ -69,9 +69,9 @@ O script injeta sozinho as fixas do ambiente Lambda: `PORT=8080` (porta do waitr
 > Rode uma vez no **SQL Editor** do Supabase antes de publicar. Sem ele o painel continua no ar: as
 > duas telas mostram um aviso e as rotas respondem 409 `migracao_pendente`.
 >
-> **Linha do tempo (7 dias e Período)** precisa de `firmware/sql/linha_do_tempo.sql` (só cria a função de
-> leitura `linha_do_tempo_faixas`; repetível). Rode no **SQL Editor** antes do `sompo-deploy`. Sem ele, 24 h
-> continua funcionando e 7 dias/Período mostram "Falta rodar linha_do_tempo.sql no Supabase".
+> **Linha do tempo:** voltou à apresentação original de 24 h (Máquina, Risco, Crachá e Alertas).
+> `firmware/sql/linha_do_tempo.sql` continua disponível para agregar as leituras no banco; sem ele,
+> a API agrega as 24 h em Python. Não é preciso desfazer o SQL caso ele já tenha sido executado.
 
 O CloudShell (ícone `>_` no console) já tem Docker, AWS CLI, git e PowerShell (`pwsh`) com as
 credenciais do lab — não precisa de nada instalado no PC.

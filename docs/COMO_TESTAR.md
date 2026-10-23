@@ -261,13 +261,12 @@ Rede: conectado | envios ok=3 falha=0
   curl.exe "http://localhost:5000/relatorio/bruto?dias=7"
   curl.exe "http://localhost:5000/telemetria/linha-do-tempo?horas=24"
   ```
-- **Painel → Painel da máquina → Linha do tempo:** o resumo (alarmes de incêndio e de furto, motor
-  ligado, tempo sem enviar), o gráfico (temperatura do escape com os limites, Motor, Crachá, hachurado
-  onde a placa não enviou, um ponto por alarme) e a lista por dia. Confira: tocar num ponto leva ao
-  evento na lista; tocar num evento marca o ponto; arrastar o dedo/mouse no gráfico mostra hora,
-  temperatura, motor e operador; alarmes repetidos viram uma linha ("3 vezes entre…") que abre; os
-  filtros Tudo/Só alarmes/Incêndio/Furto/Rotina; 7 dias e Período (precisam do `linha_do_tempo.sql`);
-  tema escuro e celular.
+- **Painel → Painel da máquina → Linha do tempo:** apresentação original restaurada, com as
+  quatro faixas Máquina, Risco, Crachá e Alertas nas 24 horas até a última leitura. Passe o mouse
+  pelas faixas para conferir o estado do motor, risco, operador e alarmes do horário. Confira
+  também tema escuro, celular, máquina sem leituras e "Tentar novamente" após falha de consulta.
+  Atualiza no máximo a cada 60 segundos. A seção voltou a mostrar somente 24 h; o calendário e
+  os períodos de Leituras, Temperatura, Alertas e Histórico continuam disponíveis.
 
 ---
 
@@ -381,10 +380,10 @@ C:\dev\_tools\tailwindcss-windows-x64.exe -c tailwind\login.config.js  -i tailwi
 Classe montada por concatenação no JS precisa aparecer inteira em algum lugar do arquivo
 (ex.: `'text-error'`), senão o scan não a encontra.
 
-O calendário próprio (`api/static/calendario.js` e `calendario.css`) e a Linha do tempo (`linha_do_tempo.js` e
-`linha_do_tempo.css`) **não** passam pelo Tailwind: usam as variáveis `--v-*`/`--s-*` do `index.html` (temas
-claro e escuro). Só a marcação do `index.html` que usa classes Tailwind pede o rebuild acima. Os testes de
-navegador carregam esses arquivos de `/static/`.
+O calendário próprio (`api/static/calendario.js` e `calendario.css`) **não** passa pelo Tailwind:
+usa as variáveis `--v-*`/`--s-*` do `index.html` (temas claro e escuro). A Linha do tempo voltou a
+ser desenhada pelo próprio `index.html`. A marcação do HTML que usa classes Tailwind pede o rebuild
+acima. Os testes de navegador carregam os arquivos de `/static/`.
 
 ## Se algo falhar
 - **`No such file or directory` / `can't open file` ou `Could not open requirements file`:**
